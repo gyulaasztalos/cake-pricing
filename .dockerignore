@@ -9,5 +9,4 @@ __pycache__
 .mypy_cache
 .DS_Store
 PLANNING.md
-README.md
 tests
