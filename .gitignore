@@ -1,0 +1,23 @@
+# --- Private planning docs — MUST NOT be published (this repo is public) ---
+PLANNING.md
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# --- Env / secrets ---
+.env
+*.env
+!*/config.env
+
+# --- OS / editor ---
+.DS_Store
+*.swp
+.idea/
+.vscode/
