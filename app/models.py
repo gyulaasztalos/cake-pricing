@@ -1,0 +1,289 @@
+"""SQLAlchemy 2.0 ORM models — a faithful mapping of schema.sql (PLANNING.md §3).
+
+Conventions:
+  * Mutable tables: id, entry_date, update_date (auto-updated on modify).
+  * Append-only tables (ComponentPrice, StockMovement): id, entry_date only.
+  * Money: Numeric(12, 2) HUF. Quantities/multipliers: Numeric(12, 3).
+  * Temporal prices: half-open [effective_date, expiration_date); a DB-level
+    EXCLUDE constraint forbids overlapping windows per component (§3.4).
+
+Cost is NEVER a column — it is computed at runtime (see the v_offer_* SQL views
+created by the Alembic baseline, queried directly for reporting).
+"""
+
+from __future__ import annotations
+
+import datetime as dt
+from decimal import Decimal
+
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    Text,
+    func,
+    text,
+)
+from sqlalchemy.dialects.postgresql import ExcludeConstraint
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+# --- reusable column helpers -------------------------------------------------
+
+def _pk() -> Mapped[int]:
+    return mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
+
+def _entry_date() -> Mapped[dt.datetime]:
+    return mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+def _update_date() -> Mapped[dt.datetime]:
+    # server_default on insert; onupdate keeps it fresh on ORM updates.
+    return mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+# --- GROUPS ------------------------------------------------------------------
+
+class Group(Base):
+    __tablename__ = "groups"
+
+    id: Mapped[int] = _pk()
+    name: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    entry_date: Mapped[dt.datetime] = _entry_date()
+    update_date: Mapped[dt.datetime] = _update_date()
+
+    components: Mapped[list["Component"]] = relationship(back_populates="group")
+
+
+# --- COMPONENTS --------------------------------------------------------------
+
+class Component(Base):
+    __tablename__ = "components"
+    __table_args__ = (
+        CheckConstraint(
+            "type IN ('ingredient', 'service', 'stock_item')",
+            name="components_type_check",
+        ),
+        Index("idx_components_group", "group_id"),
+        Index("idx_components_active", "active", postgresql_where=text("active")),
+    )
+
+    id: Mapped[int] = _pk()
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    group_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("groups.id"), nullable=False)
+    unit: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'db'"))
+    type: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'ingredient'"))
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+    notes: Mapped[str | None] = mapped_column(Text)
+    entry_date: Mapped[dt.datetime] = _entry_date()
+    update_date: Mapped[dt.datetime] = _update_date()
+
+    group: Mapped["Group"] = relationship(back_populates="components")
+    prices: Mapped[list["ComponentPrice"]] = relationship(back_populates="component")
+
+
+# --- COMPONENT_PRICES (append-only, temporal) --------------------------------
+
+class ComponentPrice(Base):
+    __tablename__ = "component_prices"
+    __table_args__ = (
+        CheckConstraint(
+            "expiration_date IS NULL OR expiration_date > effective_date",
+            name="component_prices_window_check",
+        ),
+        # No two overlapping price windows for the same component (§3.4).
+        ExcludeConstraint(
+            ("component_id", "="),
+            (
+                text(
+                    "tstzrange(effective_date, "
+                    "COALESCE(expiration_date, 'infinity'::timestamptz), '[)')"
+                ),
+                "&&",
+            ),
+            using="gist",
+            name="component_prices_no_overlap",
+        ),
+        Index(
+            "idx_component_prices_lookup",
+            "component_id",
+            "effective_date",
+            "expiration_date",
+        ),
+    )
+
+    id: Mapped[int] = _pk()
+    component_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("components.id"), nullable=False
+    )
+    base_amount: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)
+    base_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    effective_date: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    expiration_date: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    entry_date: Mapped[dt.datetime] = _entry_date()
+
+    component: Mapped["Component"] = relationship(back_populates="prices")
+
+    # Value CHECKs (base_amount > 0, base_price >= 0) are added in the migration;
+    # kept out of __table_args__ to keep the model readable — see baseline.
+
+
+# --- CUSTOMERS ---------------------------------------------------------------
+
+class Customer(Base):
+    __tablename__ = "customers"
+    __table_args__ = (
+        Index("idx_customers_name", func.lower(text("name"))),
+    )
+
+    id: Mapped[int] = _pk()
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    contact: Mapped[str | None] = mapped_column(Text)
+    notes: Mapped[str | None] = mapped_column(Text)
+    anonymized_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    entry_date: Mapped[dt.datetime] = _entry_date()
+    update_date: Mapped[dt.datetime] = _update_date()
+
+    offers: Mapped[list["Offer"]] = relationship(back_populates="customer")
+
+
+# --- OFFERS ------------------------------------------------------------------
+
+class Offer(Base):
+    __tablename__ = "offers"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('draft', 'sent', 'accepted', 'rejected', 'done')",
+            name="offers_status_check",
+        ),
+        Index("idx_offers_customer", "customer_id"),
+        Index("idx_offers_entry", "entry_date"),
+    )
+
+    id: Mapped[int] = _pk()
+    customer_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("customers.id"), nullable=False
+    )
+    due_date: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    theme: Mapped[str | None] = mapped_column(Text)
+    flavor: Mapped[str | None] = mapped_column(Text)
+    final_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'draft'"))
+    notes: Mapped[str | None] = mapped_column(Text)
+    # entry_date is the pricing reference date (§3.0) — immutable in the app layer.
+    entry_date: Mapped[dt.datetime] = _entry_date()
+    update_date: Mapped[dt.datetime] = _update_date()
+
+    customer: Mapped["Customer"] = relationship(back_populates="offers")
+    components: Mapped[list["OfferComponent"]] = relationship(
+        back_populates="offer", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+
+# --- OFFER_COMPONENTS --------------------------------------------------------
+
+class OfferComponent(Base):
+    __tablename__ = "offer_components"
+    __table_args__ = (
+        Index("idx_offer_components_offer", "offer_id"),
+        Index("idx_offer_components_component", "component_id"),
+    )
+
+    id: Mapped[int] = _pk()
+    offer_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("offers.id", ondelete="CASCADE"), nullable=False
+    )
+    component_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("components.id"), nullable=False
+    )
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)
+    entry_date: Mapped[dt.datetime] = _entry_date()
+    update_date: Mapped[dt.datetime] = _update_date()
+
+    offer: Mapped["Offer"] = relationship(back_populates="components")
+    component: Mapped["Component"] = relationship()
+
+
+# --- RECIPES / RECIPE_ITEMS (templates) --------------------------------------
+
+class Recipe(Base):
+    __tablename__ = "recipes"
+
+    id: Mapped[int] = _pk()
+    name: Mapped[str] = mapped_column(Text, nullable=False)  # carries the size
+    notes: Mapped[str | None] = mapped_column(Text)
+    entry_date: Mapped[dt.datetime] = _entry_date()
+    update_date: Mapped[dt.datetime] = _update_date()
+
+    items: Mapped[list["RecipeItem"]] = relationship(
+        back_populates="recipe", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+
+class RecipeItem(Base):
+    __tablename__ = "recipe_items"
+    __table_args__ = (Index("idx_recipe_items_recipe", "recipe_id"),)
+
+    id: Mapped[int] = _pk()
+    recipe_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("recipes.id", ondelete="CASCADE"), nullable=False
+    )
+    component_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("components.id"), nullable=False
+    )
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)
+    entry_date: Mapped[dt.datetime] = _entry_date()
+    update_date: Mapped[dt.datetime] = _update_date()
+
+    recipe: Mapped["Recipe"] = relationship(back_populates="items")
+    component: Mapped["Component"] = relationship()
+
+
+# --- STOCK_MOVEMENTS (append-only ledger) ------------------------------------
+
+class StockMovement(Base):
+    __tablename__ = "stock_movements"
+    __table_args__ = (
+        CheckConstraint(
+            "reason IN ('delivery', 'order', 'correction')",
+            name="stock_movements_reason_check",
+        ),
+        Index("idx_stock_movements_component", "component_id"),
+        Index(
+            "idx_stock_movements_offer",
+            "offer_id",
+            postgresql_where=text("offer_id IS NOT NULL"),
+        ),
+    )
+
+    id: Mapped[int] = _pk()
+    component_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("components.id"), nullable=False
+    )
+    qty_delta: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    offer_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("offers.id", ondelete="CASCADE")
+    )
+    entry_date: Mapped[dt.datetime] = _entry_date()
+
+    component: Mapped["Component"] = relationship()
+    offer: Mapped["Offer | None"] = relationship()
