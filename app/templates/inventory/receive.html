@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ t('inventory.receive') }} · {{ t('app.title') }}{% endblock %}
+{% block heading %}{{ t('inventory.receive') }}{% endblock %}
+{% block content %}
+<form method="post" action="/inventory/receive">
+  <label>{{ t('components.title') }}
+    <select name="component_id" required autofocus>
+      {% for c in items %}<option value="{{ c.id }}">{{ c.name }} ({{ c.unit }})</option>{% endfor %}
+    </select>
+  </label>
+  <label>{{ t('inventory.reason.delivery') }} / {{ t('inventory.reason.correction') }}
+    <select name="reason">
+      <option value="delivery">{{ t('inventory.reason.delivery') }}</option>
+      <option value="correction">{{ t('inventory.reason.correction') }}</option>
+    </select>
+  </label>
+  <label>{{ t('inventory.qty') }} <input type="number" step="0.001" name="qty" value="1" required>
+    <small class="cp-muted">{{ t('inventory.reason.correction') }}: +/- </small>
+  </label>
+  <div class="cp-form-actions">
+    <a role="button" class="secondary" href="/inventory">{{ t('action.cancel') }}</a>
+    <button type="submit">{{ t('action.save') }}</button>
+  </div>
+</form>
+{% endblock %}

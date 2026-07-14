@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}{{ t('customers.title') }} · {{ t('app.title') }}{% endblock %}
+{% block heading %}{{ t('customers.new') if not c else t('action.edit') + ' · ' + c.name }}{% endblock %}
+{% block content %}
+<form method="post" action="{{ '/customers' if not c else '/customers/' ~ c.id }}">
+  <label>{{ t('customers.name') }} <input name="name" value="{{ c.name if c else '' }}" required autofocus></label>
+  <label>{{ t('customers.contact') }} <input name="contact" value="{{ c.contact if c and c.contact else '' }}"></label>
+  <label>{{ t('customers.notes') }} <textarea name="notes">{{ c.notes if c and c.notes else '' }}</textarea></label>
+  <div class="cp-form-actions">
+    <a role="button" class="secondary" href="/customers">{{ t('action.cancel') }}</a>
+    <button type="submit">{{ t('action.save') }}</button>
+  </div>
+</form>
+{% endblock %}

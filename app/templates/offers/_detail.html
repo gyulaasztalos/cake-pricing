@@ -1,0 +1,24 @@
+<div>
+  <p class="cp-muted">
+    {{ t('offers.status') }}: {{ t('offers.status.' ~ o.status) }} ·
+    {{ t('offers.entry_date') }}: {{ o.entry_date|date }} ·
+    {{ t('offers.due_date') }}: {{ o.due_date|date }}
+  </p>
+  {% for gvm in group_vms %}
+    {% if gvm.lines %}
+    <div style="margin-bottom:.5rem">
+      <strong>{{ gvm.group.name }}</strong>
+      <span class="cp-muted">— {{ gvm.subtotal|huf }}</span>
+      <ul>
+        {% for ln in gvm.lines %}
+        <li>{{ ln.name }} {{ ln.amount|amount }} {{ ln.unit }} → {{ ln.line_price|huf }}{% if ln.used_fallback %} <span class="cp-badge is-warn">ár?</span>{% endif %}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  {% endfor %}
+  <p>
+    <strong>{{ t('offers.calculated_price') }}: {{ total|huf }}</strong> ·
+    {{ t('offers.final_price') }}: {{ o.final_price|huf }}
+  </p>
+</div>

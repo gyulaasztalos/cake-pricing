@@ -1,0 +1,30 @@
+{# Reusable UI bits. #}
+
+{% macro icon(name) %}<i data-lucide="{{ name }}"></i>{% endmacro %}
+
+{# Delete button that opens the shared confirm modal via HTMX. #}
+{% macro delete_button(url, label) %}
+  <button class="outline secondary" title="{{ t('action.delete') }}"
+          hx-get="{{ url }}" hx-target="#cp-modal" hx-swap="innerHTML"
+          onclick="document.getElementById('cp-modal').showModal()">
+    {{ icon('trash-2') }}
+  </button>
+{% endmacro %}
+
+{% macro edit_link(url) %}
+  <a role="button" class="outline" href="{{ url }}" title="{{ t('action.edit') }}">{{ icon('pencil') }}</a>
+{% endmacro %}
+
+{# Confirmation modal body (rendered into #cp-modal). posts to `action` on confirm. #}
+{% macro confirm_modal(action, title, message) %}
+<article>
+  <header><strong>{{ title }}</strong></header>
+  <p>{{ message }}</p>
+  <footer style="display:flex;justify-content:space-between;gap:1rem">
+    <button class="secondary" onclick="document.getElementById('cp-modal').close()">{{ t('action.cancel') }}</button>
+    <form method="post" action="{{ action }}" style="margin:0">
+      <button type="submit" class="contrast">{{ t('action.delete') }}</button>
+    </form>
+  </footer>
+</article>
+{% endmacro %}

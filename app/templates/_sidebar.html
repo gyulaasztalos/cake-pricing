@@ -1,0 +1,24 @@
+<aside class="cp-sidebar">
+  <div class="cp-sidebar__logo">
+    <a href="/offers" title="{{ t('app.title') }}">
+      <img src="/static/img/logo.svg" alt="{{ t('app.title') }}" onerror="this.style.display='none'">
+      <div class="cp-logo-text"><strong>🎂 {{ t('app.title') }}</strong></div>
+    </a>
+  </div>
+  <ul class="cp-nav">
+    {% set active = active_nav | default('') %}
+    <li><a href="/offers"     class="{{ 'active' if active == 'offers' }}"><i data-lucide="clipboard-list"></i><span>{{ t('nav.offers') }}</span></a></li>
+    <li><a href="/customers"  class="{{ 'active' if active == 'customers' }}"><i data-lucide="users"></i><span>{{ t('nav.customers') }}</span></a></li>
+    <li><a href="/components" class="{{ 'active' if active == 'components' }}"><i data-lucide="puzzle"></i><span>{{ t('nav.components') }}</span></a></li>
+    <li><a href="/groups"     class="{{ 'active' if active == 'groups' }}"><i data-lucide="tags"></i><span>{{ t('nav.groups') }}</span></a></li>
+    <li><a href="/templates"  class="{{ 'active' if active == 'templates' }}"><i data-lucide="notebook-text"></i><span>{{ t('nav.templates') }}</span></a></li>
+    <li><a href="/inventory"  class="{{ 'active' if active == 'inventory' }}"><i data-lucide="package"></i><span>{{ t('nav.inventory') }}</span></a></li>
+    <li><a href="/stats"      class="{{ 'active' if active == 'stats' }}"><i data-lucide="bar-chart-3"></i><span>{{ t('nav.stats') }}</span></a></li>
+  </ul>
+  <div class="cp-sidebar__footer">
+    <ul class="cp-nav">
+      <li><a href="/settings" class="{{ 'active' if active == 'settings' }}"><i data-lucide="settings"></i><span>{{ t('nav.settings') }}</span></a></li>
+      <li><a href="#" onclick="cpToggleSidebar();return false"><i data-lucide="panel-left-close"></i><span>«</span></a></li>
+    </ul>
+  </div>
+</aside>

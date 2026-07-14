@@ -1,0 +1,22 @@
+{% import "_macros.html" as m %}
+<ul class="cp-list">
+  {% for c in customers %}
+  <li class="cp-list__row">
+    <div class="cp-list__summary" hx-get="/customers/detail/{{ c.id }}"
+         hx-target="#cdetail-{{ c.id }}" hx-swap="innerHTML"
+         onclick="this.closest('.cp-list__row').querySelector('.cp-list__detail').toggleAttribute('hidden')">
+      {{ m.icon('chevron-right') }}
+      <div class="cp-grow"><strong>{{ c.name }}</strong></div>
+      <span class="cp-muted">{{ c.contact or '' }}</span>
+      <span class="cp-badge">{{ counts.get(c.id, 0) }} {{ t('customers.order_count') }}</span>
+      <span class="cp-actions">
+        {{ m.edit_link('/customers/' ~ c.id ~ '/edit') }}
+        {{ m.delete_button('/customers/' ~ c.id ~ '/delete', t('customers.anonymize')) }}
+      </span>
+    </div>
+    <div class="cp-list__detail" id="cdetail-{{ c.id }}" hidden></div>
+  </li>
+  {% else %}
+  <li class="cp-muted" style="padding:1rem">{{ t('empty.no_results') }}</li>
+  {% endfor %}
+</ul>

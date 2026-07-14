@@ -1,0 +1,24 @@
+{% import "_macros.html" as m %}
+<ul class="cp-list">
+  {% for o in offers %}
+  <li class="cp-list__row">
+    <div class="cp-list__summary" hx-get="/offers/detail/{{ o.id }}"
+         hx-target="#odetail-{{ o.id }}" hx-swap="innerHTML"
+         onclick="this.closest('.cp-list__row').querySelector('.cp-list__detail').toggleAttribute('hidden')">
+      {{ m.icon('chevron-right') }}
+      <span class="cp-grow"><strong>{{ o.customer.name }}</strong></span>
+      <span>{{ o.theme or '' }}</span>
+      <span class="cp-muted">{{ o.flavor or '' }}</span>
+      <span>{{ o.due_date|date }}</span>
+      <span>{{ o.final_price|huf }}</span>
+      <span class="cp-actions">
+        {{ m.edit_link('/offers/' ~ o.id ~ '/edit') }}
+        {{ m.delete_button('/offers/' ~ o.id ~ '/delete', t('action.delete')) }}
+      </span>
+    </div>
+    <div class="cp-list__detail" id="odetail-{{ o.id }}" hidden></div>
+  </li>
+  {% else %}
+  <li class="cp-muted" style="padding:1rem">{{ t('empty.no_results') }}</li>
+  {% endfor %}
+</ul>

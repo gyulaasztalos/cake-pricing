@@ -1,0 +1,10 @@
+{# Returned after inline component creation; tells the offer form to select it. #}
+<script>
+  (function () {
+    if (window.cpComponentCreated) {
+      window.cpComponentCreated({{ id }}, {{ name|tojson }}, {{ unit|tojson }}, {{ group_id }});
+    } else {
+      document.getElementById('cp-modal').close();
+    }
+  })();
+</script>

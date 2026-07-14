@@ -1,0 +1,21 @@
+{% import "_macros.html" as m %}
+<ul class="cp-list">
+  {% for r in recipes %}
+  <li class="cp-list__row">
+    <div class="cp-list__summary" hx-get="/templates/detail/{{ r.id }}"
+         hx-target="#tdetail-{{ r.id }}" hx-swap="innerHTML"
+         onclick="this.closest('.cp-list__row').querySelector('.cp-list__detail').toggleAttribute('hidden')">
+      {{ m.icon('chevron-right') }}
+      <span class="cp-grow"><strong>{{ r.name }}</strong></span>
+      <span class="cp-badge">{{ counts.get(r.id, 0) }} {{ t('templates.item_count') }}</span>
+      <span class="cp-actions">
+        {{ m.edit_link('/templates/' ~ r.id ~ '/edit') }}
+        {{ m.delete_button('/templates/' ~ r.id ~ '/delete', t('action.delete')) }}
+      </span>
+    </div>
+    <div class="cp-list__detail" id="tdetail-{{ r.id }}" hidden></div>
+  </li>
+  {% else %}
+  <li class="cp-muted" style="padding:1rem">{{ t('empty.no_results') }}</li>
+  {% endfor %}
+</ul>

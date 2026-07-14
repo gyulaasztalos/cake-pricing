@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}{{ t('customers.title') }} · {{ t('app.title') }}{% endblock %}
+{% block heading %}{{ t('customers.title') }}{% endblock %}
+{% block topbar_actions %}
+  <a role="button" href="/customers/new">{{ m.icon('plus') }} {{ t('customers.new') }}</a>
+{% endblock %}
+{% block content %}
+<form class="cp-topbar" hx-get="/customers" hx-target="#cp-rows" hx-trigger="keyup changed delay:250ms from:input[name=q]" hx-push-url="false">
+  <input type="search" name="q" value="{{ q }}" placeholder="{{ t('action.search') }}…">
+</form>
+<div id="cp-rows">{% include "customers/_rows.html" %}</div>
+{% endblock %}

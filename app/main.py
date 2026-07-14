@@ -1,49 +1,42 @@
-"""Application entrypoint.
+"""Application entrypoint / factory.
 
-Minimal skeleton for now: a health endpoint so the image builds, deploys and
-passes k8s probes end-to-end. The real UI (grouped offer form, catalogs, etc.)
-is layered on top of this in later tasks — see PLANNING.md.
+Wires static assets, the page routers, and the ops endpoints (/healthz, /readyz,
+/metrics). The real UI lives in the routers under app/routers/.
 """
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from app import __version__
+from app.routers import components, customers, groups, inventory, offers, settings, templates
 
 app = FastAPI(title="cake-pricing", version=__version__)
 
-# Expose Prometheus metrics at /metrics (scraped by the ServiceMonitor).
 Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+
+STATIC_DIR = Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+for router in (offers, customers, components, groups, templates, inventory, settings):
+    app.include_router(router.router)
 
 
 @app.get("/healthz")
 def healthz() -> JSONResponse:
-    """Liveness/readiness probe target. No DB dependency (see /readyz for that)."""
     return JSONResponse({"status": "ok", "version": __version__})
 
 
 @app.get("/readyz")
 def readyz() -> JSONResponse:
-    """Readiness including dependencies.
-
-    DB connectivity check is added when the DB layer lands; for now the app is
-    ready as soon as the process serves requests.
-    """
     return JSONResponse({"status": "ready", "version": __version__})
 
 
-@app.get("/", response_class=HTMLResponse)
-def index() -> str:
-    """Placeholder landing page (Hungarian). Replaced by the real UI later."""
-    env = os.getenv("APP_ENV", "prod")
-    return (
-        "<!doctype html><html lang='hu'><head><meta charset='utf-8'>"
-        "<title>Torta árazó</title></head><body>"
-        f"<h1>Torta árazó</h1><p>cake-pricing v{__version__} ({env}) — készül. 🎂</p>"
-        "</body></html>"
-    )
+@app.get("/")
+def index() -> RedirectResponse:
+    return RedirectResponse(url="/offers")

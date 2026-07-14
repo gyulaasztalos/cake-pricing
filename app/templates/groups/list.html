@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}{{ t('groups.title') }} · {{ t('app.title') }}{% endblock %}
+{% block heading %}{{ t('groups.title') }}{% endblock %}
+{% block topbar_actions %}
+  <a role="button" href="/groups/new">{{ m.icon('plus') }} {{ t('groups.new') }}</a>
+{% endblock %}
+{% block content %}
+<table>
+  <thead>
+    <tr><th>{{ t('groups.sort_order') }}</th><th>{{ t('groups.name') }}</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for g in groups %}
+    <tr>
+      <td>{{ g.sort_order }}</td>
+      <td>{{ g.name }}</td>
+      <td class="cp-actions" style="text-align:right">{{ m.edit_link('/groups/' ~ g.id ~ '/edit') }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3" class="cp-muted">{{ t('empty.no_results') }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

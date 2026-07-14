@@ -1,0 +1,30 @@
+{# Inline component-create dialog body (rendered into #cp-modal from the offer form). #}
+<article>
+  <header><strong>{{ t('components.new') }}</strong></header>
+  <form hx-post="/components/quick-new" hx-target="#cp-modal" hx-swap="innerHTML">
+    <label>{{ t('components.name') }} <input name="name" required autofocus></label>
+    <div class="grid">
+      <label>{{ t('components.group') }}
+        <select name="group_id" required>
+          {% for g in groups %}<option value="{{ g.id }}" {{ 'selected' if preset_group == g.id }}>{{ g.name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>{{ t('components.unit') }} <input name="unit" value="db"></label>
+    </div>
+    <label>{{ t('components.type') }}
+      <select name="type">
+        <option value="ingredient">{{ t('components.type.ingredient') }}</option>
+        <option value="service">{{ t('components.type.service') }}</option>
+        <option value="stock_item">{{ t('components.type.stock_item') }}</option>
+      </select>
+    </label>
+    <div class="grid">
+      <label>{{ t('components.base_amount') }} <input type="number" step="0.001" name="base_amount" value="1" required></label>
+      <label>{{ t('components.base_price') }} <input type="number" step="0.01" name="base_price" value="0" required></label>
+    </div>
+    <footer style="display:flex;justify-content:space-between;gap:1rem">
+      <button type="button" class="secondary" onclick="document.getElementById('cp-modal').close()">{{ t('action.cancel') }}</button>
+      <button type="submit">{{ t('action.save') }}</button>
+    </footer>
+  </form>
+</article>

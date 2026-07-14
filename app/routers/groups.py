@@ -1,0 +1,60 @@
+"""Csoportok (Groups) — create + edit name/sort_order, NO delete (§3.1)."""
+
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, Form, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.db import get_session
+from app.models import Group
+from app.templating import templates
+
+router = APIRouter()
+
+
+def _all_groups(session: Session) -> list[Group]:
+    return list(session.scalars(select(Group).order_by(Group.sort_order, Group.name)))
+
+
+@router.get("/groups", response_class=HTMLResponse)
+def list_groups(request: Request, session: Session = Depends(get_session)):
+    return templates.TemplateResponse(
+        request, "groups/list.html", {"groups": _all_groups(session), "active_nav": "groups"}
+    )
+
+
+@router.get("/groups/new", response_class=HTMLResponse)
+def new_group_form(request: Request):
+    return templates.TemplateResponse(request, "groups/form.html", {"group": None})
+
+
+@router.get("/groups/{group_id:int}/edit", response_class=HTMLResponse)
+def edit_group_form(group_id: int, request: Request, session: Session = Depends(get_session)):
+    return templates.TemplateResponse(
+        request, "groups/form.html", {"group": session.get(Group, group_id)}
+    )
+
+
+@router.post("/groups")
+def create_group(
+    name: str = Form(...),
+    sort_order: int = Form(0),
+    session: Session = Depends(get_session),
+):
+    session.add(Group(name=name.strip(), sort_order=sort_order))
+    return RedirectResponse(url="/groups", status_code=303)
+
+
+@router.post("/groups/{group_id:int}")
+def update_group(
+    group_id: int,
+    name: str = Form(...),
+    sort_order: int = Form(0),
+    session: Session = Depends(get_session),
+):
+    group = session.get(Group, group_id)
+    group.name = name.strip()
+    group.sort_order = sort_order
+    return RedirectResponse(url="/groups", status_code=303)

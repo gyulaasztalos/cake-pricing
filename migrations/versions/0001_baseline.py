@@ -31,7 +31,7 @@ def upgrade() -> None:
     # --- groups --------------------------------------------------------------
     op.create_table(
         "groups",
-        sa.Column("id", sa.BigInteger, sa.Identity(always=True), primary_key=True),
+        sa.Column("id", sa.BigInteger, sa.Identity(always=False), primary_key=True),
         sa.Column("name", sa.Text, nullable=False, unique=True),
         sa.Column("sort_order", sa.Integer, nullable=False, server_default=sa.text("0")),
         sa.Column("entry_date", TS, nullable=False, server_default=sa.func.now()),
@@ -41,7 +41,7 @@ def upgrade() -> None:
     # --- components ----------------------------------------------------------
     op.create_table(
         "components",
-        sa.Column("id", sa.BigInteger, sa.Identity(always=True), primary_key=True),
+        sa.Column("id", sa.BigInteger, sa.Identity(always=False), primary_key=True),
         sa.Column("name", sa.Text, nullable=False),
         sa.Column("group_id", sa.BigInteger, sa.ForeignKey("groups.id"), nullable=False),
         sa.Column("unit", sa.Text, nullable=False, server_default=sa.text("'db'")),
@@ -63,7 +63,7 @@ def upgrade() -> None:
     # --- component_prices (append-only, temporal) ----------------------------
     op.create_table(
         "component_prices",
-        sa.Column("id", sa.BigInteger, sa.Identity(always=True), primary_key=True),
+        sa.Column("id", sa.BigInteger, sa.Identity(always=False), primary_key=True),
         sa.Column(
             "component_id", sa.BigInteger, sa.ForeignKey("components.id"), nullable=False
         ),
@@ -97,7 +97,7 @@ def upgrade() -> None:
     # --- customers -----------------------------------------------------------
     op.create_table(
         "customers",
-        sa.Column("id", sa.BigInteger, sa.Identity(always=True), primary_key=True),
+        sa.Column("id", sa.BigInteger, sa.Identity(always=False), primary_key=True),
         sa.Column("name", sa.Text, nullable=False),
         sa.Column("contact", sa.Text),
         sa.Column("notes", sa.Text),
@@ -110,7 +110,7 @@ def upgrade() -> None:
     # --- offers --------------------------------------------------------------
     op.create_table(
         "offers",
-        sa.Column("id", sa.BigInteger, sa.Identity(always=True), primary_key=True),
+        sa.Column("id", sa.BigInteger, sa.Identity(always=False), primary_key=True),
         sa.Column(
             "customer_id", sa.BigInteger, sa.ForeignKey("customers.id"), nullable=False
         ),
@@ -133,7 +133,7 @@ def upgrade() -> None:
     # --- offer_components ----------------------------------------------------
     op.create_table(
         "offer_components",
-        sa.Column("id", sa.BigInteger, sa.Identity(always=True), primary_key=True),
+        sa.Column("id", sa.BigInteger, sa.Identity(always=False), primary_key=True),
         sa.Column(
             "offer_id",
             sa.BigInteger,
@@ -154,7 +154,7 @@ def upgrade() -> None:
     # --- recipes / recipe_items ---------------------------------------------
     op.create_table(
         "recipes",
-        sa.Column("id", sa.BigInteger, sa.Identity(always=True), primary_key=True),
+        sa.Column("id", sa.BigInteger, sa.Identity(always=False), primary_key=True),
         sa.Column("name", sa.Text, nullable=False),
         sa.Column("notes", sa.Text),
         sa.Column("entry_date", TS, nullable=False, server_default=sa.func.now()),
@@ -162,7 +162,7 @@ def upgrade() -> None:
     )
     op.create_table(
         "recipe_items",
-        sa.Column("id", sa.BigInteger, sa.Identity(always=True), primary_key=True),
+        sa.Column("id", sa.BigInteger, sa.Identity(always=False), primary_key=True),
         sa.Column(
             "recipe_id",
             sa.BigInteger,
@@ -182,7 +182,7 @@ def upgrade() -> None:
     # --- stock_movements (append-only) --------------------------------------
     op.create_table(
         "stock_movements",
-        sa.Column("id", sa.BigInteger, sa.Identity(always=True), primary_key=True),
+        sa.Column("id", sa.BigInteger, sa.Identity(always=False), primary_key=True),
         sa.Column(
             "component_id", sa.BigInteger, sa.ForeignKey("components.id"), nullable=False
         ),

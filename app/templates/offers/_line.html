@@ -1,0 +1,24 @@
+{% import "_macros.html" as m %}
+{# One offer line. `comps` = active components for this group. Optional existing values: sel/amt/unit/cost/stock. #}
+<div class="cp-line" data-group="{{ group_id }}">
+  <select name="component_id" required onchange="cpLineChanged(this)">
+    <option value="">—</option>
+    <option value="__new__">{{ t('offers.new_component_option') }}</option>
+    {% for c in comps %}
+    <option value="{{ c.id }}" data-unit="{{ c.unit }}" {{ 'selected' if sel == c.id }}>{{ c.name }}</option>
+    {% endfor %}
+  </select>
+  <input class="cp-amount" type="number" step="0.001" min="0" name="amount"
+         value="{{ amt if amt is not none else 1 }}" onchange="cpRecalc()" onkeyup="cpDebouncedRecalc()">
+  <span class="cp-unit">{{ unit or '' }}</span>
+  <span class="cp-stepper">
+    <button type="button" onclick="cpStep(this,1)" aria-label="+">▲</button>
+    <button type="button" onclick="cpStep(this,-1)" aria-label="-">▼</button>
+  </span>
+  <span class="cp-line-cost">{{ cost|huf if cost is not none else '' }}</span>
+  {% if stock is not none %}<span class="cp-badge {{ 'is-warn' if stock <= 0 }}">{{ t('offers.stock_warning') }}: {{ stock|amount }}</span>{% endif %}
+  <button type="button" class="outline secondary" title="{{ t('action.delete') }}"
+          onclick="this.closest('.cp-line').remove(); cpRecalc();">
+    {{ m.icon('trash-2') }}
+  </button>
+</div>

@@ -1,0 +1,87 @@
+/* cake-pricing app styles — layered on Pico.css. Responsive; desktop-first. */
+
+:root {
+  --cp-sidebar-w: 15rem;
+  --cp-sidebar-w-collapsed: 3.5rem;
+}
+
+/* ---- Layout: sidebar + main ---------------------------------------------- */
+.cp-shell { display: flex; min-height: 100vh; }
+
+.cp-sidebar {
+  width: var(--cp-sidebar-w);
+  flex: 0 0 var(--cp-sidebar-w);
+  background: var(--pico-card-background-color);
+  border-right: 1px solid var(--pico-muted-border-color);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  transition: width .15s ease, flex-basis .15s ease;
+}
+.cp-sidebar__logo { padding: 1rem; text-align: center; border-bottom: 1px solid var(--pico-muted-border-color); }
+.cp-sidebar__logo img { max-width: 100%; height: auto; }
+.cp-nav { list-style: none; margin: 0; padding: .5rem 0; flex: 1 1 auto; overflow-y: auto; }
+.cp-nav li { margin: 0; }
+.cp-nav a {
+  display: flex; align-items: center; gap: .75rem;
+  padding: .6rem 1rem; color: var(--pico-color); text-decoration: none;
+  border-left: 3px solid transparent; white-space: nowrap;
+}
+.cp-nav a:hover { background: var(--pico-secondary-background); }
+.cp-nav a.active { border-left-color: var(--pico-primary); font-weight: 600; }
+.cp-nav a svg { flex: 0 0 auto; width: 20px; height: 20px; }
+.cp-sidebar__footer { border-top: 1px solid var(--pico-muted-border-color); padding: .25rem 0; }
+
+.cp-main { flex: 1 1 auto; min-width: 0; padding: 1.25rem 1.5rem; }
+.cp-topbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.cp-topbar h1 { margin: 0; font-size: 1.5rem; }
+
+/* Collapsed sidebar: icons only */
+.cp-shell.is-collapsed .cp-sidebar { width: var(--cp-sidebar-w-collapsed); flex-basis: var(--cp-sidebar-w-collapsed); }
+.cp-shell.is-collapsed .cp-nav a span,
+.cp-shell.is-collapsed .cp-sidebar__logo .cp-logo-text { display: none; }
+
+/* Mobile: sidebar becomes an off-canvas drawer */
+.cp-hamburger { display: none; }
+@media (max-width: 768px) {
+  .cp-sidebar {
+    position: fixed; z-index: 1000; left: 0; top: 0;
+    transform: translateX(-100%);
+  }
+  .cp-shell.is-drawer-open .cp-sidebar { transform: translateX(0); }
+  .cp-hamburger { display: inline-flex; }
+  .cp-main { padding: 1rem; }
+}
+
+/* ---- Lists --------------------------------------------------------------- */
+.cp-list { list-style: none; margin: 0; padding: 0; }
+.cp-list__row { border-bottom: 1px solid var(--pico-muted-border-color); }
+.cp-list__summary {
+  display: flex; align-items: center; gap: 1rem; padding: .6rem .25rem; cursor: pointer;
+}
+.cp-list__summary:hover { background: var(--pico-secondary-background); }
+.cp-list__summary > .cp-grow { flex: 1 1 auto; min-width: 0; }
+.cp-list__detail { padding: .5rem 1rem 1rem; background: var(--pico-card-sectioning-background-color); }
+.cp-badge { font-size: .75rem; padding: .1rem .5rem; border-radius: 1rem; background: var(--pico-secondary-background); }
+.cp-badge.is-warn { background: #ffe08a; color: #663c00; }
+.cp-muted { color: var(--pico-muted-color); }
+.cp-actions { display: flex; gap: .5rem; }
+.cp-actions button, .cp-actions a { padding: .25rem .5rem; margin: 0; }
+
+/* ---- Offer form ---------------------------------------------------------- */
+.cp-group { border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); margin-bottom: 1rem; }
+.cp-group__head { display: flex; align-items: center; justify-content: space-between; padding: .5rem .75rem; background: var(--pico-card-sectioning-background-color); }
+.cp-group__body { padding: .5rem .75rem; }
+.cp-line { display: flex; align-items: center; gap: .5rem; padding: .25rem 0; flex-wrap: wrap; }
+.cp-line select { flex: 1 1 12rem; margin: 0; }
+.cp-line .cp-amount { width: 6rem; margin: 0; text-align: right; }
+.cp-line .cp-stepper { display: flex; flex-direction: column; }
+.cp-line .cp-stepper button { padding: 0 .4rem; line-height: 1; margin: 0; }
+.cp-line .cp-line-cost { min-width: 6rem; text-align: right; font-variant-numeric: tabular-nums; }
+.cp-line .cp-unit { min-width: 2rem; color: var(--pico-muted-color); }
+.cp-offer-footer { display: flex; justify-content: flex-end; gap: 2rem; align-items: baseline; padding: .75rem 0; border-top: 2px solid var(--pico-muted-border-color); margin-top: 1rem; }
+.cp-form-actions { display: flex; justify-content: space-between; margin-top: 1rem; }
+
+.is-disabled, [disabled] { opacity: .6; }

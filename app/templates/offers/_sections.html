@@ -1,0 +1,33 @@
+{% import "_macros.html" as m %}
+{# Grouped line sections. Re-rendered wholesale by /offers/recalc and apply-template.
+   Every group is shown (empty groups visible — UI decision), each with its own add button. #}
+{% for gvm in group_vms %}
+<div class="cp-group" data-group-id="{{ gvm.group.id }}">
+  <div class="cp-group__head">
+    <strong>{{ gvm.group.name }}</strong>
+    <span class="cp-muted">{{ t('offers.subtotal') }}: {{ gvm.subtotal|huf }}</span>
+  </div>
+  <div class="cp-group__body">
+    {% for ln in gvm.lines %}
+      {% set sel = ln.component_id %}{% set amt = ln.amount %}{% set unit = ln.unit %}
+      {% set cost = ln.line_price %}{% set stock = ln.on_hand %}{% set group_id = gvm.group.id %}
+      {% set comps = comps_by_group.get(gvm.group.id, []) %}
+      {% include "offers/_line.html" %}
+    {% endfor %}
+    <button type="button" class="outline" onclick="cpAddLine({{ gvm.group.id }})">
+      {{ m.icon('plus') }} {{ t('offers.add_component') }}
+    </button>
+  </div>
+</div>
+{% endfor %}
+
+{# Component options per group, for client-side new-line creation. #}
+<script type="application/json" id="comps-data">
+{{ comps_json | safe }}
+</script>
+<script>
+  window.cpUnitStep = {{ mass_volume_step | default(10) }};
+  window.cpMassUnits = ["g","ml"];
+  document.getElementById('calc-total') && (document.getElementById('calc-total').textContent = {{ (total|huf)|tojson }});
+  window.lucide && lucide.createIcons();
+</script>

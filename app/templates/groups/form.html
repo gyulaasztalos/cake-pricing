@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{{ t('groups.title') }} · {{ t('app.title') }}{% endblock %}
+{% block heading %}{{ t('groups.new') if not group else t('action.edit') + ' · ' + group.name }}{% endblock %}
+{% block content %}
+<form method="post" action="{{ '/groups' if not group else '/groups/' ~ group.id }}">
+  <label>{{ t('groups.name') }}
+    <input name="name" value="{{ group.name if group else '' }}" required autofocus>
+  </label>
+  <label>{{ t('groups.sort_order') }}
+    <input type="number" name="sort_order" value="{{ group.sort_order if group else 0 }}">
+  </label>
+  <div class="cp-form-actions">
+    <a role="button" class="secondary" href="/groups">{{ t('action.cancel') }}</a>
+    <button type="submit">{{ t('action.save') }}</button>
+  </div>
+</form>
+{% endblock %}

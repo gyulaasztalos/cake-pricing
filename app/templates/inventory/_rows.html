@@ -1,0 +1,21 @@
+{% import "_macros.html" as m %}
+<ul class="cp-list">
+  {% for row in rows %}
+  {% set c = row.c %}{% set oh = row.on_hand %}
+  <li class="cp-list__row">
+    <div class="cp-list__summary" hx-get="/inventory/detail/{{ c.id }}"
+         hx-target="#idetail-{{ c.id }}" hx-swap="innerHTML"
+         onclick="this.closest('.cp-list__row').querySelector('.cp-list__detail').toggleAttribute('hidden')">
+      {{ m.icon('chevron-right') }}
+      <span class="cp-grow"><strong>{{ c.name }}</strong> <span class="cp-muted">· {{ c.group.name }}</span></span>
+      <span>{{ oh|amount }} {{ c.unit }}</span>
+      {% if oh <= 0 %}<span class="cp-badge is-warn">{{ t('inventory.empty') }}</span>
+      {% elif oh <= 3 %}<span class="cp-badge is-warn">{{ t('inventory.low') }}</span>
+      {% else %}<span class="cp-badge">●</span>{% endif %}
+    </div>
+    <div class="cp-list__detail" id="idetail-{{ c.id }}" hidden></div>
+  </li>
+  {% else %}
+  <li class="cp-muted" style="padding:1rem">{{ t('empty.no_results') }}</li>
+  {% endfor %}
+</ul>

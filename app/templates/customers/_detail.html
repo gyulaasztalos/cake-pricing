@@ -1,0 +1,16 @@
+<div>
+  <p><strong>{{ t('customers.contact') }}:</strong> {{ c.contact or t('common.none') }}</p>
+  {% if c.notes %}<p><strong>{{ t('customers.notes') }}:</strong> {{ c.notes }}</p>{% endif %}
+  <h6>{{ t('customers.past_orders') }}</h6>
+  <ul class="cp-list">
+    {% for o in offers %}
+    <li class="cp-list__row"><a class="cp-list__summary" href="/offers/{{ o.id }}/edit">
+      <span>{{ o.entry_date|date }}</span>
+      <span class="cp-grow">{{ o.theme or '' }} · {{ o.flavor or '' }}</span>
+      <span>{{ o.final_price|huf }}</span>
+    </a></li>
+    {% else %}
+    <li class="cp-muted">{{ t('empty.no_results') }}</li>
+    {% endfor %}
+  </ul>
+</div>

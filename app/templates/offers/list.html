@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}{{ t('offers.title') }} · {{ t('app.title') }}{% endblock %}
+{% block heading %}{{ t('offers.title') }}{% endblock %}
+{% block topbar_actions %}
+  <a role="button" href="/offers/new">{{ m.icon('plus') }} {{ t('offers.new') }}</a>
+{% endblock %}
+{% block content %}
+<form class="cp-topbar" style="gap:.5rem" hx-get="/offers" hx-target="#cp-rows" hx-trigger="keyup changed delay:250ms from:input[name=q], change from:select" hx-push-url="false">
+  <input type="search" name="q" value="{{ q }}" placeholder="{{ t('action.search') }}…">
+  <select name="status">
+    <option value="">{{ t('offers.status') }}: —</option>
+    {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if status == s }}>{{ t('offers.status.' ~ s) }}</option>{% endfor %}
+  </select>
+  <select name="year">
+    <option value="">{{ '' }}—</option>
+    {% for y in years %}<option value="{{ y }}" {{ 'selected' if year == y }}>{{ y }}</option>{% endfor %}
+  </select>
+</form>
+<div id="cp-rows">{% include "offers/_rows.html" %}</div>
+{% endblock %}

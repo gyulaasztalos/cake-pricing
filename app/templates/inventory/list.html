@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}{{ t('inventory.title') }} · {{ t('app.title') }}{% endblock %}
+{% block heading %}{{ t('inventory.title') }}{% endblock %}
+{% block topbar_actions %}
+  <a role="button" href="/inventory/receive">{{ m.icon('plus') }} {{ t('inventory.receive') }}</a>
+{% endblock %}
+{% block content %}
+<form class="cp-topbar" style="gap:.5rem" hx-get="/inventory" hx-target="#cp-rows" hx-trigger="keyup changed delay:250ms from:input[name=q], change from:input[type=checkbox]" hx-push-url="false">
+  <input type="search" name="q" value="{{ q }}" placeholder="{{ t('action.search') }}…">
+  <label style="white-space:nowrap"><input type="checkbox" name="only_low" value="true" {{ 'checked' if only_low }}> {{ t('inventory.only_low') }}</label>
+</form>
+<div id="cp-rows">{% include "inventory/_rows.html" %}</div>
+{% endblock %}

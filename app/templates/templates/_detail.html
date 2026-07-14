@@ -1,0 +1,10 @@
+<div>
+  {% if r.notes %}<p class="cp-muted">{{ r.notes }}</p>{% endif %}
+  <ul>
+    {% for it in r.items %}
+    <li>{{ it.component.name }} — {{ it.amount|amount }} {{ it.component.unit }}</li>
+    {% else %}
+    <li class="cp-muted">{{ t('empty.no_results') }}</li>
+    {% endfor %}
+  </ul>
+</div>

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}{{ t('templates.title') }} · {{ t('app.title') }}{% endblock %}
+{% block heading %}{{ t('action.edit') }} · {{ r.name }}{% endblock %}
+{% block content %}
+<form method="post" action="/templates/{{ r.id }}" id="tpl-form">
+  <label>{{ t('templates.name') }} <input name="name" value="{{ r.name }}" required></label>
+  <label>{{ t('templates.notes') }} <textarea name="notes">{{ r.notes or '' }}</textarea></label>
+
+  <h5>{{ t('offers.items') }}</h5>
+  <div id="tpl-lines">
+    {% for it in r.items %}
+    <div class="cp-line">
+      <select name="component_id">
+        <option value="">—</option>
+        {% for c in components %}<option value="{{ c.id }}" {{ 'selected' if it.component_id == c.id }}>{{ c.name }}</option>{% endfor %}
+      </select>
+      <input class="cp-amount" type="number" step="0.001" min="0" name="amount" value="{{ it.amount|amount }}">
+      <button type="button" class="outline secondary" onclick="this.closest('.cp-line').remove()">{{ m.icon('trash-2') }}</button>
+    </div>
+    {% endfor %}
+  </div>
+  <button type="button" class="outline" onclick="cpTplAddLine()">{{ m.icon('plus') }} {{ t('offers.add_component') }}</button>
+
+  <div class="cp-form-actions">
+    <a role="button" class="secondary" href="/templates">{{ t('action.cancel') }}</a>
+    <button type="submit">{{ t('action.save') }}</button>
+  </div>
+</form>
+
+<template id="tpl-line-proto">
+  <div class="cp-line">
+    <select name="component_id">
+      <option value="">—</option>
+      {% for c in components %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+    </select>
+    <input class="cp-amount" type="number" step="0.001" min="0" name="amount" value="1">
+    <button type="button" class="outline secondary" onclick="this.closest('.cp-line').remove()"><i data-lucide="trash-2"></i></button>
+  </div>
+</template>
+<script>
+  function cpTplAddLine() {
+    const proto = document.getElementById('tpl-line-proto');
+    document.getElementById('tpl-lines').appendChild(proto.content.cloneNode(true));
+    window.lucide && lucide.createIcons();
+  }
+</script>
+{% endblock %}

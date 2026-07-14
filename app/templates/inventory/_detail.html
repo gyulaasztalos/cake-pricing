@@ -1,0 +1,17 @@
+<div>
+  <h6>{{ t('inventory.movements') }}</h6>
+  <table>
+    <tbody>
+      {% for mv in movements %}
+      <tr>
+        <td>{{ mv.entry_date|date }}</td>
+        <td>{{ t('inventory.reason.' ~ mv.reason) }}</td>
+        <td style="text-align:right">{{ '+' if mv.qty_delta > 0 else '' }}{{ mv.qty_delta|amount }}</td>
+      </tr>
+      {% else %}
+      <tr><td class="cp-muted">{{ t('empty.no_results') }}</td></tr>
+      {% endfor %}
+      <tr><td colspan="2"><strong>Σ</strong></td><td style="text-align:right"><strong>{{ on_hand|amount }}</strong></td></tr>
+    </tbody>
+  </table>
+</div>

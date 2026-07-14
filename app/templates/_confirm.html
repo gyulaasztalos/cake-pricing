@@ -1,0 +1,11 @@
+{# Rendered into #cp-modal by delete/anonymize actions. #}
+<article>
+  <header><strong>{{ title }}</strong></header>
+  <p>{{ message }}</p>
+  <footer style="display:flex;justify-content:space-between;gap:1rem">
+    <button class="secondary" onclick="document.getElementById('cp-modal').close()">{{ t('action.cancel') }}</button>
+    <form method="post" action="{{ action }}" style="margin:0">
+      <button type="submit" class="contrast">{{ t('action.confirm') }}</button>
+    </form>
+  </footer>
+</article>

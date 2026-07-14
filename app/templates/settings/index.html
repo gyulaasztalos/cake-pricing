@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}{{ t('settings.title') }} · {{ t('app.title') }}{% endblock %}
+{% block heading %}{{ t('settings.title') }}{% endblock %}
+{% block content %}
+<article>
+  <header><strong>{{ t('settings.export') }}</strong></header>
+  <p class="cp-muted">{{ t('settings.export_hint') }}</p>
+  <a role="button" href="/settings/export">{{ m.icon('download') }} {{ t('settings.export') }}</a>
+</article>
+
+<article>
+  <header><strong>{{ t('settings.import') }}</strong></header>
+  <p class="cp-muted">{{ t('settings.import_hint') }}</p>
+  <form method="post" action="/settings/import" enctype="multipart/form-data">
+    <input type="file" name="file" accept="application/json,.json" required>
+    <button type="submit">{{ m.icon('upload') }} {{ t('settings.import') }}</button>
+  </form>
+</article>
+{% endblock %}

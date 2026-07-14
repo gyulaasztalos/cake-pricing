@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}{{ t('offers.new') if not o else t('offers.edit') }} · {{ t('app.title') }}{% endblock %}
+{% block heading %}{{ t('offers.new') if not o else t('offers.edit') }}{% endblock %}
+{% block content %}
+<script src="/static/js/offer-form.js" defer></script>
+{% set as_of_val = (o.entry_date if o else as_of) %}
+<form method="post" action="{{ '/offers' if not o else '/offers/' ~ o.id }}" id="offer-form">
+  <input type="hidden" name="entry_date" value="{{ as_of_val.isoformat() }}">
+
+  <fieldset>
+    <legend><strong>{{ t('offers.core_data') }}</strong></legend>
+    <div class="grid">
+      <label>{{ t('offers.customer') }}
+        <select name="customer_id" required>
+          <option value="">—</option>
+          {% for cu in customers %}<option value="{{ cu.id }}" {{ 'selected' if o and o.customer_id == cu.id }}>{{ cu.name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>{{ t('offers.status') }}
+        <select name="status">
+          {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if o and o.status == s else ('selected' if not o and s == 'draft') }}>{{ t('offers.status.' ~ s) }}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="grid">
+      <label>{{ t('offers.theme') }}<input name="theme" value="{{ o.theme if o and o.theme else '' }}"></label>
+      <label>{{ t('offers.flavor') }}<input name="flavor" value="{{ o.flavor if o and o.flavor else '' }}"></label>
+    </div>
+    <div class="grid">
+      <label>{{ t('offers.due_date') }}<input type="date" name="due_date" value="{{ o.due_date.strftime('%Y-%m-%d') if o and o.due_date else '' }}"></label>
+      <label>{{ t('offers.entry_date') }}
+        <input type="text" value="{{ as_of_val|date }}" disabled>
+        <small class="cp-muted">{{ t('offers.entry_date_hint') }}</small>
+      </label>
+    </div>
+  </fieldset>
+
+  <div style="display:flex;gap:.5rem;margin:.5rem 0">
+    <select id="tpl-select" style="max-width:20rem;margin:0">
+      <option value="">{{ t('offers.add_template') }}…</option>
+      {% for r in recipes %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
+    </select>
+    <button type="button" class="outline"
+            hx-post="/offers/apply-template" hx-target="#sections" hx-swap="innerHTML"
+            hx-include="#offer-form"
+            hx-vals="js:{template_id: document.getElementById('tpl-select').value}">
+      {{ m.icon('plus') }} {{ t('offers.add_template') }}
+    </button>
+    <button type="button" class="outline secondary" onclick="cpSaveAsTemplate()">
+      {{ m.icon('save') }} {{ t('offers.save_as_template') }}
+    </button>
+  </div>
+
+  {# Live-recalculated grouped sections. #}
+  <div id="sections">
+    {% include "offers/_sections.html" %}
+  </div>
+
+  <div class="cp-offer-footer">
+    <div><strong>{{ t('offers.calculated_price') }}:</strong> <span id="calc-total">{{ total|huf }}</span></div>
+    <label style="margin:0">{{ t('offers.final_price') }}
+      <input type="number" step="0.01" name="final_price" value="{{ o.final_price|amount if o and o.final_price is not none else '' }}" style="width:9rem">
+    </label>
+  </div>
+
+  <div class="cp-form-actions">
+    <a role="button" class="secondary" href="/offers">{{ t('action.cancel') }}</a>
+    <button type="submit">{{ m.icon('save') }} {{ t('action.save') }}</button>
+  </div>
+</form>
+
+<script>
+  // Save-as-template: ask for a name, post the current lines to a hidden form.
+  function cpSaveAsTemplate() {
+    const name = prompt({{ t('offers.save_as_template')|tojson }});
+    if (!name) return;
+    const f = document.getElementById('offer-form');
+    const tmp = document.createElement('form');
+    tmp.method = 'post'; tmp.action = '/offers/save-as-template';
+    const nameEl = document.createElement('input'); nameEl.name = 'template_name'; nameEl.value = name; tmp.appendChild(nameEl);
+    f.querySelectorAll('[name=component_id],[name=amount]').forEach(el => {
+      const c = el.cloneNode(true); c.type = 'hidden'; c.value = el.value; tmp.appendChild(c);
+    });
+    document.body.appendChild(tmp); tmp.submit();
+  }
+</script>
+{% endblock %}

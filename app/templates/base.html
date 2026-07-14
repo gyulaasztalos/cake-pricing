@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="{{ locale }}" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ t('app.title') }}{% endblock %}</title>
+  <link rel="stylesheet" href="/static/vendor/pico.min.css">
+  <link rel="stylesheet" href="/static/css/app.css">
+  <script src="/static/vendor/htmx.min.js" defer></script>
+  <script src="/static/vendor/lucide.min.js" defer></script>
+</head>
+<body>
+  <div class="cp-shell" id="shell">
+    {% include "_sidebar.html" %}
+    <main class="cp-main">
+      <div class="cp-topbar">
+        <div style="display:flex;align-items:center;gap:.5rem">
+          <button class="cp-hamburger outline" onclick="document.getElementById('shell').classList.toggle('is-drawer-open')" aria-label="Menü">
+            <i data-lucide="menu"></i>
+          </button>
+          <h1>{% block heading %}{{ t('app.title') }}{% endblock %}</h1>
+        </div>
+        <div>{% block topbar_actions %}{% endblock %}</div>
+      </div>
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+  <dialog id="cp-modal"></dialog>
+  <script>
+    // Re-render Lucide icons after any HTMX swap.
+    document.addEventListener('DOMContentLoaded', () => window.lucide && lucide.createIcons());
+    document.body.addEventListener('htmx:afterSwap', () => window.lucide && lucide.createIcons());
+    // Sidebar collapse (persisted).
+    (function () {
+      const shell = document.getElementById('shell');
+      if (localStorage.getItem('cp-collapsed') === '1') shell.classList.add('is-collapsed');
+      window.cpToggleSidebar = () => {
+        shell.classList.toggle('is-collapsed');
+        localStorage.setItem('cp-collapsed', shell.classList.contains('is-collapsed') ? '1' : '0');
+      };
+    })();
+  </script>
+</body>
+</html>
