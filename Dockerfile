@@ -5,7 +5,7 @@
 # ---------------------------------------------------------------------------
 
 # ---- builder: resolve & install deps into a venv with uv --------------------
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder
+FROM ghcr.io/astral-sh/uv:0.11.28-python3.14-trixie-slim AS builder
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
@@ -24,7 +24,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
 # ---- final: slim runtime, non-root ----------------------------------------
-FROM python:3.14-slim-bookworm AS final
+FROM python:3.14-slim-trixie AS final
 LABEL name="cake-pricing"
 
 ARG USERNAME=app
