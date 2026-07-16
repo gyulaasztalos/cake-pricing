@@ -12,8 +12,9 @@
     <legend><strong>{{ t('offers.core_data') }}</strong></legend>
     <div class="grid">
       <label>{{ t('offers.customer') }}
-        <select name="customer_id" required>
+        <select name="customer_id" id="customer-select" required onchange="cpCustomerChanged(this)">
           <option value="">—</option>
+          <option value="__new__">{{ t('offers.new_customer_option') }}</option>
           {% for cu in customers %}<option value="{{ cu.id }}" {{ 'selected' if o and o.customer_id == cu.id }}>{{ cu.name }}</option>{% endfor %}
         </select>
       </label>
@@ -28,11 +29,10 @@
       <label>{{ t('offers.flavor') }}<input name="flavor" value="{{ o.flavor if o and o.flavor else '' }}"></label>
     </div>
     <div class="grid">
-      <label>{{ t('offers.due_date') }}<input type="date" name="due_date" value="{{ o.due_date.strftime('%Y-%m-%d') if o and o.due_date else '' }}"></label>
-      <label>{{ t('offers.entry_date') }}
-        <input type="text" value="{{ as_of_val|date }}" disabled>
-        <small class="cp-muted">{{ t('offers.entry_date_hint') }}</small>
+      <label>{{ t('offers.due_date') }}
+        <input type="date" name="due_date" value="{{ o.due_date.strftime('%Y-%m-%d') if o and o.due_date else '' }}">
       </label>
+      <span></span>
     </div>
   </fieldset>
 
@@ -70,19 +70,50 @@
   </div>
 </form>
 
+<dialog id="tpl-save-dialog">
+  <article>
+    <header><strong>{{ t('offers.save_as_template') }}</strong></header>
+    <form method="post" action="/offers/save-as-template" id="tpl-save-form">
+      <label>{{ t('templates.name') }}
+        <input name="template_name" required placeholder="pl. 12 szeletes epres torta">
+      </label>
+      <div id="tpl-save-lines"></div>
+      <footer style="display:flex;justify-content:space-between;gap:1rem">
+        <button type="button" class="secondary" onclick="document.getElementById('tpl-save-dialog').close()">{{ t('action.cancel') }}</button>
+        <button type="submit">{{ t('action.save') }}</button>
+      </footer>
+    </form>
+  </article>
+</dialog>
+
 <script>
-  // Save-as-template: ask for a name, post the current lines to a hidden form.
+  // Save-as-template: open an inline dialog; copy the current lines as hidden fields.
   function cpSaveAsTemplate() {
-    const name = prompt({{ t('offers.save_as_template')|tojson }});
-    if (!name) return;
-    const f = document.getElementById('offer-form');
-    const tmp = document.createElement('form');
-    tmp.method = 'post'; tmp.action = '/offers/save-as-template';
-    const nameEl = document.createElement('input'); nameEl.name = 'template_name'; nameEl.value = name; tmp.appendChild(nameEl);
-    f.querySelectorAll('[name=component_id],[name=amount]').forEach(el => {
-      const c = el.cloneNode(true); c.type = 'hidden'; c.value = el.value; tmp.appendChild(c);
+    const dlg = document.getElementById('tpl-save-dialog');
+    const holder = document.getElementById('tpl-save-lines');
+    holder.innerHTML = '';
+    document.querySelectorAll('#offer-form [name=component_id]').forEach(sel => {
+      if (!sel.value || sel.value === '__new__') return;
+      const line = sel.closest('.cp-line');
+      const amt = line ? line.querySelector('[name=amount]') : null;
+      const c = document.createElement('input'); c.type='hidden'; c.name='component_id'; c.value=sel.value; holder.appendChild(c);
+      const a = document.createElement('input'); a.type='hidden'; a.name='amount'; a.value=(amt ? amt.value : '0'); holder.appendChild(a);
     });
-    document.body.appendChild(tmp); tmp.submit();
+    dlg.showModal();
   }
+  // Customer picker: handle the [Új ügyfél…] sentinel via an inline dialog.
+  window.cpCustomerChanged = function (sel) {
+    if (sel.value !== '__new__') return;
+    sel.value = '';
+    const dlg = document.getElementById('cp-modal');
+    htmx.ajax('GET', '/customers/quick-new', { target: '#cp-modal', swap: 'innerHTML' }).then(() => dlg.showModal());
+  };
+  // Called by the quick-create customer dialog on success.
+  window.cpCustomerCreated = function (id, name) {
+    document.getElementById('cp-modal').close();
+    const sel = document.getElementById('customer-select');
+    const o = document.createElement('option'); o.value=id; o.textContent=name; o.selected=true;
+    sel.appendChild(o);
+  };
 </script>
 {% endblock %}

@@ -7,21 +7,21 @@
     {% else %}{{ t('common.none') }}{% endif %}
   </p>
 
-  <details>
-    <summary>{{ t('components.price_change') }}</summary>
-    <form method="post" action="/components/{{ c.id }}/price" class="cp-line" style="margin-top:.5rem">
-      <label>{{ t('components.base_amount') }} <input type="number" step="0.001" name="base_amount" value="{{ current.base_amount|amount if current else 1 }}" required></label>
-      <label>{{ t('components.base_price') }} <input type="number" step="0.01" name="base_price" value="{{ current.base_price|amount if current else 0 }}" required></label>
-      <button type="submit">{{ t('action.save') }}</button>
-    </form>
-  </details>
+  <button type="button" class="outline" onclick="document.getElementById('price-form-{{ c.id }}').toggleAttribute('hidden')">
+    {{ m.icon('pencil') }} {{ t('components.price_change') }}
+  </button>
+  <form method="post" action="/components/{{ c.id }}/price" class="cp-line" style="margin-top:.5rem" id="price-form-{{ c.id }}" hidden>
+    <label>{{ t('components.base_amount') }} <input type="number" step="0.001" name="base_amount" value="{{ current.base_amount|amount if current else 1 }}" required></label>
+    <label>{{ t('components.base_price') }} <input type="number" step="0.01" name="base_price" value="{{ current.base_price|amount if current else 0 }}" required></label>
+    <button type="submit">{{ t('action.save') }}</button>
+  </form>
 
   <h6>{{ t('components.price_history') }}</h6>
   <table>
     <tbody>
       {% for h in history %}
       <tr class="{{ '' if not h.expiration_date else 'is-disabled' }}">
-        <td>{{ h.effective_date|date }} – {{ (h.expiration_date|date) if h.expiration_date else t('components.now') }}</td>
+        <td>{{ h.effective_date|datetime }} – {{ (h.expiration_date|datetime) if h.expiration_date else t('components.now') }}</td>
         <td>{{ h.base_price|huf }} / {{ h.base_amount|amount }} {{ c.unit }}</td>
       </tr>
       {% endfor %}

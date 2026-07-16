@@ -1,0 +1,12 @@
+{# Inline customer-create dialog body (rendered into #cp-modal from the offer form). #}
+<article>
+  <header><strong>{{ t('customers.new') }}</strong></header>
+  <form hx-post="/customers/quick-new" hx-target="#cp-modal" hx-swap="innerHTML">
+    <label>{{ t('customers.name') }} <input name="name" required autofocus></label>
+    <label>{{ t('customers.contact') }} <input name="contact"></label>
+    <footer style="display:flex;justify-content:space-between;gap:1rem">
+      <button type="button" class="secondary" onclick="document.getElementById('cp-modal').close()">{{ t('action.cancel') }}</button>
+      <button type="submit">{{ t('action.save') }}</button>
+    </footer>
+  </form>
+</article>

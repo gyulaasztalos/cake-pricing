@@ -15,7 +15,7 @@ router = APIRouter()
 
 
 def _all_groups(session: Session) -> list[Group]:
-    return list(session.scalars(select(Group).order_by(Group.sort_order, Group.name)))
+    return list(session.scalars(select(Group).order_by(Group.name)))
 
 
 @router.get("/groups", response_class=HTMLResponse)
@@ -38,23 +38,13 @@ def edit_group_form(group_id: int, request: Request, session: Session = Depends(
 
 
 @router.post("/groups")
-def create_group(
-    name: str = Form(...),
-    sort_order: int = Form(0),
-    session: Session = Depends(get_session),
-):
-    session.add(Group(name=name.strip(), sort_order=sort_order))
+def create_group(name: str = Form(...), session: Session = Depends(get_session)):
+    session.add(Group(name=name.strip()))
     return RedirectResponse(url="/groups", status_code=303)
 
 
 @router.post("/groups/{group_id:int}")
-def update_group(
-    group_id: int,
-    name: str = Form(...),
-    sort_order: int = Form(0),
-    session: Session = Depends(get_session),
-):
+def update_group(group_id: int, name: str = Form(...), session: Session = Depends(get_session)):
     group = session.get(Group, group_id)
     group.name = name.strip()
-    group.sort_order = sort_order
     return RedirectResponse(url="/groups", status_code=303)

@@ -31,10 +31,34 @@ def format_amount(value: Decimal | int | float | None) -> str:
     return format(d, "f")
 
 
+try:
+    from zoneinfo import ZoneInfo
+
+    _LOCAL_TZ = ZoneInfo("Europe/Budapest")
+except Exception:  # pragma: no cover - fallback if tzdata missing
+    _LOCAL_TZ = None
+
+
+def _to_local(value: dt.datetime) -> dt.datetime:
+    if _LOCAL_TZ is None or value.tzinfo is None:
+        return value
+    return value.astimezone(_LOCAL_TZ)
+
+
 def format_date(value: dt.datetime | dt.date | None) -> str:
+    """Hungarian standard date: YYYY-MM-DD."""
     if value is None:
         return "—"
+    if isinstance(value, dt.datetime):
+        value = _to_local(value)
     return value.strftime("%Y-%m-%d")
+
+
+def format_datetime(value: dt.datetime | None) -> str:
+    """Hungarian standard timestamp: YYYY-MM-DD HH24:MI:SS (local time)."""
+    if value is None:
+        return "—"
+    return _to_local(value).strftime("%Y-%m-%d %H:%M:%S")
 
 
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
@@ -44,3 +68,4 @@ templates.env.globals["app_env"] = settings.app_env
 templates.env.filters["huf"] = format_huf
 templates.env.filters["amount"] = format_amount
 templates.env.filters["date"] = format_date
+templates.env.filters["datetime"] = format_datetime

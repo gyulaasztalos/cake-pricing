@@ -30,15 +30,16 @@ def _groups(session: Session) -> list[Group]:
 def list_components(
     request: Request,
     q: str = "",
-    group_id: int | None = None,
+    group_id: str = "",
     only_active: bool = False,
     session: Session = Depends(get_session),
 ):
+    gid = int(group_id) if group_id.strip().isdigit() else None
     stmt = select(Component).options(selectinload(Component.group))
-    if q:
-        stmt = stmt.where(func.lower(Component.name).like(f"%{q.lower()}%"))
-    if group_id:
-        stmt = stmt.where(Component.group_id == group_id)
+    if q.strip():
+        stmt = stmt.where(func.lower(Component.name).like(f"%{q.strip().lower()}%"))
+    if gid:
+        stmt = stmt.where(Component.group_id == gid)
     if only_active:
         stmt = stmt.where(Component.active.is_(True))
     stmt = stmt.order_by(Component.name)
@@ -50,7 +51,7 @@ def list_components(
         "prices": prices,
         "groups": _groups(session),
         "q": q,
-        "group_id": group_id,
+        "group_id": gid,
         "only_active": only_active,
         "active_nav": "components",
     }

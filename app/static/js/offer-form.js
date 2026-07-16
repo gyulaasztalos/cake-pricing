@@ -21,19 +21,42 @@
   };
 
   // Recalc: POST current form line arrays to /offers/recalc, swap #sections.
+  // Guard against overlapping recalcs: if one is in flight, coalesce into a
+  // single follow-up run after it settles (otherwise concurrent #sections swaps
+  // can duplicate lines).
+  let _recalcBusy = false;
+  let _recalcQueued = false;
   window.cpRecalc = function () {
     const s = sectionsEl();
-    if (!s || !window.htmx) return;
-    htmx.ajax("POST", "/offers/recalc", { source: formEl(), target: "#sections", swap: "innerHTML" });
+    const f = formEl();
+    if (!s || !f || !window.htmx) return;
+    if (_recalcBusy) { _recalcQueued = true; return; }
+    // Serialize the form ourselves — htmx.ajax() does not gather form fields from
+    // `source` reliably for programmatic POSTs. Build a values object incl. the
+    // parallel component_id[]/amount[] arrays.
+    const values = {};
+    new FormData(f).forEach((val, key) => {
+      if (key in values) {
+        if (!Array.isArray(values[key])) values[key] = [values[key]];
+        values[key].push(val);
+      } else {
+        values[key] = val;
+      }
+    });
+    _recalcBusy = true;
+    htmx.ajax("POST", "/offers/recalc", { target: "#sections", swap: "innerHTML", values: values })
+      .finally(() => {
+        _recalcBusy = false;
+        if (_recalcQueued) { _recalcQueued = false; window.cpRecalc(); }
+      });
   };
   let _t = null;
   window.cpDebouncedRecalc = function () { clearTimeout(_t); _t = setTimeout(window.cpRecalc, 400); };
 
-  // Add a blank line to a group (builds the <select> from comps-data).
+  // Add a blank line to a group's .cp-lines container (builds <select> from comps-data).
   window.cpAddLine = function (groupId) {
-    const group = document.querySelector('.cp-group[data-group-id="' + groupId + '"] .cp-group__body');
-    if (!group) return;
-    const addBtn = group.querySelector("button");
+    const lines = document.querySelector('.cp-group[data-group-id="' + groupId + '"] .cp-lines');
+    if (!lines) return;
     const comps = (compsData()[groupId] || []);
     const line = document.createElement("div");
     line.className = "cp-line";
@@ -47,7 +70,7 @@
       '<span class="cp-stepper"><button type="button" onclick="cpStep(this,1)">▲</button><button type="button" onclick="cpStep(this,-1)">▼</button></span>' +
       '<span class="cp-line-cost"></span>' +
       '<button type="button" class="outline secondary" onclick="this.closest(\'.cp-line\').remove(); cpRecalc();"><i data-lucide="trash-2"></i></button>';
-    group.insertBefore(line, addBtn);
+    lines.appendChild(line);
     window.lucide && lucide.createIcons();
   };
 

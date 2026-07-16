@@ -40,10 +40,6 @@ GROUPS = [
 ]
 GROUP_ID = {g["name"]: g["id"] for g in GROUPS}
 
-# Header keywords → (group, type). Order matters (first match wins).
-SERVICE_NAMES = {"Munkadíj", "Rezsi + amortizáció", "Rezsi"}
-
-
 def _col_num(ref: str) -> int:
     letters = re.match(r"[A-Z]+", ref).group()
     n = 0
@@ -77,14 +73,30 @@ def _load_rows(path: str, sheet_file: str) -> dict[int, dict[int, str]]:
     return rows
 
 
-def _classify(name: str) -> tuple[int, str]:
-    """Return (group_id, type). Heuristic — refine by hand in the app afterwards."""
-    if name in SERVICE_NAMES:
-        return GROUP_ID["Alap"], "service"
-    lowered = name.lower()
-    if "doboz" in lowered or "tortadob" in lowered or "alátét" in lowered or "álvány" in lowered:
-        return GROUP_ID["Doboz"], "stock_item"
-    # Default bucket: Töltelék (a sensible middle group); user re-groups later.
+# Authoritative column→group ranges of the Project-Ár sheet (1-based, inclusive),
+# provided by the product owner. Columns: H=8 K=11 L=12 AY=51 AZ=52 BS=71 BT=72
+# CS=97 CT=98 DC=107 DD=108.
+#   Alap    H–K   (8–11)   services (Munkadíj, Rezsi)
+#   Doboz   L–AY  (12–51)  boxes / plates / stands  → stock items
+#   Dekor   AZ–BS (52–71)  decorations
+#   Piskóta BT–CS (72–97)
+#   Burkolat CT–DC (98–107)
+#   Töltelék DD–…  (108+)
+_RANGES = [
+    (8, 11, "Alap", "service"),
+    (12, 51, "Doboz", "stock_item"),
+    (52, 71, "Dekor", "ingredient"),
+    (72, 97, "Piskóta", "ingredient"),
+    (98, 107, "Burkolat", "ingredient"),
+    (108, 10_000, "Töltelék", "ingredient"),
+]
+
+
+def _classify(col: int) -> tuple[int, str]:
+    """Return (group_id, type) from the component's column, per the sheet ranges."""
+    for lo, hi, group, ctype in _RANGES:
+        if lo <= col <= hi:
+            return GROUP_ID[group], ctype
     return GROUP_ID["Töltelék"], "ingredient"
 
 
@@ -96,14 +108,14 @@ def build_bundle(path: str) -> dict:
     prices: list[dict] = []
     cid = 0
     for col in sorted(r2):
-        if col < 12:  # columns A–K are offer header, not components
+        if col < 8:  # columns A–G are offer header, not components (Alap starts at H)
             continue
         name = (r2.get(col) or "").strip()
         if not name:
             continue
         base_amount = (r3.get(col) or "").strip() or "1"
         base_price = (r4.get(col) or "").strip() or "0"
-        group_id, ctype = _classify(name)
+        group_id, ctype = _classify(col)
         cid += 1
         components.append(
             {

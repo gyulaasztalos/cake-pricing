@@ -76,26 +76,27 @@ def list_offers(
     request: Request,
     q: str = "",
     status: str = "",
-    year: int | None = None,
+    year: str = "",
     session: Session = Depends(get_session),
 ):
+    yr = int(year) if year.strip().isdigit() else None
     stmt = select(Offer).options(selectinload(Offer.customer)).order_by(Offer.due_date.desc().nullslast(), Offer.id.desc())
-    if q:
-        like = f"%{q.lower()}%"
+    if q.strip():
+        like = f"%{q.strip().lower()}%"
         stmt = stmt.join(Customer).where(
             func.lower(func.coalesce(Offer.theme, "")).like(like)
             | func.lower(func.coalesce(Offer.flavor, "")).like(like)
             | func.lower(Customer.name).like(like)
         )
-    if status:
+    if status.strip():
         stmt = stmt.where(Offer.status == status)
-    if year:
-        stmt = stmt.where(extract("year", Offer.entry_date) == year)
+    if yr:
+        stmt = stmt.where(extract("year", Offer.entry_date) == yr)
     offers = list(session.scalars(stmt))
     year_col = extract("year", Offer.entry_date)
     years = list(session.scalars(select(year_col).distinct().order_by(year_col)))
     ctx = {
-        "offers": offers, "q": q, "status": status, "year": year,
+        "offers": offers, "q": q, "status": status, "year": yr,
         "statuses": STATUSES, "years": [int(y) for y in years], "active_nav": "offers",
     }
     tmpl = "offers/_rows.html" if request.headers.get("HX-Request") else "offers/list.html"

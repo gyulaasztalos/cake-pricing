@@ -1,0 +1,7 @@
+{# Returned after inline customer creation; tells the offer form to select it. #}
+<script>
+  (function () {
+    if (window.cpCustomerCreated) window.cpCustomerCreated({{ id }}, {{ name|tojson }});
+    else document.getElementById('cp-modal').close();
+  })();
+</script>

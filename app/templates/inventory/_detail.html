@@ -4,7 +4,7 @@
     <tbody>
       {% for mv in movements %}
       <tr>
-        <td>{{ mv.entry_date|date }}</td>
+        <td>{{ mv.entry_date|datetime }}</td>
         <td>{{ t('inventory.reason.' ~ mv.reason) }}</td>
         <td style="text-align:right">{{ '+' if mv.qty_delta > 0 else '' }}{{ mv.qty_delta|amount }}</td>
       </tr>

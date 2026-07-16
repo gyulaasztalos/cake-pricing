@@ -8,13 +8,15 @@
     <span class="cp-muted">{{ t('offers.subtotal') }}: {{ gvm.subtotal|huf }}</span>
   </div>
   <div class="cp-group__body">
-    {% for ln in gvm.lines %}
-      {% set sel = ln.component_id %}{% set amt = ln.amount %}{% set unit = ln.unit %}
-      {% set cost = ln.line_price %}{% set stock = ln.on_hand %}{% set group_id = gvm.group.id %}
-      {% set comps = comps_by_group.get(gvm.group.id, []) %}
-      {% include "offers/_line.html" %}
-    {% endfor %}
-    <button type="button" class="outline" onclick="cpAddLine({{ gvm.group.id }})">
+    <div class="cp-lines">
+      {% for ln in gvm.lines %}
+        {% set sel = ln.component_id %}{% set amt = ln.amount %}{% set unit = ln.unit %}
+        {% set cost = ln.line_price %}{% set stock = ln.on_hand %}{% set group_id = gvm.group.id %}
+        {% set comps = comps_by_group.get(gvm.group.id, []) %}
+        {% include "offers/_line.html" %}
+      {% endfor %}
+    </div>
+    <button type="button" class="outline cp-add-line" onclick="cpAddLine({{ gvm.group.id }})">
       {{ m.icon('plus') }} {{ t('offers.add_component') }}
     </button>
   </div>

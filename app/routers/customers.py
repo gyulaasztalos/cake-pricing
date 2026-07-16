@@ -55,6 +55,27 @@ def new_customer_form(request: Request):
     return templates.TemplateResponse(request, "customers/form.html", {"c": None})
 
 
+@router.get("/customers/quick-new", response_class=HTMLResponse)
+def quick_new_form(request: Request):
+    """Inline customer-create dialog for the offer form (§UI §7)."""
+    return templates.TemplateResponse(request, "customers/_quick_new.html", {})
+
+
+@router.post("/customers/quick-new", response_class=HTMLResponse)
+def quick_new_create(
+    request: Request,
+    name: str = Form(...),
+    contact: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    c = Customer(name=name.strip(), contact=contact.strip() or None)
+    session.add(c)
+    session.flush()
+    return templates.TemplateResponse(
+        request, "customers/_quick_created.html", {"id": c.id, "name": c.name}
+    )
+
+
 @router.get("/customers/{customer_id:int}/edit", response_class=HTMLResponse)
 def edit_customer_form(customer_id: int, request: Request, session: Session = Depends(get_session)):
     return templates.TemplateResponse(
