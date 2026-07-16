@@ -5,7 +5,7 @@
 # ---------------------------------------------------------------------------
 
 # ---- builder: resolve & install deps into a venv with uv --------------------
-FROM ghcr.io/astral-sh/uv:0.11.28-python3.14-trixie-slim AS builder
+FROM ghcr.io/astral-sh/uv:0.11.29-python3.14-trixie-slim AS builder
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
