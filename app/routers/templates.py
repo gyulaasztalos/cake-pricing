@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.db import get_session
 from app.i18n import t
 from app.models import Component, Recipe, RecipeItem
+from app.routers._helpers import get_or_404
 from app.templating import templates as tmpl
 
 router = APIRouter()
@@ -28,10 +29,10 @@ def list_templates(request: Request, q: str = "", session: Session = Depends(get
         stmt = stmt.where(func.lower(Recipe.name).like(f"%{q.lower()}%"))
     stmt = stmt.order_by(Recipe.name)
     recipes = list(session.scalars(stmt))
-    counts = dict(
+    counts: dict[int, int] = dict(
         session.execute(
             select(RecipeItem.recipe_id, func.count(RecipeItem.id)).group_by(RecipeItem.recipe_id)
-        ).all()
+        ).tuples()
     )
     ctx = {"recipes": recipes, "counts": counts, "q": q, "active_nav": "templates"}
     name = "templates/_rows.html" if request.headers.get("HX-Request") else "templates/list.html"
@@ -74,7 +75,7 @@ def update_template(
     amount: list[str] = Form(default=[]),
     session: Session = Depends(get_session),
 ):
-    recipe = session.get(Recipe, recipe_id)
+    recipe = get_or_404(session, Recipe, recipe_id)
     recipe.name = name.strip()
     recipe.notes = notes.strip() or None
     recipe.items.clear()
@@ -91,7 +92,7 @@ def update_template(
 
 @router.get("/templates/{recipe_id:int}/delete", response_class=HTMLResponse)
 def confirm_delete(recipe_id: int, request: Request, session: Session = Depends(get_session)):
-    recipe = session.get(Recipe, recipe_id)
+    recipe = get_or_404(session, Recipe, recipe_id)
     return tmpl.TemplateResponse(
         request, "_confirm.html",
         {"action": f"/templates/{recipe_id}/delete", "title": t("confirm.delete.title"),
@@ -101,5 +102,5 @@ def confirm_delete(recipe_id: int, request: Request, session: Session = Depends(
 
 @router.post("/templates/{recipe_id:int}/delete")
 def delete_template(recipe_id: int, session: Session = Depends(get_session)):
-    session.delete(session.get(Recipe, recipe_id))
+    session.delete(get_or_404(session, Recipe, recipe_id))
     return RedirectResponse(url="/templates", status_code=303)

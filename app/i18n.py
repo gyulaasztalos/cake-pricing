@@ -73,7 +73,9 @@ HU: dict[str, str] = {
     "customers.past_orders": "Korábbi rendelések",
     "customers.anonymize": "Névtelenítés",
     "customers.anonymized": "(névtelenített)",
-    "customers.confirm_anonymize": "Az ügyfél adatai névtelenítve lesznek (a rendelések megmaradnak).",
+    "customers.confirm_anonymize": (
+        "Az ügyfél adatai névtelenítve lesznek (a rendelések megmaradnak)."
+    ),
     # offers
     "offers.title": "Ajánlatok",
     "offers.new": "Új ajánlat",

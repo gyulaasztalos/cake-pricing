@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.db import get_session
 from app.i18n import t
 from app.models import Customer, Offer
+from app.routers._helpers import get_or_404
 from app.templating import templates
 
 router = APIRouter()
@@ -23,14 +24,15 @@ def list_customers(request: Request, q: str = "", session: Session = Depends(get
     if q:
         like = f"%{q.lower()}%"
         stmt = stmt.where(
-            func.lower(Customer.name).like(like) | func.lower(func.coalesce(Customer.contact, "")).like(like)
+            func.lower(Customer.name).like(like)
+            | func.lower(func.coalesce(Customer.contact, "")).like(like)
         )
     stmt = stmt.order_by(Customer.name)
     customers = list(session.scalars(stmt))
-    counts = dict(
+    counts: dict[int, int] = dict(
         session.execute(
             select(Offer.customer_id, func.count(Offer.id)).group_by(Offer.customer_id)
-        ).all()
+        ).tuples()
     )
     ctx = {"customers": customers, "counts": counts, "q": q, "active_nav": "customers"}
     tmpl = "customers/_rows.html" if request.headers.get("HX-Request") else "customers/list.html"
@@ -39,7 +41,7 @@ def list_customers(request: Request, q: str = "", session: Session = Depends(get
 
 @router.get("/customers/detail/{customer_id:int}", response_class=HTMLResponse)
 def customer_detail(customer_id: int, request: Request, session: Session = Depends(get_session)):
-    customer = session.get(Customer, customer_id)
+    customer = get_or_404(session, Customer, customer_id)
     offers = list(
         session.scalars(
             select(Offer).where(Offer.customer_id == customer_id).order_by(Offer.entry_date.desc())
@@ -79,13 +81,13 @@ def quick_new_create(
 @router.get("/customers/{customer_id:int}/edit", response_class=HTMLResponse)
 def edit_customer_form(customer_id: int, request: Request, session: Session = Depends(get_session)):
     return templates.TemplateResponse(
-        request, "customers/form.html", {"c": session.get(Customer, customer_id)}
+        request, "customers/form.html", {"c": get_or_404(session, Customer, customer_id)}
     )
 
 
 @router.get("/customers/{customer_id:int}/delete", response_class=HTMLResponse)
 def confirm_anonymize(customer_id: int, request: Request, session: Session = Depends(get_session)):
-    customer = session.get(Customer, customer_id)
+    customer = get_or_404(session, Customer, customer_id)
     return templates.TemplateResponse(
         request,
         "_confirm.html",
@@ -104,7 +106,9 @@ def create_customer(
     notes: str = Form(""),
     session: Session = Depends(get_session),
 ):
-    session.add(Customer(name=name.strip(), contact=contact.strip() or None, notes=notes.strip() or None))
+    session.add(
+        Customer(name=name.strip(), contact=contact.strip() or None, notes=notes.strip() or None)
+    )
     return RedirectResponse(url="/customers", status_code=303)
 
 
@@ -116,7 +120,7 @@ def update_customer(
     notes: str = Form(""),
     session: Session = Depends(get_session),
 ):
-    c = session.get(Customer, customer_id)
+    c = get_or_404(session, Customer, customer_id)
     c.name = name.strip()
     c.contact = contact.strip() or None
     c.notes = notes.strip() or None
@@ -126,7 +130,7 @@ def update_customer(
 @router.post("/customers/{customer_id:int}/anonymize")
 def anonymize_customer(customer_id: int, session: Session = Depends(get_session)):
     """Scrub PII, keep the row + its offers (§3.7). No hard delete."""
-    c = session.get(Customer, customer_id)
+    c = get_or_404(session, Customer, customer_id)
     c.name = t("customers.anonymized")
     c.contact = None
     c.notes = None

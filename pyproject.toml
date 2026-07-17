@@ -14,6 +14,7 @@ dependencies = [
     "python-multipart>=0.0.18",
     "babel>=2.16",
     "prometheus-fastapi-instrumentator>=7.0",
+    "defusedxml>=0.7",
 ]
 
 [dependency-groups]
@@ -22,6 +23,10 @@ dev = [
     "pytest>=8.3",
     "httpx>=0.28",
     "playwright>=1.49",
+    "mypy>=1.13",
+    "bandit>=1.8",
+    "pip-audit>=2.7",
+    "coverage>=7.6",
 ]
 
 [tool.uv]
@@ -30,6 +35,33 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py314"
+
+[tool.ruff.lint]
+# pyflakes, pycodestyle, isort, bugbear, comprehensions, pyupgrade, simplify,
+# implicit-str-concat, and security (S) rules.
+select = ["F", "E", "W", "I", "B", "C4", "UP", "SIM", "ISC", "S"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI dependency-injection idiom: Depends()/Form()/File() as call-in-default is
+# intentional and recommended by FastAPI, so exempt B008 for these.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Form", "fastapi.File", "fastapi.Query"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]  # asserts are expected in tests
+
+[tool.mypy]
+python_version = "3.14"
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+check_untyped_defs = true
+files = ["app"]
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv"]
+
+[tool.coverage.run]
+source = ["app"]
 
 [build-system]
 requires = ["hatchling"]

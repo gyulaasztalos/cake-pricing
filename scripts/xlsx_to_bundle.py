@@ -24,8 +24,11 @@ from __future__ import annotations
 import json
 import re
 import sys
-import xml.etree.ElementTree as ET
 import zipfile
+
+# defusedxml hardens stdlib ElementTree against XML entity/XXE attacks in a
+# potentially untrusted .xlsx. API is identical to xml.etree.ElementTree.
+import defusedxml.ElementTree as ET
 
 NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 

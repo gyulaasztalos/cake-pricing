@@ -13,6 +13,7 @@ building a not-yet-saved offer in the form).
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -29,6 +30,19 @@ def _round_huf(value: Decimal) -> Decimal:
     return value.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
 
 
+def pick_effective(rows: list[ComponentPrice], as_of: dt.datetime) -> ComponentPrice | None:
+    """From a component's price rows (ascending by effective_date), pick the one
+    effective on `as_of`, else fall back to the earliest (§3.4)."""
+    if not rows:
+        return None
+    for row in rows:
+        if row.effective_date <= as_of and (
+            row.expiration_date is None or as_of < row.expiration_date
+        ):
+            return row
+    return rows[0]
+
+
 @dataclass(frozen=True)
 class PricedLine:
     component_id: int
@@ -37,55 +51,49 @@ class PricedLine:
     used_fallback_price: bool
 
 
+def prices_for(
+    session: Session, component_ids: Iterable[int]
+) -> dict[int, list[ComponentPrice]]:
+    """Fetch all price rows for the given components in ONE query, grouped by
+    component_id and sorted ascending by effective_date. Avoids the N+1 that a
+    per-component lookup would cause on large offers / the components list."""
+    ids = list(dict.fromkeys(component_ids))  # de-dupe, keep order-independence
+    if not ids:
+        return {}
+    grouped: dict[int, list[ComponentPrice]] = {i: [] for i in ids}
+    for row in session.scalars(
+        select(ComponentPrice)
+        .where(ComponentPrice.component_id.in_(ids))
+        .order_by(ComponentPrice.component_id, ComponentPrice.effective_date.asc())
+    ):
+        grouped[row.component_id].append(row)
+    return grouped
+
+
 def effective_price(
     session: Session, component_id: int, as_of: dt.datetime
 ) -> ComponentPrice | None:
-    """The price row effective on `as_of`, else the earliest-known price (§3.4).
-
-    Mirrors the LATERAL in v_offer_line_cost: prefer the covering window,
-    otherwise fall back to the earliest effective_date. None only if the
-    component has no price rows at all.
-    """
-    rows = session.scalars(
-        select(ComponentPrice)
-        .where(ComponentPrice.component_id == component_id)
-        .order_by(ComponentPrice.effective_date.asc())
-    ).all()
-    if not rows:
-        return None
-    for row in rows:
-        starts_ok = row.effective_date <= as_of
-        ends_ok = row.expiration_date is None or as_of < row.expiration_date
-        if starts_ok and ends_ok:
-            return row
-    return rows[0]  # earliest-price fallback
+    """The price row effective on `as_of`, else the earliest-known price (§3.4)."""
+    return pick_effective(prices_for(session, [component_id]).get(component_id, []), as_of)
 
 
-def price_line(
-    session: Session, component_id: int, amount: Decimal, as_of: dt.datetime
+def price_from_rows(
+    rows: list[ComponentPrice], amount: Decimal, as_of: dt.datetime, component_id: int
 ) -> PricedLine:
-    """Price one prospective line: (amount / base_amount) * base_price, rounded."""
-    row = effective_price(session, component_id, as_of)
+    """Price one line from already-fetched price rows (no DB access)."""
+    row = pick_effective(rows, as_of)
     if row is None:
         return PricedLine(component_id, amount, ZERO, used_fallback_price=False)
     covers = row.effective_date <= as_of and (
         row.expiration_date is None or as_of < row.expiration_date
     )
     raw = (amount / row.base_amount) * row.base_price
-    return PricedLine(
-        component_id=component_id,
-        amount=amount,
-        line_price=_round_huf(raw),
-        used_fallback_price=not covers,
-    )
+    return PricedLine(component_id, amount, _round_huf(raw), used_fallback_price=not covers)
 
 
-def price_lines(
-    session: Session,
-    lines: list[tuple[int, Decimal]],
-    as_of: dt.datetime,
-) -> tuple[list[PricedLine], Decimal]:
-    """Price a set of (component_id, amount) lines; return (priced, total)."""
-    priced = [price_line(session, cid, amount, as_of) for cid, amount in lines]
-    total = _round_huf(sum((p.line_price for p in priced), ZERO))
-    return priced, total
+def price_line(
+    session: Session, component_id: int, amount: Decimal, as_of: dt.datetime
+) -> PricedLine:
+    """Price one prospective line: (amount / base_amount) * base_price, rounded."""
+    rows = prices_for(session, [component_id]).get(component_id, [])
+    return price_from_rows(rows, amount, as_of, component_id)

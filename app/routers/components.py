@@ -16,7 +16,8 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.db import get_session
 from app.models import Component, ComponentPrice, Group
-from app.services.pricing import effective_price
+from app.routers._helpers import get_or_404
+from app.services.pricing import pick_effective, prices_for
 from app.templating import templates
 
 router = APIRouter()
@@ -45,7 +46,9 @@ def list_components(
     stmt = stmt.order_by(Component.name)
     components = list(session.scalars(stmt))
     now = dt.datetime.now(dt.UTC)
-    prices = {c.id: effective_price(session, c.id, now) for c in components}
+    # One query for all prices, then pick the current row per component (no N+1).
+    price_rows = prices_for(session, [c.id for c in components])
+    prices = {c.id: pick_effective(price_rows.get(c.id, []), now) for c in components}
     ctx = {
         "components": components,
         "prices": prices,
@@ -61,7 +64,8 @@ def list_components(
 
 @router.get("/components/detail/{component_id:int}", response_class=HTMLResponse)
 def component_detail(component_id: int, request: Request, session: Session = Depends(get_session)):
-    component = session.get(Component, component_id)
+    component = get_or_404(session, Component, component_id)
+    # history is DESC by effective_date; pick_effective wants ASC → reverse once.
     history = list(
         session.scalars(
             select(ComponentPrice)
@@ -70,34 +74,49 @@ def component_detail(component_id: int, request: Request, session: Session = Dep
         )
     )
     now = dt.datetime.now(dt.UTC)
+    current = pick_effective(list(reversed(history)), now)
     return templates.TemplateResponse(
         request,
         "components/_detail.html",
-        {"c": component, "history": history, "current": effective_price(session, component_id, now)},
+        {"c": component, "history": history, "current": current},
     )
 
 
 @router.get("/components/new", response_class=HTMLResponse)
-def new_component_form(request: Request, group_id: int | None = None, session: Session = Depends(get_session)):
+def new_component_form(
+    request: Request, group_id: int | None = None, session: Session = Depends(get_session)
+):
     return templates.TemplateResponse(
-        request, "components/form.html", {"c": None, "groups": _groups(session), "preset_group": group_id}
+        request,
+        "components/form.html",
+        {"c": None, "groups": _groups(session), "preset_group": group_id},
     )
 
 
 @router.get("/components/{component_id:int}/edit", response_class=HTMLResponse)
-def edit_component_form(component_id: int, request: Request, session: Session = Depends(get_session)):
+def edit_component_form(
+    component_id: int, request: Request, session: Session = Depends(get_session)
+):
     return templates.TemplateResponse(
         request,
         "components/form.html",
-        {"c": session.get(Component, component_id), "groups": _groups(session), "preset_group": None},
+        {
+            "c": get_or_404(session, Component, component_id),
+            "groups": _groups(session),
+            "preset_group": None,
+        },
     )
 
 
 @router.get("/components/quick-new", response_class=HTMLResponse)
-def quick_new_form(request: Request, group_id: int | None = None, session: Session = Depends(get_session)):
+def quick_new_form(
+    request: Request, group_id: int | None = None, session: Session = Depends(get_session)
+):
     """Inline component-create dialog for the offer form (§UI §7)."""
     return templates.TemplateResponse(
-        request, "components/_quick_new.html", {"groups": _groups(session), "preset_group": group_id}
+        request,
+        "components/_quick_new.html",
+        {"groups": _groups(session), "preset_group": group_id},
     )
 
 
@@ -112,10 +131,14 @@ def quick_new_create(
     base_price: Decimal = Form(...),
     session: Session = Depends(get_session),
 ):
-    comp = Component(name=name.strip(), group_id=group_id, unit=unit.strip(), type=type, active=True)
+    comp = Component(
+        name=name.strip(), group_id=group_id, unit=unit.strip(), type=type, active=True
+    )
     session.add(comp)
     session.flush()
-    session.add(ComponentPrice(component_id=comp.id, base_amount=base_amount, base_price=base_price))
+    session.add(
+        ComponentPrice(component_id=comp.id, base_amount=base_amount, base_price=base_price)
+    )
     session.flush()
     # Return a tiny script that tells the offer form to select the new component.
     return templates.TemplateResponse(
@@ -159,7 +182,7 @@ def update_component(
     notes: str = Form(""),
     session: Session = Depends(get_session),
 ):
-    comp = session.get(Component, component_id)
+    comp = get_or_404(session, Component, component_id)
     comp.name = name.strip()
     comp.group_id = group_id
     comp.unit = unit.strip()

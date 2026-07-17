@@ -15,6 +15,7 @@ from app.config import settings
 from app.db import get_session
 from app.i18n import t
 from app.models import Component, Customer, Offer, Recipe, RecipeItem
+from app.routers._helpers import get_or_404
 from app.services import offers as offer_svc
 from app.templating import templates
 
@@ -80,7 +81,11 @@ def list_offers(
     session: Session = Depends(get_session),
 ):
     yr = int(year) if year.strip().isdigit() else None
-    stmt = select(Offer).options(selectinload(Offer.customer)).order_by(Offer.due_date.desc().nullslast(), Offer.id.desc())
+    stmt = (
+        select(Offer)
+        .options(selectinload(Offer.customer))
+        .order_by(Offer.due_date.desc().nullslast(), Offer.id.desc())
+    )
     if q.strip():
         like = f"%{q.strip().lower()}%"
         stmt = stmt.join(Customer).where(
@@ -105,7 +110,7 @@ def list_offers(
 
 @router.get("/offers/detail/{offer_id:int}", response_class=HTMLResponse)
 def offer_detail(offer_id: int, request: Request, session: Session = Depends(get_session)):
-    offer = session.get(Offer, offer_id)
+    offer = get_or_404(session, Offer, offer_id)
     pairs = offer_svc.load_offer_line_pairs(session, offer_id)
     group_vms, total = offer_svc.build_group_vms(session, pairs, offer.entry_date)
     return templates.TemplateResponse(
@@ -138,7 +143,7 @@ def new_offer_form(request: Request, session: Session = Depends(get_session)):
 
 @router.get("/offers/{offer_id:int}/edit", response_class=HTMLResponse)
 def edit_offer_form(offer_id: int, request: Request, session: Session = Depends(get_session)):
-    offer = session.get(Offer, offer_id)
+    offer = get_or_404(session, Offer, offer_id)
     pairs = offer_svc.load_offer_line_pairs(session, offer_id)
     ctx = _form_context(session, offer, pairs, offer.entry_date)
     return templates.TemplateResponse(request, "offers/form.html", ctx)
@@ -197,7 +202,7 @@ def update_offer(
     amount: list[str] = Form(default=[]),
     session: Session = Depends(get_session),
 ):
-    offer = session.get(Offer, offer_id)
+    offer = get_or_404(session, Offer, offer_id)
     offer.customer_id = customer_id
     offer.theme = theme.strip() or None
     offer.flavor = flavor.strip() or None
@@ -211,7 +216,7 @@ def update_offer(
 
 @router.get("/offers/{offer_id:int}/delete", response_class=HTMLResponse)
 def confirm_delete(offer_id: int, request: Request, session: Session = Depends(get_session)):
-    offer = session.get(Offer, offer_id)
+    offer = get_or_404(session, Offer, offer_id)
     label = f"{offer.customer.name} · {offer.theme or ''}"
     return templates.TemplateResponse(
         request, "_confirm.html",
@@ -223,7 +228,7 @@ def confirm_delete(offer_id: int, request: Request, session: Session = Depends(g
 @router.post("/offers/{offer_id:int}/delete")
 def delete_offer(offer_id: int, session: Session = Depends(get_session)):
     """Delete offer → cascades to its lines and stock movements (FK ON DELETE CASCADE)."""
-    session.delete(session.get(Offer, offer_id))
+    session.delete(get_or_404(session, Offer, offer_id))
     return RedirectResponse(url="/offers", status_code=303)
 
 
@@ -273,15 +278,19 @@ def save_as_template(
 # --- helpers -----------------------------------------------------------------
 
 def _parse_dt(value: str) -> dt.datetime:
+    """Parse an ISO datetime or YYYY-MM-DD date; assume UTC only when tz-naive
+    (never override an explicit offset)."""
     if not value:
         return dt.datetime.now(dt.UTC)
+    parsed: dt.datetime | None = None
     try:
-        return dt.datetime.fromisoformat(value).replace(tzinfo=dt.UTC)
+        parsed = dt.datetime.fromisoformat(value)
     except ValueError:
         try:
-            return dt.datetime.strptime(value, "%Y-%m-%d").replace(tzinfo=dt.UTC)
+            parsed = dt.datetime.strptime(value, "%Y-%m-%d")  # noqa: DTZ007 (naive → UTC below)
         except ValueError:
             return dt.datetime.now(dt.UTC)
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=dt.UTC)
 
 
 def _parse_decimal(value: str) -> Decimal | None:

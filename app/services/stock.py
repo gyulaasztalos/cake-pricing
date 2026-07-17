@@ -10,6 +10,7 @@ Warning-only at zero — never blocks (enforced here / in the UI, not the DB).
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from decimal import Decimal
 
 from sqlalchemy import delete, func, select
@@ -27,6 +28,22 @@ def on_hand(session: Session, component_id: int) -> Decimal:
         )
     )
     return Decimal(total or 0)
+
+
+def on_hand_for(session: Session, component_ids: Iterable[int]) -> dict[int, Decimal]:
+    """SUM(qty_delta) per component for many components in ONE query (avoids N+1)."""
+    ids = list(dict.fromkeys(component_ids))
+    if not ids:
+        return {}
+    rows = session.execute(
+        select(StockMovement.component_id, func.coalesce(func.sum(StockMovement.qty_delta), 0))
+        .where(StockMovement.component_id.in_(ids))
+        .group_by(StockMovement.component_id)
+    ).all()
+    result = dict.fromkeys(ids, ZERO)
+    for cid, total in rows:
+        result[cid] = Decimal(total or 0)
+    return result
 
 
 def record_delivery(session: Session, component_id: int, qty: Decimal) -> StockMovement:

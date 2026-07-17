@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_session
 from app.models import Group
+from app.routers._helpers import get_or_404
 from app.templating import templates
 
 router = APIRouter()
@@ -33,7 +34,7 @@ def new_group_form(request: Request):
 @router.get("/groups/{group_id:int}/edit", response_class=HTMLResponse)
 def edit_group_form(group_id: int, request: Request, session: Session = Depends(get_session)):
     return templates.TemplateResponse(
-        request, "groups/form.html", {"group": session.get(Group, group_id)}
+        request, "groups/form.html", {"group": get_or_404(session, Group, group_id)}
     )
 
 
@@ -45,6 +46,6 @@ def create_group(name: str = Form(...), session: Session = Depends(get_session))
 
 @router.post("/groups/{group_id:int}")
 def update_group(group_id: int, name: str = Form(...), session: Session = Depends(get_session)):
-    group = session.get(Group, group_id)
+    group = get_or_404(session, Group, group_id)
     group.name = name.strip()
     return RedirectResponse(url="/groups", status_code=303)

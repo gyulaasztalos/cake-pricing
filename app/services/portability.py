@@ -26,7 +26,7 @@ import json
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import delete, select, text
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -55,7 +55,6 @@ _ORDER = [
     ("recipe_items", RecipeItem),
     ("stock_movements", StockMovement),
 ]
-_BY_NAME = {name: model for name, model in _ORDER}
 
 
 def _to_jsonable(value: Any) -> Any:
@@ -73,7 +72,7 @@ def _row_to_dict(obj: Any) -> dict[str, Any]:
 def export_bundle(session: Session, exported_at: str | None = None) -> dict[str, Any]:
     tables: dict[str, list[dict]] = {}
     for name, model in _ORDER:
-        rows = session.scalars(select(model).order_by(model.id))
+        rows = session.scalars(select(model).order_by(model.__table__.c.id))
         tables[name] = [_row_to_dict(r) for r in rows]
     return {"schema_version": SCHEMA_VERSION, "exported_at": exported_at, "tables": tables}
 
@@ -102,7 +101,9 @@ def _coerce(model: Any, row: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def import_bundle(session: Session, bundle: dict[str, Any], *, replace: bool = True) -> dict[str, int]:
+def import_bundle(
+    session: Session, bundle: dict[str, Any], *, replace: bool = True
+) -> dict[str, int]:
     """Load a bundle. REPLACE mode wipes existing data first and preserves ids.
 
     Raises ValueError on unknown/newer schema_version.
@@ -114,7 +115,7 @@ def import_bundle(session: Session, bundle: dict[str, Any], *, replace: bool = T
 
     if replace:
         # Delete children-first (reverse dependency order).
-        for name, model in reversed(_ORDER):
+        for _name, model in reversed(_ORDER):
             session.execute(delete(model))
         session.flush()
 
@@ -127,14 +128,15 @@ def import_bundle(session: Session, bundle: dict[str, Any], *, replace: bool = T
         session.flush()
 
     # Realign IDENTITY sequences to MAX(id) so future inserts don't collide.
+    # Table name is bound as a PARAMETER to pg_get_serial_sequence (no SQL string
+    # interpolation), and MAX(id) is computed via the ORM.
     if replace:
-        for name, model in _ORDER:
-            session.execute(
-                text(
-                    f"SELECT setval(pg_get_serial_sequence('{model.__tablename__}', 'id'), "
-                    f"COALESCE((SELECT MAX(id) FROM {model.__tablename__}), 1))"
-                )
-            )
+        setval = text(
+            "SELECT setval(pg_get_serial_sequence(:tbl, 'id'), :maxid)"
+        )
+        for _name, model in _ORDER:
+            max_id = session.scalar(select(func.coalesce(func.max(model.__table__.c.id), 1)))
+            session.execute(setval, {"tbl": model.__tablename__, "maxid": max_id})
     return counts
 
 

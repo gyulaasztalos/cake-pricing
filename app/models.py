@@ -71,7 +71,7 @@ class Group(Base):
     entry_date: Mapped[dt.datetime] = _entry_date()
     update_date: Mapped[dt.datetime] = _update_date()
 
-    components: Mapped[list["Component"]] = relationship(back_populates="group")
+    components: Mapped[list[Component]] = relationship(back_populates="group")
 
 
 # --- COMPONENTS --------------------------------------------------------------
@@ -97,8 +97,8 @@ class Component(Base):
     entry_date: Mapped[dt.datetime] = _entry_date()
     update_date: Mapped[dt.datetime] = _update_date()
 
-    group: Mapped["Group"] = relationship(back_populates="components")
-    prices: Mapped[list["ComponentPrice"]] = relationship(back_populates="component")
+    group: Mapped[Group] = relationship(back_populates="components")
+    prices: Mapped[list[ComponentPrice]] = relationship(back_populates="component")
 
 
 # --- COMPONENT_PRICES (append-only, temporal) --------------------------------
@@ -143,7 +143,7 @@ class ComponentPrice(Base):
     expiration_date: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     entry_date: Mapped[dt.datetime] = _entry_date()
 
-    component: Mapped["Component"] = relationship(back_populates="prices")
+    component: Mapped[Component] = relationship(back_populates="prices")
 
     # Value CHECKs (base_amount > 0, base_price >= 0) are added in the migration;
     # kept out of __table_args__ to keep the model readable — see baseline.
@@ -165,7 +165,7 @@ class Customer(Base):
     entry_date: Mapped[dt.datetime] = _entry_date()
     update_date: Mapped[dt.datetime] = _update_date()
 
-    offers: Mapped[list["Offer"]] = relationship(back_populates="customer")
+    offers: Mapped[list[Offer]] = relationship(back_populates="customer")
 
 
 # --- OFFERS ------------------------------------------------------------------
@@ -195,8 +195,8 @@ class Offer(Base):
     entry_date: Mapped[dt.datetime] = _entry_date()
     update_date: Mapped[dt.datetime] = _update_date()
 
-    customer: Mapped["Customer"] = relationship(back_populates="offers")
-    components: Mapped[list["OfferComponent"]] = relationship(
+    customer: Mapped[Customer] = relationship(back_populates="offers")
+    components: Mapped[list[OfferComponent]] = relationship(
         back_populates="offer", cascade="all, delete-orphan", passive_deletes=True
     )
 
@@ -221,8 +221,8 @@ class OfferComponent(Base):
     entry_date: Mapped[dt.datetime] = _entry_date()
     update_date: Mapped[dt.datetime] = _update_date()
 
-    offer: Mapped["Offer"] = relationship(back_populates="components")
-    component: Mapped["Component"] = relationship()
+    offer: Mapped[Offer] = relationship(back_populates="components")
+    component: Mapped[Component] = relationship()
 
 
 # --- RECIPES / RECIPE_ITEMS (templates) --------------------------------------
@@ -236,7 +236,7 @@ class Recipe(Base):
     entry_date: Mapped[dt.datetime] = _entry_date()
     update_date: Mapped[dt.datetime] = _update_date()
 
-    items: Mapped[list["RecipeItem"]] = relationship(
+    items: Mapped[list[RecipeItem]] = relationship(
         back_populates="recipe", cascade="all, delete-orphan", passive_deletes=True
     )
 
@@ -256,8 +256,8 @@ class RecipeItem(Base):
     entry_date: Mapped[dt.datetime] = _entry_date()
     update_date: Mapped[dt.datetime] = _update_date()
 
-    recipe: Mapped["Recipe"] = relationship(back_populates="items")
-    component: Mapped["Component"] = relationship()
+    recipe: Mapped[Recipe] = relationship(back_populates="items")
+    component: Mapped[Component] = relationship()
 
 
 # --- STOCK_MOVEMENTS (append-only ledger) ------------------------------------
@@ -288,5 +288,5 @@ class StockMovement(Base):
     )
     entry_date: Mapped[dt.datetime] = _entry_date()
 
-    component: Mapped["Component"] = relationship()
-    offer: Mapped["Offer | None"] = relationship()
+    component: Mapped[Component] = relationship()
+    offer: Mapped[Offer | None] = relationship()

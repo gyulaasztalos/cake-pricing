@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models import Component, Group, Offer, OfferComponent
 from app.services import stock
-from app.services.pricing import price_line
+from app.services.pricing import price_from_rows, prices_for
 
 
 @dataclass
@@ -48,19 +48,27 @@ def build_group_vms(
     groups = list(session.scalars(select(Group).order_by(Group.name)))
     vms = {g.id: GroupVM(group=g) for g in groups}
     total = Decimal("0")
-    # preload components referenced
+
     comp_ids = [cid for cid, _ in line_pairs]
+    if not comp_ids:
+        return [vms[g.id] for g in groups], total
+
+    # Batch-load everything referenced (3 queries total, not N+1):
     comps = {
-        c.id: c
-        for c in session.scalars(select(Component).where(Component.id.in_(comp_ids)))
-    } if comp_ids else {}
+        c.id: c for c in session.scalars(select(Component).where(Component.id.in_(comp_ids)))
+    }
+    price_rows = prices_for(session, comp_ids)
+    stock_ids = [cid for cid in comp_ids if (c := comps.get(cid)) and c.type == "stock_item"]
+    on_hand = stock.on_hand_for(session, stock_ids)
+
     for cid, amount in line_pairs:
         comp = comps.get(cid)
         if comp is None:
             continue
-        priced = price_line(session, cid, amount, as_of)
+        priced = price_from_rows(price_rows.get(cid, []), amount, as_of, cid)
         is_stock = comp.type == "stock_item"
-        vms[comp.group_id].lines.append(
+        vm = vms[comp.group_id]
+        vm.lines.append(
             LineVM(
                 component_id=cid,
                 name=comp.name,
@@ -69,13 +77,12 @@ def build_group_vms(
                 line_price=priced.line_price,
                 used_fallback=priced.used_fallback_price,
                 is_stock=is_stock,
-                on_hand=stock.on_hand(session, cid) if is_stock else None,
+                on_hand=on_hand.get(cid) if is_stock else None,
             )
         )
-        vms[comp.group_id].subtotal += priced.line_price
+        vm.subtotal += priced.line_price
         total += priced.line_price
-    ordered = [vms[g.id] for g in groups]
-    return ordered, total
+    return [vms[g.id] for g in groups], total
 
 
 def save_offer_lines(session: Session, offer: Offer, line_pairs: list[tuple[int, Decimal]]) -> None:

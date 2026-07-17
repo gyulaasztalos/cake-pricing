@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as dt
 from decimal import Decimal
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi.templating import Jinja2Templates
 
@@ -12,6 +13,12 @@ from app.config import settings
 from app.i18n import t
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
+
+_LOCAL_TZ: ZoneInfo | None
+try:
+    _LOCAL_TZ = ZoneInfo("Europe/Budapest")
+except ZoneInfoNotFoundError:  # pragma: no cover - fallback if tzdata missing
+    _LOCAL_TZ = None
 
 
 def format_huf(value: Decimal | int | float | None) -> str:
@@ -29,14 +36,6 @@ def format_amount(value: Decimal | int | float | None) -> str:
     d = Decimal(str(value)).normalize()
     # avoid scientific notation for integers like 1E+3
     return format(d, "f")
-
-
-try:
-    from zoneinfo import ZoneInfo
-
-    _LOCAL_TZ = ZoneInfo("Europe/Budapest")
-except Exception:  # pragma: no cover - fallback if tzdata missing
-    _LOCAL_TZ = None
 
 
 def _to_local(value: dt.datetime) -> dt.datetime:
