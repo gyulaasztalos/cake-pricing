@@ -34,12 +34,22 @@ def _comps_by_group(session: Session) -> dict[int, list[Component]]:
 
 
 def _comps_json(comps_by_group: dict[int, list[Component]]) -> str:
-    """group_id -> [{id, name, unit}] for client-side new-line creation."""
-    return json.dumps(
+    """group_id -> [{id, name, unit}] for client-side new-line creation.
+
+    Embedded in a <script> block, so escape the sequences that could break out of
+    it (`<`, `>`, `&`, and `/` in `</script>`). Component names are user-supplied,
+    so this prevents stored XSS via a crafted name like `</script>...`.
+    """
+    payload = json.dumps(
         {
             gid: [{"id": c.id, "name": c.name, "unit": c.unit} for c in comps]
             for gid, comps in comps_by_group.items()
         }
+    )
+    return (
+        payload.replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
     )
 
 

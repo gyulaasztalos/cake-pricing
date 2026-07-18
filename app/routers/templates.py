@@ -32,7 +32,7 @@ def list_templates(request: Request, q: str = "", session: Session = Depends(get
     counts: dict[int, int] = dict(
         session.execute(
             select(RecipeItem.recipe_id, func.count(RecipeItem.id)).group_by(RecipeItem.recipe_id)
-        ).tuples()
+        ).tuples().all()
     )
     ctx = {"recipes": recipes, "counts": counts, "q": q, "active_nav": "templates"}
     name = "templates/_rows.html" if request.headers.get("HX-Request") else "templates/list.html"
