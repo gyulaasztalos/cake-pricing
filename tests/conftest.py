@@ -105,8 +105,8 @@ def live_server() -> Iterator[str]:
 
     port = _free_port()
     env = {**os.environ, "APP_ENV": "test"}
-    proc = subprocess.Popen(
-        ["uv", "run", "--no-sync", "uvicorn", "app.main:app", "--port", str(port)],
+    proc = subprocess.Popen(  # noqa: S603 — our own uv
+        ["uv", "run", "--no-sync", "uvicorn", "app.main:app", "--port", str(port)],  # noqa: S607
         env=env,
     )
     base = f"http://127.0.0.1:{port}"
@@ -138,9 +138,9 @@ def browser():
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as p:
-        # Explicit no-op proxy with localhost bypass so Chromium doesn't route
-        # 127.0.0.1 through a corporate $http_proxy.
-        b = p.chromium.launch(proxy={"server": "direct://"})
+        # --no-proxy-server: never route 127.0.0.1 through any proxy. (The old
+        # proxy={"server": "direct://"} errors on hosts WITHOUT a proxy.)
+        b = p.chromium.launch(args=["--no-proxy-server"])
         yield b
         b.close()
 

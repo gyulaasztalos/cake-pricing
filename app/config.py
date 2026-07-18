@@ -13,6 +13,8 @@ class Settings:
     anonymize_after_years: int = int(os.getenv("ANONYMIZE_AFTER_YEARS", "5"))
     # Amount stepper default step for gram/millilitre units (§ UI, unit-aware step).
     mass_volume_step: int = int(os.getenv("MASS_VOLUME_STEP", "10"))
+    # Bearer token for the customer-intake API (§8a). Empty = intake disabled.
+    intake_token: str = os.getenv("INTAKE_TOKEN", "")
 
 
 settings = Settings()

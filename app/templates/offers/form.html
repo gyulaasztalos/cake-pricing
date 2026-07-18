@@ -4,7 +4,13 @@
 {% block heading %}{{ t('offers.new') if not o else t('offers.edit') }}{% endblock %}
 {% block content %}
 <script src="/static/js/offer-form.js" defer></script>
-{% set as_of_val = (o.entry_date if o else as_of) %}
+{% set as_of_val = (o.entry_date if o and o.entry_date else as_of) %}
+{% if o and o.source == 'external' %}
+<p class="cp-muted" style="border-left:3px solid var(--pico-primary);padding-left:.6rem">
+  ✉ {{ t('offers.external') }} — {{ t('offers.request_date') }}: {{ o.request_date|datetime }}
+  {% if not o.entry_date %} · {{ t('offers.entry_date') }}: {{ t('offers.entry_date_unset') }}{% endif %}
+</p>
+{% endif %}
 <form method="post" action="{{ '/offers' if not o else '/offers/' ~ o.id }}" id="offer-form">
   <input type="hidden" name="entry_date" value="{{ as_of_val.isoformat() }}">
 

@@ -2,6 +2,7 @@
   <p class="cp-muted">
     {{ t('offers.status') }}: {{ t('offers.status.' ~ o.status) }} ·
     {{ t('offers.entry_date') }}: {{ o.entry_date|date }} ·
+    {% if o.source == 'external' %}{{ t('offers.request_date') }}: {{ o.request_date|date }} ·{% endif %}
     {{ t('offers.due_date') }}: {{ o.due_date|date }}
   </p>
   {% for gvm in group_vms %}

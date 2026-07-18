@@ -52,7 +52,9 @@ def seeded():
     comp = Component(name="Smoke Liszt", group_id=group.id, unit="g", type="ingredient")
     s.add(comp)
     s.flush()
-    s.add(ComponentPrice(component_id=comp.id, base_amount=Decimal("1000"), base_price=Decimal("200")))
+    s.add(
+        ComponentPrice(component_id=comp.id, base_amount=Decimal("1000"), base_price=Decimal("200"))
+    )
     cust = Customer(name="Smoke Ügyfél")
     s.add(cust)
     s.flush()

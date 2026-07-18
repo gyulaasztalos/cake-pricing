@@ -103,13 +103,22 @@ def list_offers(
             | func.lower(func.coalesce(Offer.flavor, "")).like(like)
             | func.lower(Customer.name).like(like)
         )
+    # External drafts have no entry_date until priced — bucket them by their
+    # request year so the year filter (and the dropdown) still covers them.
+    pricing_year = extract("year", func.coalesce(Offer.entry_date, Offer.request_date))
     if status.strip():
         stmt = stmt.where(Offer.status == status)
     if yr:
-        stmt = stmt.where(extract("year", Offer.entry_date) == yr)
+        stmt = stmt.where(pricing_year == yr)
     offers = list(session.scalars(stmt))
-    year_col = extract("year", Offer.entry_date)
-    years = list(session.scalars(select(year_col).distinct().order_by(year_col)))
+    years = list(
+        session.scalars(
+            select(pricing_year)
+            .where(pricing_year.is_not(None))
+            .distinct()
+            .order_by(pricing_year)
+        )
+    )
     ctx = {
         "offers": offers, "q": q, "status": status, "year": yr,
         "statuses": STATUSES, "years": [int(y) for y in years], "active_nav": "offers",
@@ -122,7 +131,8 @@ def list_offers(
 def offer_detail(offer_id: int, request: Request, session: Session = Depends(get_session)):
     offer = get_or_404(session, Offer, offer_id)
     pairs = offer_svc.load_offer_line_pairs(session, offer_id)
-    group_vms, total = offer_svc.build_group_vms(session, pairs, offer.entry_date)
+    as_of = offer.entry_date or dt.datetime.now(dt.UTC)
+    group_vms, total = offer_svc.build_group_vms(session, pairs, as_of)
     return templates.TemplateResponse(
         request, "offers/_detail.html",
         {"o": offer, "group_vms": group_vms, "total": total, "statuses": STATUSES},
@@ -155,7 +165,10 @@ def new_offer_form(request: Request, session: Session = Depends(get_session)):
 def edit_offer_form(offer_id: int, request: Request, session: Session = Depends(get_session)):
     offer = get_or_404(session, Offer, offer_id)
     pairs = offer_svc.load_offer_line_pairs(session, offer_id)
-    ctx = _form_context(session, offer, pairs, offer.entry_date)
+    # Unpriced external draft: preview at today's prices — saving will set
+    # entry_date to "now", so what she sees is what she gets (§8a).
+    as_of = offer.entry_date or dt.datetime.now(dt.UTC)
+    ctx = _form_context(session, offer, pairs, as_of)
     return templates.TemplateResponse(request, "offers/form.html", ctx)
 
 
@@ -219,7 +232,10 @@ def update_offer(
     offer.due_date = _parse_dt(due_date) if due_date else None
     offer.status = status
     offer.final_price = _parse_decimal(final_price)
-    # entry_date deliberately NOT modified (immutable pricing date, §3.4).
+    # entry_date is immutable ONCE SET (§3.4). External drafts arrive without
+    # one (§8a) — the chef's first save prices the offer as of that moment.
+    if offer.entry_date is None:
+        offer.entry_date = dt.datetime.now(dt.UTC)
     offer_svc.save_offer_lines(session, offer, _parse_lines(component_id, amount))
     return RedirectResponse(url="/offers", status_code=303)
 

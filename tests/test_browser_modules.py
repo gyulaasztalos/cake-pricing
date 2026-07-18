@@ -143,7 +143,9 @@ def test_offer_delete_via_modal(page: Page, clean_db, seed_component):
     page.wait_for_selector("#cp-modal input[name=name]", state="visible")
     page.fill("#cp-modal input[name=name]", "Törlendő Ügyfél")
     page.click("#cp-modal button[type=submit]")
-    expect(page.locator("#customer-select option:checked")).to_have_text("Törlendő Ügyfél", timeout=8000)
+    expect(page.locator("#customer-select option:checked")).to_have_text(
+        "Törlendő Ügyfél", timeout=8000
+    )
     page.click("button[type=submit]:has-text('Mentés')")
     expect(page.locator(".cp-list")).to_contain_text("Törlendő Ügyfél")
 

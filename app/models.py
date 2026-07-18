@@ -177,6 +177,10 @@ class Offer(Base):
             "status IN ('draft', 'sent', 'accepted', 'rejected', 'done')",
             name="offers_status_check",
         ),
+        CheckConstraint(
+            "source IN ('internal', 'external')",
+            name="offers_source_check",
+        ),
         Index("idx_offers_customer", "customer_id"),
         Index("idx_offers_entry", "entry_date"),
     )
@@ -188,11 +192,19 @@ class Offer(Base):
     due_date: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     theme: Mapped[str | None] = mapped_column(Text)
     flavor: Mapped[str | None] = mapped_column(Text)
+    portions: Mapped[int | None] = mapped_column(Integer)  # Szelet (customer intake)
     final_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'draft'"))
     notes: Mapped[str | None] = mapped_column(Text)
-    # entry_date is the pricing reference date (§3.0) — immutable in the app layer.
-    entry_date: Mapped[dt.datetime] = _entry_date()
+    # Intake provenance (§8a): 'external' = came from the public cake-order app.
+    source: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'internal'"))
+    # When the customer submitted the request (external offers only).
+    request_date: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    # entry_date is the pricing reference date (§3.0) — immutable once set.
+    # NULL for external drafts until the chef first saves (prices) them (§8a).
+    entry_date: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
     update_date: Mapped[dt.datetime] = _update_date()
 
     customer: Mapped[Customer] = relationship(back_populates="offers")
