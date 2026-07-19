@@ -7,7 +7,7 @@ import json
 from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 from sqlalchemy import extract, func, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -15,7 +15,7 @@ from app.config import settings
 from app.db import get_session
 from app.i18n import t
 from app.models import Component, Customer, Offer, Recipe, RecipeItem
-from app.routers._helpers import get_or_404
+from app.routers._helpers import get_or_404, see_other
 from app.services import offers as offer_svc
 from app.templating import templates
 
@@ -209,7 +209,7 @@ def create_offer(
     session.add(offer)
     session.flush()
     offer_svc.save_offer_lines(session, offer, _parse_lines(component_id, amount))
-    return RedirectResponse(url="/offers", status_code=303)
+    return see_other(session, "/offers")
 
 
 @router.post("/offers/{offer_id:int}")
@@ -237,7 +237,7 @@ def update_offer(
     if offer.entry_date is None:
         offer.entry_date = dt.datetime.now(dt.UTC)
     offer_svc.save_offer_lines(session, offer, _parse_lines(component_id, amount))
-    return RedirectResponse(url="/offers", status_code=303)
+    return see_other(session, "/offers")
 
 
 @router.get("/offers/{offer_id:int}/delete", response_class=HTMLResponse)
@@ -255,7 +255,7 @@ def confirm_delete(offer_id: int, request: Request, session: Session = Depends(g
 def delete_offer(offer_id: int, session: Session = Depends(get_session)):
     """Delete offer → cascades to its lines and stock movements (FK ON DELETE CASCADE)."""
     session.delete(get_or_404(session, Offer, offer_id))
-    return RedirectResponse(url="/offers", status_code=303)
+    return see_other(session, "/offers")
 
 
 # --- templates on the offer form --------------------------------------------
@@ -298,7 +298,7 @@ def save_as_template(
     session.flush()
     for cid, amt in _parse_lines(component_id, amount):
         session.add(RecipeItem(recipe_id=recipe.id, component_id=cid, amount=amt))
-    return RedirectResponse(url="/templates", status_code=303)
+    return see_other(session, "/templates")
 
 
 # --- helpers -----------------------------------------------------------------

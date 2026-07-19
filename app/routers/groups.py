@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_session
 from app.models import Group
-from app.routers._helpers import get_or_404
+from app.routers._helpers import get_or_404, see_other
 from app.templating import templates
 
 router = APIRouter()
@@ -41,11 +41,11 @@ def edit_group_form(group_id: int, request: Request, session: Session = Depends(
 @router.post("/groups")
 def create_group(name: str = Form(...), session: Session = Depends(get_session)):
     session.add(Group(name=name.strip()))
-    return RedirectResponse(url="/groups", status_code=303)
+    return see_other(session, "/groups")
 
 
 @router.post("/groups/{group_id:int}")
 def update_group(group_id: int, name: str = Form(...), session: Session = Depends(get_session)):
     group = get_or_404(session, Group, group_id)
     group.name = name.strip()
-    return RedirectResponse(url="/groups", status_code=303)
+    return see_other(session, "/groups")

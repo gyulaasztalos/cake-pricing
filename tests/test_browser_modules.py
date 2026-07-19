@@ -140,8 +140,9 @@ def test_templates_edit_and_delete(page: Page, clean_db, seed_component):
 
     cid = seed_component("Liszt", "Piskóta", "g", "ingredient", "1000", "200")
     s = SessionLocal()
-    from app.models import RecipeItem
     from decimal import Decimal
+
+    from app.models import RecipeItem
     r = Recipe(name="12 szeletes teszt")
     s.add(r)
     s.flush()

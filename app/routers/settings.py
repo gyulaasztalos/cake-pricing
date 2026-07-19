@@ -5,10 +5,11 @@ from __future__ import annotations
 import datetime as dt
 
 from fastapi import APIRouter, Depends, File, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
 from app.db import get_session
+from app.routers._helpers import see_other
 from app.services import portability
 from app.templating import templates
 
@@ -36,4 +37,4 @@ def export_data(session: Session = Depends(get_session)):
 async def import_data(file: UploadFile = File(...), session: Session = Depends(get_session)):
     raw = (await file.read()).decode("utf-8")
     portability.import_json(session, raw, replace=True)
-    return RedirectResponse(url="/settings", status_code=303)
+    return see_other(session, "/settings")

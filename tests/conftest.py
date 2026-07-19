@@ -124,7 +124,8 @@ def live_server() -> Iterator[str]:
     # health probe (and the browser) would route 127.0.0.1 through the proxy.
     client = httpx.Client(trust_env=False, timeout=0.5)
     try:
-        for _ in range(100):
+        # ~30s budget: a cold uvicorn import can be slow under host load.
+        for _ in range(300):
             if proc.poll() is not None:
                 raise RuntimeError("uvicorn exited during startup")
             try:

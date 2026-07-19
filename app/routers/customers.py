@@ -5,14 +5,14 @@ from __future__ import annotations
 import datetime as dt
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db import get_session
 from app.i18n import t
 from app.models import Customer, Offer
-from app.routers._helpers import get_or_404
+from app.routers._helpers import get_or_404, see_other
 from app.templating import templates
 
 router = APIRouter()
@@ -109,7 +109,7 @@ def create_customer(
     session.add(
         Customer(name=name.strip(), contact=contact.strip() or None, notes=notes.strip() or None)
     )
-    return RedirectResponse(url="/customers", status_code=303)
+    return see_other(session, "/customers")
 
 
 @router.post("/customers/{customer_id:int}")
@@ -124,7 +124,7 @@ def update_customer(
     c.name = name.strip()
     c.contact = contact.strip() or None
     c.notes = notes.strip() or None
-    return RedirectResponse(url="/customers", status_code=303)
+    return see_other(session, "/customers")
 
 
 @router.post("/customers/{customer_id:int}/anonymize")
@@ -135,4 +135,4 @@ def anonymize_customer(customer_id: int, session: Session = Depends(get_session)
     c.contact = None
     c.notes = None
     c.anonymized_at = dt.datetime.now(dt.UTC)
-    return RedirectResponse(url="/customers", status_code=303)
+    return see_other(session, "/customers")

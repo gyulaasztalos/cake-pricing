@@ -10,12 +10,13 @@ from __future__ import annotations
 from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.db import get_session
 from app.models import Component, StockMovement
+from app.routers._helpers import see_other
 from app.services import stock
 from app.templating import templates
 
@@ -86,9 +87,9 @@ def receive(
     try:
         amount = Decimal(qty)
     except InvalidOperation:
-        return RedirectResponse(url="/inventory", status_code=303)
+        return see_other(session, "/inventory")
     if reason == "correction":
         stock.record_correction(session, component_id, amount)
     else:
         stock.record_delivery(session, component_id, amount)
-    return RedirectResponse(url="/inventory", status_code=303)
+    return see_other(session, "/inventory")

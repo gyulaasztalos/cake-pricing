@@ -10,13 +10,13 @@ import datetime as dt
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.db import get_session
 from app.models import Component, ComponentPrice, Group
-from app.routers._helpers import get_or_404
+from app.routers._helpers import get_or_404, see_other
 from app.services.pricing import pick_effective, prices_for
 from app.templating import templates
 
@@ -168,7 +168,7 @@ def create_component(
     session.add(
         ComponentPrice(component_id=comp.id, base_amount=base_amount, base_price=base_price)
     )
-    return RedirectResponse(url="/components", status_code=303)
+    return see_other(session, "/components")
 
 
 @router.post("/components/{component_id:int}")
@@ -189,7 +189,7 @@ def update_component(
     comp.type = type
     comp.active = active
     comp.notes = notes.strip() or None
-    return RedirectResponse(url="/components", status_code=303)
+    return see_other(session, "/components")
 
 
 @router.post("/components/{component_id:int}/price")
@@ -220,4 +220,4 @@ def change_price(
             effective_date=now,
         )
     )
-    return RedirectResponse(url="/components", status_code=303)
+    return see_other(session, "/components")
