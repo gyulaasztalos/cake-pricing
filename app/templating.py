@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi.templating import Jinja2Templates
 
+from app import __version__
 from app.config import settings
 from app.i18n import t
 
@@ -64,6 +65,7 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 templates.env.globals["t"] = t
 templates.env.globals["locale"] = settings.default_locale
 templates.env.globals["app_env"] = settings.app_env
+templates.env.globals["version"] = __version__
 templates.env.filters["huf"] = format_huf
 templates.env.filters["amount"] = format_amount
 templates.env.filters["date"] = format_date

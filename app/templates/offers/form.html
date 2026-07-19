@@ -36,7 +36,10 @@
     </div>
     <div class="grid">
       <label>{{ t('offers.due_date') }}
-        <input type="date" name="due_date" value="{{ o.due_date.strftime('%Y-%m-%d') if o and o.due_date else '' }}">
+        {# lang="hu" pins the displayed date format to Hungarian (YYYY. MM. DD.)
+           regardless of the browser/OS locale — type=date follows the input's
+           own lang, not the page. #}
+        <input type="date" lang="hu" name="due_date" value="{{ o.due_date.strftime('%Y-%m-%d') if o and o.due_date else '' }}">
       </label>
       <span></span>
     </div>

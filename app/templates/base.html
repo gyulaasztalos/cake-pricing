@@ -5,7 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{{ t('app.title') }}{% endblock %}</title>
   <link rel="stylesheet" href="/static/vendor/pico.min.css">
-  <link rel="stylesheet" href="/static/css/app.css">
+  <link rel="stylesheet" href="/static/vendor/dancing-script.css?v={{ version }}">
+  <link rel="stylesheet" href="/static/css/app.css?v={{ version }}">
+  <link rel="icon" href="/static/img/favicon-32.png" type="image/png">
+  <link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png">
   <script src="/static/vendor/htmx.min.js" defer></script>
   <script src="/static/vendor/lucide.min.js" defer></script>
 </head>

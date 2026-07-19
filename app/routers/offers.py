@@ -8,7 +8,7 @@ from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse
-from sqlalchemy import extract, func, select
+from sqlalchemy import extract, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.config import settings
@@ -91,10 +91,13 @@ def list_offers(
     session: Session = Depends(get_session),
 ):
     yr = int(year) if year.strip().isdigit() else None
+    # Newest first by creation date: entry_date for internal offers, request_date
+    # for still-unpriced external drafts; id as a stable tiebreak.
+    created = func.coalesce(Offer.entry_date, Offer.request_date)
     stmt = (
         select(Offer)
         .options(selectinload(Offer.customer))
-        .order_by(Offer.due_date.desc().nullslast(), Offer.id.desc())
+        .order_by(created.desc().nullslast(), Offer.id.desc())
     )
     if q.strip():
         like = f"%{q.strip().lower()}%"
@@ -141,9 +144,29 @@ def offer_detail(offer_id: int, request: Request, session: Session = Depends(get
 
 # --- form (create/edit) ------------------------------------------------------
 
+def _default_offer_lines(session: Session) -> list[tuple[int, Decimal]]:
+    """Lines every new offer starts with: the base-cost service components
+    (Munkadíj, Rezsi+amortizáció) at amount 1 each (§3.2)."""
+    ids = session.scalars(
+        select(Component.id)
+        .where(Component.type == "service", Component.active.is_(True))
+        .order_by(Component.name)
+    )
+    return [(cid, Decimal("1")) for cid in ids]
+
+
 def _form_context(session: Session, offer: Offer | None, pairs, as_of) -> dict:
     group_vms, total = offer_svc.build_group_vms(session, pairs, as_of)
-    customers = list(session.scalars(select(Customer).order_by(Customer.name)))
+    # Exclude anonymized customers from the picker — but keep the one already on
+    # this offer selectable so editing an old offer doesn't lose its customer.
+    current = offer.customer_id if offer else None
+    customers = list(
+        session.scalars(
+            select(Customer)
+            .where(or_(Customer.anonymized_at.is_(None), Customer.id == current))
+            .order_by(Customer.name)
+        )
+    )
     recipes = list(session.scalars(select(Recipe).order_by(Recipe.name)))
     ctx = _sections_ctx(session, group_vms, total)
     ctx.update(
@@ -157,7 +180,7 @@ def _form_context(session: Session, offer: Offer | None, pairs, as_of) -> dict:
 
 @router.get("/offers/new", response_class=HTMLResponse)
 def new_offer_form(request: Request, session: Session = Depends(get_session)):
-    ctx = _form_context(session, None, [], dt.datetime.now(dt.UTC))
+    ctx = _form_context(session, None, _default_offer_lines(session), dt.datetime.now(dt.UTC))
     return templates.TemplateResponse(request, "offers/form.html", ctx)
 
 

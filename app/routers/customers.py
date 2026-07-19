@@ -131,7 +131,7 @@ def update_customer(
 def anonymize_customer(customer_id: int, session: Session = Depends(get_session)):
     """Scrub PII, keep the row + its offers (§3.7). No hard delete."""
     c = get_or_404(session, Customer, customer_id)
-    c.name = t("customers.anonymized")
+    c.name = f"Anon{c.id}"  # stable, unique, PII-free label
     c.contact = None
     c.notes = None
     c.anonymized_at = dt.datetime.now(dt.UTC)

@@ -13,7 +13,14 @@
         {% endfor %}
       </select>
     </label>
-    <label>{{ t('components.unit') }} <input name="unit" value="{{ c.unit if c else 'db' }}"></label>
+    <label>{{ t('components.unit') }}
+      <select name="unit">
+        {% set cur_unit = c.unit if c else 'db' %}
+        {% for u in ['g', 'ml', 'db'] %}
+        <option value="{{ u }}" {{ 'selected' if cur_unit == u }}>{{ u }}</option>
+        {% endfor %}
+      </select>
+    </label>
   </div>
   <label>{{ t('components.type') }}
     <select name="type">

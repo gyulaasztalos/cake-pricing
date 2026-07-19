@@ -72,7 +72,6 @@ HU: dict[str, str] = {
     "customers.order_count": "rendelés",
     "customers.past_orders": "Korábbi rendelések",
     "customers.anonymize": "Névtelenítés",
-    "customers.anonymized": "(névtelenített)",
     "customers.confirm_anonymize": (
         "Az ügyfél adatai névtelenítve lesznek (a rendelések megmaradnak)."
     ),
@@ -84,7 +83,7 @@ HU: dict[str, str] = {
     "offers.theme": "Téma",
     "offers.flavor": "Íz",
     "offers.due_date": "Határidő",
-    "offers.entry_date": "Belépés",
+    "offers.entry_date": "Létrehozva",
     "offers.entry_date_hint": "nem módosítható — árazás dátuma",
     "offers.external": "külső ajánlatkérés",
     "offers.notes": "Megjegyzés",
@@ -134,6 +133,8 @@ HU: dict[str, str] = {
     "settings.import": "Visszatöltés (Import)",
     "settings.export_hint": "A teljes adatbázis letöltése egy fájlba (JSON).",
     "settings.import_hint": "Korábban exportált fájl visszatöltése.",
+    "settings.about": "Névjegy",
+    "settings.version": "Verzió",
     # empty states
     "empty.no_results": "Nincs találat.",
 }

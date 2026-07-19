@@ -17,4 +17,9 @@
     <button type="submit">{{ m.icon('upload') }} {{ t('settings.import') }}</button>
   </form>
 </article>
+
+<article>
+  <header><strong>{{ t('settings.about') }}</strong></header>
+  <p class="cp-muted">{{ t('settings.version') }}: <code>{{ version }}</code></p>
+</article>
 {% endblock %}

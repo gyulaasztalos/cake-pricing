@@ -8,6 +8,7 @@ Each test starts from a clean DB (only seed groups) and drives the real UI.
 from __future__ import annotations
 
 import os
+import re
 
 import pytest
 from playwright.sync_api import Page, expect
@@ -73,7 +74,7 @@ def test_components_create_edit_price(page: Page, clean_db):
         page.click("text=Új összetevő")
     page.fill("input[name=name]", "Teszt Liszt")
     page.select_option("select[name=group_id]", label="Piskóta")
-    page.fill("input[name=unit]", "g")
+    page.select_option("select[name=unit]", "g")
     page.fill("input[name=base_amount]", "1000")
     page.fill("input[name=base_price]", "200")
     _submit(page)
@@ -115,7 +116,9 @@ def test_customers_create_edit_anonymize(page: Page, clean_db):
     dialog = page.locator("#cp-modal")
     expect(dialog).to_be_visible()
     _submit(page, "#cp-modal button[type=submit]")
-    expect(page.locator(".cp-list")).to_contain_text("névtelenített")
+    # PII scrubbed → the name becomes the stable "Anon<id>" label.
+    expect(page.locator(".cp-list")).not_to_contain_text("Kovács Anna")
+    expect(page.locator(".cp-list")).to_contain_text(re.compile(r"Anon\d+"))
 
 
 # --- Inventory ----------------------------------------------------------------

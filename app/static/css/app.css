@@ -1,9 +1,48 @@
-/* cake-pricing app styles — layered on Pico.css. Responsive; desktop-first. */
+/* cake-pricing app styles — layered on Pico.css. Responsive; desktop-first.
+ * Shares the Anita Tortái "manufaktúra" palette with the customer app:
+ * cream canvas, dusty-rose accent, Dancing Script brand. */
 
 :root {
   --cp-sidebar-w: 15rem;
   --cp-sidebar-w-collapsed: 3.5rem;
+
+  --co-cream: #FBF6F1;
+  --co-shell: #FFFFFF;
+  --co-blush: #F7E8E6;
+  --co-rose: #B76E79;
+  --co-rose-dark: #9A5560;
+  --co-cocoa: #4A3B3B;
+  --co-cocoa-soft: #8A7373;
+  --co-line: #EBD9D6;
+  --co-script: "Dancing Script", "Snell Roundhand", cursive;
+
+  --pico-border-radius: 10px;
 }
+
+/* Pico's [data-theme=light] block outranks :root vars — restate at the same
+ * specificity so the rose theme wins. */
+[data-theme="light"],
+:root:not([data-theme="dark"]) {
+  --pico-background-color: var(--co-cream);
+  --pico-color: var(--co-cocoa);
+  --pico-primary: var(--co-rose);
+  --pico-primary-background: var(--co-rose);
+  --pico-primary-border: var(--co-rose);
+  --pico-primary-hover: var(--co-rose-dark);
+  --pico-primary-hover-background: var(--co-rose-dark);
+  --pico-primary-hover-border: var(--co-rose-dark);
+  --pico-primary-underline: var(--co-rose);
+  --pico-primary-focus: color-mix(in srgb, var(--co-rose) 40%, transparent);
+  --pico-primary-inverse: #FFF9F6;
+  --pico-card-background-color: var(--co-shell);
+  --pico-card-sectioning-background-color: var(--co-blush);
+  --pico-muted-border-color: var(--co-line);
+  --pico-secondary-background: var(--co-blush);
+}
+
+body { background: var(--co-cream); }
+
+.cp-topbar h1 { font-family: var(--co-script); font-weight: 700; color: var(--co-rose); }
 
 /* ---- Layout: sidebar + main ---------------------------------------------- */
 .cp-shell { display: flex; min-height: 100vh; }
@@ -21,7 +60,9 @@
   transition: width .15s ease, flex-basis .15s ease;
 }
 .cp-sidebar__logo { padding: 1rem; text-align: center; border-bottom: 1px solid var(--pico-muted-border-color); }
-.cp-sidebar__logo img { max-width: 100%; height: auto; }
+.cp-sidebar__logo a { display: flex; flex-direction: column; align-items: center; gap: .3rem; text-decoration: none; }
+.cp-sidebar__logo img { max-width: 72px; height: auto; border-radius: 50%; }
+.cp-sidebar__logo .cp-logo-text { font-family: var(--co-script); font-weight: 700; font-size: 1.5rem; color: var(--co-rose); line-height: 1; }
 .cp-nav { list-style: none; margin: 0; padding: .5rem 0; flex: 1 1 auto; overflow-y: auto; }
 .cp-nav li { margin: 0; }
 .cp-nav a {
@@ -53,6 +94,12 @@
   .cp-shell.is-drawer-open .cp-sidebar { transform: translateX(0); }
   .cp-hamburger { display: inline-flex; }
   .cp-main { padding: 1rem; }
+
+  /* Narrow screens: the customer name would otherwise wrap character-by-character
+     and blow up row height. Let the row wrap into lines — name on line 1, the
+     rest (theme/flavor/date/price/actions) on line 2. */
+  .cp-list__summary { flex-wrap: wrap; gap: .25rem .75rem; }
+  .cp-list__summary > .cp-grow { flex-basis: 100%; }
 }
 
 /* ---- Lists --------------------------------------------------------------- */
@@ -77,11 +124,27 @@
 .cp-line { display: flex; align-items: center; gap: .5rem; padding: .25rem 0; flex-wrap: wrap; }
 .cp-line select { flex: 1 1 12rem; margin: 0; }
 .cp-line .cp-amount { width: 6rem; margin: 0; text-align: right; }
+/* Hide the browser's native number spinners — the custom stepper is enough. */
+.cp-line .cp-amount::-webkit-inner-spin-button,
+.cp-line .cp-amount::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.cp-line .cp-amount { -moz-appearance: textfield; appearance: textfield; }
 .cp-line .cp-stepper { display: flex; flex-direction: column; }
 .cp-line .cp-stepper button { padding: 0 .4rem; line-height: 1; margin: 0; }
 .cp-line .cp-line-cost { min-width: 6rem; text-align: right; font-variant-numeric: tabular-nums; }
 .cp-line .cp-unit { min-width: 2rem; color: var(--pico-muted-color); }
 .cp-offer-footer { display: flex; justify-content: flex-end; gap: 2rem; align-items: baseline; padding: .75rem 0; border-top: 2px solid var(--pico-muted-border-color); margin-top: 1rem; }
-.cp-form-actions { display: flex; justify-content: space-between; margin-top: 1rem; }
+/* Cancel (left) + Save (right), matched to the same size: equal min-width and
+   identical button box so they read as a pair. */
+.cp-form-actions { display: flex; justify-content: space-between; gap: 1rem; margin-top: 1rem; }
+.cp-form-actions > a,
+.cp-form-actions > button {
+  /* width:auto overrides Pico's full-width form buttons so both stay 9rem. */
+  width: auto;
+  min-width: 9rem;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 
 .is-disabled, [disabled] { opacity: .6; }
