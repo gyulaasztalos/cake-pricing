@@ -40,6 +40,10 @@
       </label>
       <span></span>
     </div>
+    <label>{{ t('offers.notes') }}
+      {% if o and o.source == 'external' %}<small class="cp-muted">— {{ t('offers.notes_from_customer') }}</small>{% endif %}
+      <textarea name="notes" rows="4">{{ o.notes if o and o.notes else '' }}</textarea>
+    </label>
   </fieldset>
 
   <div style="display:flex;gap:.5rem;margin:.5rem 0">

@@ -90,6 +90,32 @@ def test_intake_dedup_does_not_substring_match(clean_db, token):
     assert r1.json()["customer_id"] != r2.json()["customer_id"]
 
 
+def test_customer_description_shown_on_edit_form_as_notes(clean_db, token):
+    # The customer's free-text description lands in offer.notes and must be
+    # visible/editable on the pricing (edit) form.
+    ids = client.post("/api/intake/offers", json=PAYLOAD, headers=token).json()
+    r = client.get(f"/offers/{ids['offer_id']}/edit")
+    assert r.status_code == 200
+    assert 'name="notes"' in r.text
+    assert "epres torta" in r.text  # PAYLOAD description
+    assert "az ügyfél leírása" in r.text  # "customer's description" hint
+
+    # Editing notes persists.
+    client.post(
+        f"/offers/{ids['offer_id']}",
+        data={"customer_id": str(ids["customer_id"]), "status": "draft", "notes": "Chef jegyzet"},
+        follow_redirects=False,
+    )
+    from app.db import SessionLocal
+    from app.models import Offer
+
+    s = SessionLocal()
+    try:
+        assert s.get(Offer, ids["offer_id"]).notes == "Chef jegyzet"
+    finally:
+        s.close()
+
+
 def test_offer_list_renders_with_unpriced_external_draft(clean_db, token):
     # Regression: NULL entry_date crashed the year-filter dropdown (int(None)).
     client.post("/api/intake/offers", json=PAYLOAD, headers=token)

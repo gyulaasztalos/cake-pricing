@@ -197,6 +197,7 @@ def create_offer(
     due_date: str = Form(""),
     status: str = Form("draft"),
     final_price: str = Form(""),
+    notes: str = Form(""),
     component_id: list[str] = Form(default=[]),
     amount: list[str] = Form(default=[]),
     session: Session = Depends(get_session),
@@ -204,7 +205,7 @@ def create_offer(
     offer = Offer(
         customer_id=customer_id, theme=theme.strip() or None, flavor=flavor.strip() or None,
         due_date=_parse_dt(due_date) if due_date else None, status=status,
-        final_price=_parse_decimal(final_price),
+        final_price=_parse_decimal(final_price), notes=notes.strip() or None,
     )
     session.add(offer)
     session.flush()
@@ -221,6 +222,7 @@ def update_offer(
     due_date: str = Form(""),
     status: str = Form("draft"),
     final_price: str = Form(""),
+    notes: str = Form(""),
     component_id: list[str] = Form(default=[]),
     amount: list[str] = Form(default=[]),
     session: Session = Depends(get_session),
@@ -232,6 +234,7 @@ def update_offer(
     offer.due_date = _parse_dt(due_date) if due_date else None
     offer.status = status
     offer.final_price = _parse_decimal(final_price)
+    offer.notes = notes.strip() or None
     # entry_date is immutable ONCE SET (§3.4). External drafts arrive without
     # one (§8a) — the chef's first save prices the offer as of that moment.
     if offer.entry_date is None:

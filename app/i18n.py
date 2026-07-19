@@ -87,6 +87,8 @@ HU: dict[str, str] = {
     "offers.entry_date": "Belépés",
     "offers.entry_date_hint": "nem módosítható — árazás dátuma",
     "offers.external": "külső ajánlatkérés",
+    "offers.notes": "Megjegyzés",
+    "offers.notes_from_customer": "az ügyfél leírása",
     "offers.unpriced": "árazatlan",
     "offers.request_date": "Beérkezett",
     "offers.entry_date_unset": "az első mentéskor rögzül",
