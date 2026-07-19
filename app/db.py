@@ -12,6 +12,7 @@ from collections.abc import Iterator
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import NullPool
 
 
 def _database_url() -> str:
@@ -31,13 +32,15 @@ def _database_url() -> str:
 
 # pool_pre_ping guards against stale connections (CNPG failover, idle drops).
 # Small pool — this is a 1–2 user app on an rPi cluster.
-engine = create_engine(
-    _database_url(),
-    pool_pre_ping=True,
-    pool_size=5,
-    max_overflow=5,
-    future=True,
+# In tests (APP_ENV=test) use NullPool: browser tests reset the DB out-of-band
+# between cases, and a persistent pool can otherwise serve a stale MVCC snapshot
+# from a connection that opened its transaction before the reset.
+_pool_kwargs: dict = (
+    {"poolclass": NullPool}
+    if os.getenv("APP_ENV") == "test"
+    else {"pool_pre_ping": True, "pool_size": 5, "max_overflow": 5}
 )
+engine = create_engine(_database_url(), future=True, **_pool_kwargs)
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False, class_=Session)
 

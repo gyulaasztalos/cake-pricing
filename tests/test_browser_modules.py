@@ -17,20 +17,51 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+def _submit(page: Page, selector: str = "button[type=submit]", *, to: str | None = None) -> None:
+    """Click a full-page form submit and wait for the POST→303→GET to land.
+
+    run_and_wait_for the final list navigation catches the whole redirect chain;
+    `to` (a URL glob) pins the expected destination when given.
+    """
+    if to:
+        with page.expect_navigation(url=to):
+            page.click(selector)
+    else:
+        with page.expect_navigation():
+            page.click(selector)
+
+
+def _fill(page: Page, selector: str, value: str) -> None:
+    """Fill an input and assert the value stuck (guards against focus/timing races
+    on autofocused, prefilled edit forms)."""
+    field = page.locator(selector)
+    field.click()
+    field.fill(value)
+    expect(field).to_have_value(value)
+
+
+def _search(page: Page, value: str) -> None:
+    """Type into a search box so the HTMX `keyup` trigger actually fires
+    (page.fill sets the value without emitting keyup)."""
+    box = page.locator("input[name=q]")
+    box.click()
+    box.press_sequentially(value)
+
+
 # --- Groups ------------------------------------------------------------------
 
 def test_groups_create_and_edit(page: Page, clean_db):
     page.goto("/groups")
     page.click("text=Új csoport")
+    page.wait_for_url("**/groups/new")
     page.fill("input[name=name]", "Tesztcsoport")
-    page.click("button[type=submit]")
-    expect(page.locator("table")).to_contain_text("Tesztcsoport")  # list refreshed
+    _submit(page, to="**/groups")
+    expect(page.locator("table")).to_contain_text("Tesztcsoport")
 
-    # edit it
-    row = page.locator("tr", has_text="Tesztcsoport")
-    row.locator("a[href$='/edit']").click()
-    page.fill("input[name=name]", "Átnevezett")
-    page.click("button[type=submit]")
+    page.locator("tr", has_text="Tesztcsoport").locator("a[href$='/edit']").click()
+    page.wait_for_url("**/edit")
+    _fill(page, "input[name=name]", "Átnevezett")
+    _submit(page, to="**/groups")
     expect(page.locator("table")).to_contain_text("Átnevezett")
 
 
@@ -38,23 +69,23 @@ def test_groups_create_and_edit(page: Page, clean_db):
 
 def test_components_create_edit_price(page: Page, clean_db):
     page.goto("/components")
-    page.click("text=Új összetevő")
+    with page.expect_navigation():
+        page.click("text=Új összetevő")
     page.fill("input[name=name]", "Teszt Liszt")
     page.select_option("select[name=group_id]", label="Piskóta")
     page.fill("input[name=unit]", "g")
     page.fill("input[name=base_amount]", "1000")
     page.fill("input[name=base_price]", "200")
-    page.click("button[type=submit]")
+    _submit(page)
     expect(page.locator(".cp-list")).to_contain_text("Teszt Liszt")
 
-    # expand detail → change price (real button, not text)
+    # expand detail (HTMX) → change price via the real button
     page.click("text=Teszt Liszt")
     detail = page.locator(".cp-list__detail:visible")
     expect(detail).to_contain_text("Ártörténet")
     detail.locator("button", has_text="Ár módosítása").click()
     detail.locator("input[name=base_price]").fill("250")
-    detail.locator("button[type=submit]").click()
-    # after redirect the list shows the new current price
+    _submit(page, ".cp-list__detail:visible button[type=submit]")
     expect(page.locator(".cp-list")).to_contain_text("250")
 
 
@@ -62,8 +93,7 @@ def test_components_search_without_group_filter(page: Page, clean_db, seed_compo
     seed_component("Keresett", "Piskóta", "g", "ingredient", "1000", "100")
     seed_component("Másik", "Töltelék", "g", "ingredient", "1000", "100")
     page.goto("/components")
-    page.fill("input[name=q]", "Keresett")
-    # HTMX live filter without choosing a group (the 422 regression guard)
+    _search(page, "Keresett")  # HTMX live filter (keyup), no group chosen
     expect(page.locator("#cp-rows")).to_contain_text("Keresett")
     expect(page.locator("#cp-rows")).not_to_contain_text("Másik")
 
@@ -72,18 +102,19 @@ def test_components_search_without_group_filter(page: Page, clean_db, seed_compo
 
 def test_customers_create_edit_anonymize(page: Page, clean_db):
     page.goto("/customers")
-    page.click("text=Új ügyfél")
+    with page.expect_navigation():
+        page.click("text=Új ügyfél")
     page.fill("input[name=name]", "Kovács Anna")
     page.fill("input[name=contact]", "+3630")
-    page.click("button[type=submit]")
+    _submit(page)
     expect(page.locator(".cp-list")).to_contain_text("Kovács Anna")
 
     # anonymize via confirm modal
     row = page.locator(".cp-list__row", has_text="Kovács Anna")
-    row.locator("button[title]", has_text="").last.click()  # bin button opens modal
+    row.get_by_title("Törlés").click()
     dialog = page.locator("#cp-modal")
     expect(dialog).to_be_visible()
-    dialog.locator("button[type=submit]").click()
+    _submit(page, "#cp-modal button[type=submit]")
     expect(page.locator(".cp-list")).to_contain_text("névtelenített")
 
 
@@ -93,66 +124,90 @@ def test_inventory_receive_delivery(page: Page, clean_db, seed_component):
     seed_component("29x29 Doboz", "Doboz", "db", "stock_item", "1", "300")
     page.goto("/inventory")
     expect(page.locator("#cp-rows")).to_contain_text("29x29 Doboz")
-    page.click("text=Bevételezés")
+    with page.expect_navigation():
+        page.click("text=Bevételezés")
     page.select_option("select[name=component_id]", label="29x29 Doboz (db)")
     page.fill("input[name=qty]", "50")
-    page.click("button[type=submit]")
-    # back on the list, stock shows 50
-    row = page.locator(".cp-list__row", has_text="29x29 Doboz")
-    expect(row).to_contain_text("50")
+    _submit(page)
+    expect(page.locator(".cp-list__row", has_text="29x29 Doboz")).to_contain_text("50")
 
 
-# --- Offer (full flow: inline customer, two groups, template, save) ----------
+# --- Templates ----------------------------------------------------------------
+
+def test_templates_edit_and_delete(page: Page, clean_db, seed_component):
+    from app.db import SessionLocal
+    from app.models import Recipe
+
+    cid = seed_component("Liszt", "Piskóta", "g", "ingredient", "1000", "200")
+    s = SessionLocal()
+    from app.models import RecipeItem
+    from decimal import Decimal
+    r = Recipe(name="12 szeletes teszt")
+    s.add(r)
+    s.flush()
+    s.add(RecipeItem(recipe_id=r.id, component_id=cid, amount=Decimal("500")))
+    s.commit()
+    s.close()
+
+    page.goto("/templates")
+    expect(page.locator(".cp-list")).to_contain_text("12 szeletes teszt")
+    page.locator(".cp-list__row", has_text="12 szeletes teszt").locator("a[href$='/edit']").click()
+    page.wait_for_url("**/edit")
+    page.fill("input[name=name]", "16 szeletes teszt")
+    _submit(page)
+    expect(page.locator(".cp-list")).to_contain_text("16 szeletes teszt")
+
+    # delete via modal
+    row = page.locator(".cp-list__row", has_text="16 szeletes teszt")
+    row.get_by_title("Törlés").click()
+    expect(page.locator("#cp-modal")).to_be_visible()
+    _submit(page, "#cp-modal button[type=submit]")
+    expect(page.locator(".cp-list")).not_to_contain_text("16 szeletes teszt")
+
+
+# --- Offer (full flow: inline customer, live recalc, save) -------------------
+
+def _add_inline_customer(page: Page, name: str) -> None:
+    page.select_option("#customer-select", "__new__")
+    page.wait_for_selector("#cp-modal input[name=name]", state="visible")
+    page.fill("#cp-modal input[name=name]", name)
+    page.click("#cp-modal button[type=submit]")
+    expect(page.locator("#customer-select option:checked")).to_have_text(name, timeout=8000)
+
 
 def test_offer_full_flow(page: Page, clean_db, seed_component):
     seed_component("Liszt", "Piskóta", "g", "ingredient", "1000", "200")
-    seed_component("Mascarpone", "Töltelék", "g", "ingredient", "250", "700")
 
     page.goto("/offers/new")
-    # inline new customer
-    page.select_option("#customer-select", "__new__")
-    page.wait_for_selector("#cp-modal input[name=name]", state="visible")
-    page.fill("#cp-modal input[name=name]", "Nagy Béla")
-    page.click("#cp-modal button[type=submit]")
-    expect(page.locator("#customer-select option:checked")).to_have_text("Nagy Béla", timeout=8000)
-
+    _add_inline_customer(page, "Nagy Béla")
     page.fill("input[name=theme]", "Szülinap")
 
-    # add a Piskóta line: Liszt 1000 g → 200 Ft
-    pis = page.locator('.cp-group', has=page.locator('text="Piskóta"')).first
+    pis = page.locator(".cp-group", has=page.locator('text="Piskóta"')).first
     pis.locator("button.cp-add-line").click()
-    line = pis.locator(".cp-lines .cp-line").first
-    line.locator("select[name=component_id]").select_option(label="Liszt")
+    pis.locator(".cp-lines .cp-line").first.locator("select[name=component_id]").select_option(
+        label="Liszt"
+    )
     page.wait_for_timeout(1000)
-    pis = page.locator('.cp-group', has=page.locator('text="Piskóta"')).first
-    pis.locator(".cp-lines .cp-line").first.locator("input[name=amount]").fill("1000")
-    pis.locator(".cp-lines .cp-line").first.locator("input[name=amount]").dispatch_event("change")
+    pis = page.locator(".cp-group", has=page.locator('text="Piskóta"')).first
+    amount = pis.locator(".cp-lines .cp-line").first.locator("input[name=amount]")
+    amount.fill("1000")
+    amount.dispatch_event("change")
     expect(page.locator("#calc-total")).to_have_text("200 Ft", timeout=8000)
 
-    # final price + save
     page.fill("input[name=final_price]", "5000")
-    page.click("button[type=submit]:has-text('Mentés')")
-    expect(page.locator(".cp-list")).to_contain_text("Nagy Béla")  # offers list refreshed
+    _submit(page, "button[type=submit]:has-text('Mentés')")
+    expect(page.locator(".cp-list")).to_contain_text("Nagy Béla")
 
 
 def test_offer_delete_via_modal(page: Page, clean_db, seed_component):
-    # create an offer through the API-less path: use the UI quickly
     seed_component("Liszt", "Piskóta", "g", "ingredient", "1000", "200")
     page.goto("/offers/new")
-    page.select_option("#customer-select", "__new__")
-    page.wait_for_selector("#cp-modal input[name=name]", state="visible")
-    page.fill("#cp-modal input[name=name]", "Törlendő Ügyfél")
-    page.click("#cp-modal button[type=submit]")
-    expect(page.locator("#customer-select option:checked")).to_have_text(
-        "Törlendő Ügyfél", timeout=8000
-    )
-    page.click("button[type=submit]:has-text('Mentés')")
+    _add_inline_customer(page, "Törlendő Ügyfél")
+    _submit(page, "button[type=submit]:has-text('Mentés')")
     expect(page.locator(".cp-list")).to_contain_text("Törlendő Ügyfél")
 
-    # expand row, delete via modal
     row = page.locator(".cp-list__row", has_text="Törlendő Ügyfél")
-    row.locator("button[hx-get$='/delete']").click()
-    dialog = page.locator("#cp-modal")
-    expect(dialog).to_be_visible()
-    dialog.locator("button[type=submit]").click()
+    row.get_by_title("Törlés").click()
+    expect(page.locator("#cp-modal")).to_be_visible()
+    _submit(page, "#cp-modal button[type=submit]")
     expect(page.locator(".cp-list")).not_to_contain_text("Törlendő Ügyfél")

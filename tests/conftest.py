@@ -18,9 +18,11 @@ import contextlib
 import os
 import socket
 import subprocess
+import sys
 import time
 from collections.abc import Iterator
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
@@ -97,16 +99,24 @@ def _free_port() -> int:
         return sock.getsockname()[1]
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def live_server() -> Iterator[str]:
+    # Function-scoped: a pristine server per test so no pooled connection carries
+    # a transaction/snapshot across the per-test DB reset (deterministic > fast
+    # for a handful of browser tests).
     if not HAS_DB:
         pytest.skip("requires DATABASE_URL")
     import httpx
 
     port = _free_port()
     env = {**os.environ, "APP_ENV": "test"}
-    proc = subprocess.Popen(  # noqa: S603 — our own uv
-        ["uv", "run", "--no-sync", "uvicorn", "app.main:app", "--port", str(port)],  # noqa: S607
+    # Launch uvicorn from the venv directly. Going through `uv run` spawns an
+    # extra parent process; terminating it can orphan the real server and, more
+    # importantly, its writes did not settle reliably in testing. The venv binary
+    # is the actual server process we manage.
+    uvicorn_bin = Path(sys.executable).parent / "uvicorn"
+    proc = subprocess.Popen(  # noqa: S603
+        [str(uvicorn_bin), "app.main:app", "--port", str(port)],
         env=env,
     )
     base = f"http://127.0.0.1:{port}"
@@ -146,7 +156,8 @@ def browser():
 
 
 @pytest.fixture
-def page(browser, live_server):
+def page(browser, clean_db, live_server):
+    # clean_db before live_server: the server starts against a freshly reset DB.
     context = browser.new_context(base_url=live_server)
     pg = context.new_page()
     yield pg

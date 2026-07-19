@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -26,6 +26,18 @@ from app.routers import (
 )
 
 app = FastAPI(title="cake-pricing", version=__version__)
+
+
+@app.middleware("http")
+async def no_store_dynamic(request: Request, call_next):
+    """Dynamic pages must never be cached — otherwise a post-create/edit redirect
+    can render a stale list from the browser cache. Static assets (/static) keep
+    their default caching."""
+    response = await call_next(request)
+    if not request.url.path.startswith("/static"):
+        response.headers.setdefault("Cache-Control", "no-store")
+    return response
+
 
 Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
