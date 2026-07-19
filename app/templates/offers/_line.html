@@ -7,6 +7,12 @@
     {% for c in comps %}
     <option value="{{ c.id }}" data-unit="{{ c.unit }}" {{ 'selected' if sel == c.id }}>{{ c.name }}</option>
     {% endfor %}
+    {# Preserve an existing line whose component was later deactivated: it's not
+       in `comps` (active-only), so add it explicitly or the empty option would
+       silently drop the line on save (§3.7: disabling never breaks past offers). #}
+    {% if sel and not (comps | selectattr('id', 'equalto', sel) | list) %}
+    <option value="{{ sel }}" data-unit="{{ unit or '' }}" selected>{{ selname }} ({{ t('common.inactive') }})</option>
+    {% endif %}
   </select>
   <input class="cp-amount" type="number" step="0.001" min="0" name="amount"
          value="{{ amt if amt is not none else 1 }}" onchange="cpRecalc()" onkeyup="cpDebouncedRecalc()">

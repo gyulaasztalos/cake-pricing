@@ -45,7 +45,8 @@ def build_group_vms(
     Every group is represented (even empty ones) so the form shows all sections
     (empty groups visible — UI decision). Lines keep input order within a group.
     """
-    groups = list(session.scalars(select(Group).order_by(Group.name)))
+    # Section order follows sort_order (§3.1), matching the components list.
+    groups = list(session.scalars(select(Group).order_by(Group.sort_order, Group.name)))
     vms = {g.id: GroupVM(group=g) for g in groups}
     total = Decimal("0")
 

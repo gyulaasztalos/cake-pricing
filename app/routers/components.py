@@ -139,7 +139,10 @@ def quick_new_create(
     session.add(
         ComponentPrice(component_id=comp.id, base_amount=base_amount, base_price=base_price)
     )
-    session.flush()
+    # Commit before returning the id: the offer form immediately selects this
+    # component and can submit an offer referencing it, so it must be durable
+    # now — not only in get_session's post-yield teardown (cf. _helpers.see_other).
+    session.commit()
     # Return a tiny script that tells the offer form to select the new component.
     return templates.TemplateResponse(
         request, "components/_quick_created.html",

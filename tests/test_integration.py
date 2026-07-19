@@ -172,3 +172,41 @@ def test_portability_preserves_null_entry_date(session):
     entry = session.scalar(text("select entry_date from offers"))
     assert entry is None  # still unpriced after the round-trip
     session.rollback()
+
+
+def test_edit_form_preserves_line_of_deactivated_component(session):
+    """Ship-blocker regression: an offer line whose component was later
+    deactivated must stay selectable on the edit form, or saving would silently
+    drop it (§3.7 — disabling never breaks past offers)."""
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+    from app.models import Component, ComponentPrice, Customer, Group, Offer, OfferComponent
+
+    _clean(session)
+    g = Group(name="Doboz", sort_order=60)
+    session.add(g)
+    session.flush()
+    c = Component(name="29x29 Doboz", group_id=g.id, unit="db", type="stock_item", active=True)
+    session.add(c)
+    session.flush()
+    session.add(
+        ComponentPrice(component_id=c.id, base_amount=Decimal("1"), base_price=Decimal("300"))
+    )
+    cust = Customer(name="Teszt")
+    session.add(cust)
+    session.flush()
+    offer = Offer(customer_id=cust.id, status="draft")
+    session.add(offer)
+    session.flush()
+    session.add(OfferComponent(offer_id=offer.id, component_id=c.id, amount=Decimal("2")))
+    c.active = False  # deactivate AFTER it's used on the offer
+    session.commit()
+
+    r = TestClient(app).get(f"/offers/{offer.id}/edit")
+    assert r.status_code == 200
+    # The deactivated component is rendered as a selected option, so the line
+    # is not lost on the next save.
+    assert f'value="{c.id}"' in r.text
+    assert "29x29 Doboz" in r.text
+    assert "inaktív" in r.text  # flagged as inactive

@@ -14,6 +14,10 @@
       <select name="component_id">
         <option value="">—</option>
         {% for c in components %}<option value="{{ c.id }}" {{ 'selected' if it.component_id == c.id }}>{{ c.name }}</option>{% endfor %}
+        {# Keep a deactivated component selectable so editing doesn't drop the line. #}
+        {% if it.component_id and not (components | selectattr('id', 'equalto', it.component_id) | list) %}
+        <option value="{{ it.component_id }}" selected>{{ it.component.name }} ({{ t('common.inactive') }})</option>
+        {% endif %}
       </select>
       <input class="cp-amount" type="number" step="0.001" min="0" name="amount" value="{{ it.amount|amount }}">
       <button type="button" class="outline secondary" onclick="this.closest('.cp-line').remove()">{{ m.icon('trash-2') }}</button>

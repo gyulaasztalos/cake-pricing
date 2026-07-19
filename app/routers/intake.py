@@ -45,8 +45,11 @@ class IntakeOffer(BaseModel):
 def _require_token(authorization: str | None = Header(None)) -> None:
     if not settings.intake_token:
         raise HTTPException(status_code=503, detail="intake disabled")
-    expected = f"Bearer {settings.intake_token}"
-    if not (authorization and hmac.compare_digest(authorization, expected)):
+    expected = f"Bearer {settings.intake_token}".encode()
+    # Compare as bytes: hmac.compare_digest raises TypeError on non-ASCII str,
+    # which would surface as a 500 instead of a clean 401.
+    got = authorization.encode("utf-8", "ignore") if authorization else b""
+    if not hmac.compare_digest(got, expected):
         raise HTTPException(status_code=401, detail="invalid token")
 
 
@@ -99,6 +102,10 @@ def create_intake_offer(
         entry_date=null(),
     )
     session.add(offer)
-    session.flush()
+    # Commit before returning: the 201 acknowledges the write to cake-order,
+    # which then marks its order 'forwarded'. Relying on get_session's post-yield
+    # commit would let a teardown failure lose the offer after cake-order already
+    # believes it succeeded (same durability rule as _helpers.see_other).
+    session.commit()
     logger.info("intake offer %s for customer %s", offer.id, customer.id)
     return {"offer_id": offer.id, "customer_id": customer.id}

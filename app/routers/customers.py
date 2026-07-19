@@ -42,9 +42,14 @@ def list_customers(request: Request, q: str = "", session: Session = Depends(get
 @router.get("/customers/detail/{customer_id:int}", response_class=HTMLResponse)
 def customer_detail(customer_id: int, request: Request, session: Session = Depends(get_session)):
     customer = get_or_404(session, Customer, customer_id)
+    # Newest first by creation date (entry_date, or request_date for unpriced
+    # external drafts), matching the main offers list ordering.
+    created = func.coalesce(Offer.entry_date, Offer.request_date)
     offers = list(
         session.scalars(
-            select(Offer).where(Offer.customer_id == customer_id).order_by(Offer.entry_date.desc())
+            select(Offer)
+            .where(Offer.customer_id == customer_id)
+            .order_by(created.desc().nullslast(), Offer.id.desc())
         )
     )
     return templates.TemplateResponse(
@@ -72,7 +77,9 @@ def quick_new_create(
 ):
     c = Customer(name=name.strip(), contact=contact.strip() or None)
     session.add(c)
-    session.flush()
+    # Commit before returning the id — the offer form selects and may submit
+    # against it right away, so it must be durable now (cf. _helpers.see_other).
+    session.commit()
     return templates.TemplateResponse(
         request, "customers/_quick_created.html", {"id": c.id, "name": c.name}
     )

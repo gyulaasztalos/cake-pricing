@@ -91,9 +91,13 @@ def list_offers(
     session: Session = Depends(get_session),
 ):
     yr = int(year) if year.strip().isdigit() else None
-    # Newest first by creation date: entry_date for internal offers, request_date
-    # for still-unpriced external drafts; id as a stable tiebreak.
+    # Creation date: entry_date for internal offers, request_date for still-
+    # unpriced external drafts. Drives both the newest-first order and the year
+    # filter/dropdown (so external drafts are covered before they are priced).
     created = func.coalesce(Offer.entry_date, Offer.request_date)
+    # Year in the chef's timezone, not the container's UTC — otherwise an offer
+    # created just after Budapest New Year is filed under the previous year.
+    created_year = extract("year", func.timezone("Europe/Budapest", created))
     stmt = (
         select(Offer)
         .options(selectinload(Offer.customer))
@@ -106,20 +110,17 @@ def list_offers(
             | func.lower(func.coalesce(Offer.flavor, "")).like(like)
             | func.lower(Customer.name).like(like)
         )
-    # External drafts have no entry_date until priced — bucket them by their
-    # request year so the year filter (and the dropdown) still covers them.
-    pricing_year = extract("year", func.coalesce(Offer.entry_date, Offer.request_date))
     if status.strip():
         stmt = stmt.where(Offer.status == status)
     if yr:
-        stmt = stmt.where(pricing_year == yr)
+        stmt = stmt.where(created_year == yr)
     offers = list(session.scalars(stmt))
     years = list(
         session.scalars(
-            select(pricing_year)
-            .where(pricing_year.is_not(None))
+            select(created_year)
+            .where(created_year.is_not(None))
             .distinct()
-            .order_by(pricing_year)
+            .order_by(created_year)
         )
     )
     ctx = {

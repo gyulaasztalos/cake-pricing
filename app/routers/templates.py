@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
@@ -39,23 +39,26 @@ def list_templates(request: Request, q: str = "", session: Session = Depends(get
     return tmpl.TemplateResponse(request, name, ctx)
 
 
+def _load_recipe(session: Session, recipe_id: int) -> Recipe:
+    recipe = session.scalars(
+        select(Recipe)
+        .where(Recipe.id == recipe_id)
+        .options(selectinload(Recipe.items).selectinload(RecipeItem.component))
+    ).first()
+    if recipe is None:
+        raise HTTPException(status_code=404, detail=f"Recipe {recipe_id} not found")
+    return recipe
+
+
 @router.get("/templates/detail/{recipe_id:int}", response_class=HTMLResponse)
 def template_detail(recipe_id: int, request: Request, session: Session = Depends(get_session)):
-    recipe = session.scalars(
-        select(Recipe).where(Recipe.id == recipe_id).options(
-            selectinload(Recipe.items).selectinload(RecipeItem.component)
-        )
-    ).first()
+    recipe = _load_recipe(session, recipe_id)
     return tmpl.TemplateResponse(request, "templates/_detail.html", {"r": recipe})
 
 
 @router.get("/templates/{recipe_id:int}/edit", response_class=HTMLResponse)
 def edit_template_form(recipe_id: int, request: Request, session: Session = Depends(get_session)):
-    recipe = session.scalars(
-        select(Recipe).where(Recipe.id == recipe_id).options(
-            selectinload(Recipe.items).selectinload(RecipeItem.component)
-        )
-    ).first()
+    recipe = _load_recipe(session, recipe_id)
     components = list(
         session.scalars(
             select(Component).where(Component.active.is_(True)).order_by(Component.name)
