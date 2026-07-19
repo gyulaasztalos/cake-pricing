@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}{{ t('stats.title') }} · {{ t('app.title') }}{% endblock %}
+{% block heading %}{{ t('stats.title') }}{% endblock %}
+{% block topbar_actions %}
+  <form method="get" action="/stats" style="margin:0">
+    <select name="year" onchange="this.form.submit()" aria-label="{{ t('stats.title') }}">
+      <option value="" {{ 'selected' if s.year is none }}>{{ t('stats.all_years') }}</option>
+      {% for y in s.years %}
+        <option value="{{ y }}" {{ 'selected' if s.year == y }}>{{ y }}</option>
+      {% endfor %}
+    </select>
+  </form>
+{% endblock %}
+{% block content %}
+  <p class="cp-muted">
+    {% if s.year is none %}{{ t('stats.scope.all') }}{% else %}{{ t('stats.scope.year', year=s.year) }}{% endif %}
+  </p>
+
+  {% if s.kpis.total == 0 %}
+    <article><p class="cp-muted">{{ t('stats.empty') }}</p></article>
+  {% else %}
+    <div class="cp-kpis">
+      <div class="cp-kpi">
+        <p class="cp-kpi__label">{{ t('stats.kpi.offers') }}</p>
+        <p class="cp-kpi__value">{{ s.kpis.total }}</p>
+        <p class="cp-kpi__sub">{{ s.kpis.drafts }} {{ t('stats.kpi.drafts') | lower }}</p>
+      </div>
+      <div class="cp-kpi">
+        <p class="cp-kpi__label">{{ t('stats.kpi.winrate') }}</p>
+        <p class="cp-kpi__value">{{ (s.kpis.win_rate * 100) | round(0) | int }}%</p>
+        <p class="cp-kpi__sub">{{ s.kpis.won }} / {{ s.kpis.sent_out }} · {{ t('stats.kpi.winrate_hint') }}</p>
+      </div>
+      <div class="cp-kpi">
+        <p class="cp-kpi__label">{{ t('stats.kpi.revenue') }}</p>
+        <p class="cp-kpi__value">{{ s.kpis.revenue | huf }}</p>
+        <p class="cp-kpi__sub">{{ t('stats.kpi.avg') }}: {{ s.kpis.avg_offer | huf }}</p>
+      </div>
+      <div class="cp-kpi">
+        <p class="cp-kpi__label">{{ t('stats.kpi.margin') }}</p>
+        <p class="cp-kpi__value">{{ s.kpis.margin | huf }}</p>
+        <p class="cp-kpi__sub">{{ (s.kpis.margin_pct * 100) | round(0) | int }}% · {{ t('stats.kpi.cost') }} {{ s.kpis.cost | huf }}</p>
+      </div>
+      <div class="cp-kpi">
+        <p class="cp-kpi__label">{{ t('stats.kpi.new_customers') }}</p>
+        <p class="cp-kpi__value">{{ s.kpis.new_customers }}</p>
+      </div>
+    </div>
+
+    <div class="cp-stats-grid">
+      <article>
+        <header><strong>{% if s.year is none %}{{ t('stats.chart.revenue_year') }}{% else %}{{ t('stats.chart.revenue_month') }}{% endif %}</strong></header>
+        {{ revenue_chart }}
+      </article>
+      <article>
+        <header><strong>{% if s.year is none %}{{ t('stats.chart.offers_year') }}{% else %}{{ t('stats.chart.offers_month') }}{% endif %}</strong></header>
+        {{ offers_chart }}
+        <p class="cp-legend">
+          <span><span class="cp-swatch cp-swatch--base"></span>{{ t('stats.kpi.offers') }}</span>
+          <span><span class="cp-swatch cp-swatch--hi"></span>{{ t('stats.kpi.won') }}</span>
+        </p>
+      </article>
+    </div>
+
+    <div class="cp-stats-grid" style="margin-top:1rem">
+      <article>
+        <header><strong>{{ t('stats.status') }}</strong></header>
+        <table class="cp-breakdown">
+          <tbody>
+            {% for st, cnt in s.status_counts %}
+              <tr><td><span class="cp-badge">{{ t('offers.status.' ~ st) }}</span></td><td>{{ cnt }} {{ t('stats.count') }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p class="cp-kpi__sub">{{ t('stats.source') }}:
+          {{ t('stats.source.internal') }} {{ s.source_split.internal }} ·
+          {{ t('stats.source.external') }} {{ s.source_split.external }}</p>
+      </article>
+
+      <article>
+        <header><strong>{{ t('stats.flavors') }}</strong></header>
+        {% if s.top_flavors %}
+          <table class="cp-breakdown"><tbody>
+            {% for name, cnt in s.top_flavors %}
+              <tr><td>{{ name }}</td><td>{{ cnt }} {{ t('stats.count') }}</td></tr>
+            {% endfor %}
+          </tbody></table>
+        {% else %}<p class="cp-muted">{{ t('stats.empty') }}</p>{% endif %}
+      </article>
+
+      <article>
+        <header><strong>{{ t('stats.themes') }}</strong></header>
+        {% if s.top_themes %}
+          <table class="cp-breakdown"><tbody>
+            {% for name, cnt in s.top_themes %}
+              <tr><td>{{ name }}</td><td>{{ cnt }} {{ t('stats.count') }}</td></tr>
+            {% endfor %}
+          </tbody></table>
+        {% else %}<p class="cp-muted">{{ t('stats.empty') }}</p>{% endif %}
+      </article>
+    </div>
+  {% endif %}
+{% endblock %}

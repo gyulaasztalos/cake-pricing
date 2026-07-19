@@ -1,6 +1,6 @@
 [project]
 name = "cake-pricing"
-version = "1.4.0"
+version = "1.5.0"
 description = "Custom cake offer/pricing webapp for a one-person pastry business"
 readme = "README.md"
 requires-python = ">=3.14"
@@ -48,6 +48,10 @@ extend-immutable-calls = ["fastapi.Depends", "fastapi.Form", "fastapi.File", "fa
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101"]  # asserts are expected in tests
+# stats.py is a raw-SQL read-model: every interpolated fragment is a module
+# constant or a fixed identifier ('flavor'/'theme'); the only user value (year)
+# is always a bound param. See its module + _year_guard docstrings.
+"app/services/stats.py" = ["S608"]
 
 [tool.mypy]
 python_version = "3.14"

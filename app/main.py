@@ -22,6 +22,7 @@ from app.routers import (
     inventory,
     offers,
     settings,
+    stats,
     templates,
 )
 
@@ -44,7 +45,17 @@ Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_sch
 STATIC_DIR = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-for router in (offers, customers, components, groups, templates, inventory, settings, intake):
+for router in (
+    offers,
+    customers,
+    components,
+    groups,
+    templates,
+    inventory,
+    settings,
+    stats,
+    intake,
+):
     app.include_router(router.router)
 
 
