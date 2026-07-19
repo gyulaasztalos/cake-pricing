@@ -139,3 +139,36 @@ def test_portability_round_trip(session):
     # UTF-8 preserved
     assert session.scalar(text("select name from customers")) == "Teszt Elek"
     session.rollback()
+
+
+def test_portability_preserves_null_entry_date(session):
+    """A restore must keep an external draft's entry_date NULL — else the
+    server_default (now()) fires and silently re-prices the offer (§8a)."""
+    from sqlalchemy import null
+
+    from app.models import Customer, Offer
+    from app.services import portability
+
+    _clean(session)
+    cust = Customer(name="Külső Ügyfél")
+    session.add(cust)
+    session.flush()
+    session.add(
+        Offer(
+            customer_id=cust.id,
+            source="external",
+            status="draft",
+            request_date=dt.datetime(2026, 7, 1, tzinfo=dt.UTC),
+            entry_date=null(),  # unpriced draft — explicit NULL (as the intake route does)
+        )
+    )
+    session.commit()
+
+    bundle = portability.export_bundle(session)
+    assert bundle["tables"]["offers"][0]["entry_date"] is None
+    portability.import_bundle(session, bundle, replace=True)
+    session.commit()
+
+    entry = session.scalar(text("select entry_date from offers"))
+    assert entry is None  # still unpriced after the round-trip
+    session.rollback()

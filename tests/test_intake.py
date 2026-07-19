@@ -79,6 +79,17 @@ def test_intake_dedupes_customer_by_email(clean_db, token):
     assert r1.json()["offer_id"] != r2.json()["offer_id"]
 
 
+def test_intake_dedup_does_not_substring_match(clean_db, token):
+    # ann@x must NOT attach to an existing joann@x customer (anchored match).
+    r1 = client.post(
+        "/api/intake/offers", json={**PAYLOAD, "email": "joann@example.com"}, headers=token
+    )
+    r2 = client.post(
+        "/api/intake/offers", json={**PAYLOAD, "email": "ann@example.com"}, headers=token
+    )
+    assert r1.json()["customer_id"] != r2.json()["customer_id"]
+
+
 def test_offer_list_renders_with_unpriced_external_draft(clean_db, token):
     # Regression: NULL entry_date crashed the year-filter dropdown (int(None)).
     client.post("/api/intake/offers", json=PAYLOAD, headers=token)

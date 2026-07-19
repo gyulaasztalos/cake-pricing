@@ -26,7 +26,7 @@ import json
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import delete, func, select, text
+from sqlalchemy import delete, func, null, select, text
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -89,7 +89,10 @@ def _coerce(model: Any, row: dict[str, Any]) -> dict[str, Any]:
             continue
         val = row[col.name]
         if val is None:
-            out[col.name] = None
+            # Explicit SQL NULL, not python None: a plain None is omitted from
+            # the INSERT and a server_default (e.g. offers.entry_date now())
+            # would fire, silently re-pricing an exported unpriced draft (§8a).
+            out[col.name] = null()
             continue
         pytype = col.type.python_type
         if pytype is Decimal:

@@ -51,13 +51,19 @@ def _require_token(authorization: str | None = Header(None)) -> None:
 
 
 def _find_or_create_customer(session: Session, payload: IntakeOffer) -> Customer:
-    """Reuse the customer whose contact contains this e-mail (case-insensitive),
-    skipping anonymized rows; otherwise create one."""
+    """Reuse a non-anonymized customer whose contact IS this e-mail, or begins
+    "<email> · …" (the two shapes intake writes below); otherwise create one.
+
+    Anchored on purpose — a substring match would attach ann@x to joann@x, and
+    "_" in an e-mail acts as a LIKE wildcard.
+    """
+    email = payload.email.lower()
+    contact_lower = func.lower(func.coalesce(Customer.contact, ""))
     existing = session.scalars(
         select(Customer)
         .where(
             Customer.anonymized_at.is_(None),
-            func.lower(func.coalesce(Customer.contact, "")).contains(payload.email.lower()),
+            (contact_lower == email) | contact_lower.startswith(f"{email} · ", autoescape=True),
         )
         .order_by(Customer.id)
     ).first()
