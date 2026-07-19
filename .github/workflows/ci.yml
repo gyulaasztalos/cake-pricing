@@ -1,0 +1,71 @@
+name: CI
+
+# Lint, types, tests, and security scans on EVERY push and PR (not only on
+# release tags). Runs against a real Postgres so the integration tests and the
+# Playwright browser tests actually execute (they self-skip without DATABASE_URL).
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: cake
+          POSTGRES_PASSWORD: devpass
+          POSTGRES_DB: cake-pricing
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cake"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql+psycopg://cake:devpass@localhost:5432/cake-pricing
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      - name: Lint (ruff)
+        run: uv run ruff check .
+
+      - name: Format check (ruff)
+        run: uv run ruff format --check .
+
+      - name: Types (mypy)
+        run: uv run mypy
+
+      - name: Install Playwright Chromium
+        run: uv run playwright install --with-deps chromium
+
+      - name: Migrate (alembic)
+        run: uv run alembic upgrade head
+
+      - name: Tests (pytest)
+        run: uv run pytest
+
+      - name: Security scan (bandit)
+        run: uv run bandit -c pyproject.toml -r app
+
+      - name: Dependency audit (pip-audit)
+        run: uv run pip-audit
