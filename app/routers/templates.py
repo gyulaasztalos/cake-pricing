@@ -32,7 +32,9 @@ def list_templates(request: Request, q: str = "", session: Session = Depends(get
     counts: dict[int, int] = dict(
         session.execute(
             select(RecipeItem.recipe_id, func.count(RecipeItem.id)).group_by(RecipeItem.recipe_id)
-        ).tuples().all()
+        )
+        .tuples()
+        .all()
     )
     ctx = {"recipes": recipes, "counts": counts, "q": q, "active_nav": "templates"}
     name = "templates/_rows.html" if request.headers.get("HX-Request") else "templates/list.html"
@@ -88,7 +90,7 @@ def update_template(
             continue
         try:
             recipe.items.append(RecipeItem(component_id=int(cid), amount=Decimal(amt or "0")))
-        except (ValueError, InvalidOperation):
+        except ValueError, InvalidOperation:
             continue
     return see_other(session, "/templates")
 
@@ -97,9 +99,13 @@ def update_template(
 def confirm_delete(recipe_id: int, request: Request, session: Session = Depends(get_session)):
     recipe = get_or_404(session, Recipe, recipe_id)
     return tmpl.TemplateResponse(
-        request, "_confirm.html",
-        {"action": f"/templates/{recipe_id}/delete", "title": t("confirm.delete.title"),
-         "message": f"„{recipe.name}”"},
+        request,
+        "_confirm.html",
+        {
+            "action": f"/templates/{recipe_id}/delete",
+            "title": t("confirm.delete.title"),
+            "message": f"„{recipe.name}”",
+        },
     )
 
 

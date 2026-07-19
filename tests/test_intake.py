@@ -39,9 +39,7 @@ def test_intake_disabled_without_token_config(monkeypatch):
 
 
 def test_intake_rejects_bad_token(token):
-    r = client.post(
-        "/api/intake/offers", json=PAYLOAD, headers={"Authorization": "Bearer wrong"}
-    )
+    r = client.post("/api/intake/offers", json=PAYLOAD, headers={"Authorization": "Bearer wrong"})
     assert r.status_code == 401
     assert client.post("/api/intake/offers", json=PAYLOAD).status_code == 401
 

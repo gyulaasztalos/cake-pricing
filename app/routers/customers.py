@@ -30,9 +30,9 @@ def list_customers(request: Request, q: str = "", session: Session = Depends(get
     stmt = stmt.order_by(Customer.name)
     customers = list(session.scalars(stmt))
     counts: dict[int, int] = dict(
-        session.execute(
-            select(Offer.customer_id, func.count(Offer.id)).group_by(Offer.customer_id)
-        ).tuples().all()
+        session.execute(select(Offer.customer_id, func.count(Offer.id)).group_by(Offer.customer_id))
+        .tuples()
+        .all()
     )
     ctx = {"customers": customers, "counts": counts, "q": q, "active_nav": "customers"}
     tmpl = "customers/_rows.html" if request.headers.get("HX-Request") else "customers/list.html"

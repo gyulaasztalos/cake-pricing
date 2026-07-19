@@ -21,7 +21,7 @@
         <select name="customer_id" id="customer-select" required onchange="cpCustomerChanged(this)">
           <option value="">—</option>
           <option value="__new__">{{ t('offers.new_customer_option') }}</option>
-          {% for cu in customers %}<option value="{{ cu.id }}" {{ 'selected' if o and o.customer_id == cu.id }}>{{ cu.name }}</option>{% endfor %}
+          {% for cu in customers %}<option value="{{ cu.id }}" {{ 'selected' if o and o.customer_id == cu.id }}>{{ cu.name }}{% if cu.contact %} ({{ cu.contact }}){% endif %}</option>{% endfor %}
         </select>
       </label>
       <label>{{ t('offers.status') }}

@@ -51,9 +51,7 @@ class PricedLine:
     used_fallback_price: bool
 
 
-def prices_for(
-    session: Session, component_ids: Iterable[int]
-) -> dict[int, list[ComponentPrice]]:
+def prices_for(session: Session, component_ids: Iterable[int]) -> dict[int, list[ComponentPrice]]:
     """Fetch all price rows for the given components in ONE query, grouped by
     component_id and sorted ascending by effective_date. Avoids the N+1 that a
     per-component lookup would cause on large offers / the components list."""

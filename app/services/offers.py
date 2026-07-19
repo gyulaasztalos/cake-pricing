@@ -55,9 +55,7 @@ def build_group_vms(
         return [vms[g.id] for g in groups], total
 
     # Batch-load everything referenced (3 queries total, not N+1):
-    comps = {
-        c.id: c for c in session.scalars(select(Component).where(Component.id.in_(comp_ids)))
-    }
+    comps = {c.id: c for c in session.scalars(select(Component).where(Component.id.in_(comp_ids)))}
     price_rows = prices_for(session, comp_ids)
     stock_ids = [cid for cid in comp_ids if (c := comps.get(cid)) and c.type == "stock_item"]
     on_hand = stock.on_hand_for(session, stock_ids)

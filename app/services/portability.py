@@ -134,9 +134,7 @@ def import_bundle(
     # Table name is bound as a PARAMETER to pg_get_serial_sequence (no SQL string
     # interpolation), and MAX(id) is computed via the ORM.
     if replace:
-        setval = text(
-            "SELECT setval(pg_get_serial_sequence(:tbl, 'id'), :maxid)"
-        )
+        setval = text("SELECT setval(pg_get_serial_sequence(:tbl, 'id'), :maxid)")
         for _name, model in _ORDER:
             max_id = session.scalar(select(func.coalesce(func.max(model.__table__.c.id), 1)))
             session.execute(setval, {"tbl": model.__tablename__, "maxid": max_id})

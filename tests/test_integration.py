@@ -36,8 +36,14 @@ def session():
 def _clean(session):
     # Children-first wipe (respects FKs), keep it simple for a test DB.
     for tbl in [
-        "stock_movements", "offer_components", "recipe_items", "offers",
-        "recipes", "component_prices", "components", "customers",
+        "stock_movements",
+        "offer_components",
+        "recipe_items",
+        "offers",
+        "recipes",
+        "component_prices",
+        "components",
+        "customers",
     ]:
         session.execute(text(f"DELETE FROM {tbl}"))  # noqa: S608 — literal names, test-only
     session.execute(text("DELETE FROM groups"))
@@ -56,13 +62,23 @@ def test_temporal_pricing_old_offer_not_corrupted(session):
     session.add(c)
     session.flush()
     # old window then current window (half-open)
-    session.add(ComponentPrice(
-        component_id=c.id, base_amount=Decimal("1000"), base_price=Decimal("165"),
-                               effective_date=dt.datetime(2025, 6, 1, tzinfo=dt.UTC),
-                               expiration_date=dt.datetime(2026, 1, 2, tzinfo=dt.UTC)))
     session.add(
-        ComponentPrice(component_id=c.id, base_amount=Decimal("1000"), base_price=Decimal("187"),
-                               effective_date=dt.datetime(2026, 1, 2, tzinfo=dt.UTC)))
+        ComponentPrice(
+            component_id=c.id,
+            base_amount=Decimal("1000"),
+            base_price=Decimal("165"),
+            effective_date=dt.datetime(2025, 6, 1, tzinfo=dt.UTC),
+            expiration_date=dt.datetime(2026, 1, 2, tzinfo=dt.UTC),
+        )
+    )
+    session.add(
+        ComponentPrice(
+            component_id=c.id,
+            base_amount=Decimal("1000"),
+            base_price=Decimal("187"),
+            effective_date=dt.datetime(2026, 1, 2, tzinfo=dt.UTC),
+        )
+    )
     session.flush()
 
     old = price_line(session, c.id, Decimal("1000"), dt.datetime(2025, 8, 1, tzinfo=dt.UTC))
@@ -85,12 +101,22 @@ def test_overlapping_price_window_rejected(session):
     session.add(c)
     session.flush()
     session.add(
-        ComponentPrice(component_id=c.id, base_amount=Decimal("1"), base_price=Decimal("10"),
-                               effective_date=dt.datetime(2026, 1, 1, tzinfo=dt.UTC)))
+        ComponentPrice(
+            component_id=c.id,
+            base_amount=Decimal("1"),
+            base_price=Decimal("10"),
+            effective_date=dt.datetime(2026, 1, 1, tzinfo=dt.UTC),
+        )
+    )
     session.flush()
     session.add(
-        ComponentPrice(component_id=c.id, base_amount=Decimal("1"), base_price=Decimal("20"),
-                               effective_date=dt.datetime(2026, 3, 1, tzinfo=dt.UTC)))
+        ComponentPrice(
+            component_id=c.id,
+            base_amount=Decimal("1"),
+            base_price=Decimal("20"),
+            effective_date=dt.datetime(2026, 3, 1, tzinfo=dt.UTC),
+        )
+    )
     with pytest.raises(IntegrityError):
         session.flush()
     session.rollback()
@@ -108,8 +134,13 @@ def test_earliest_price_fallback(session):
     session.add(c)
     session.flush()
     session.add(
-        ComponentPrice(component_id=c.id, base_amount=Decimal("100"), base_price=Decimal("500"),
-                               effective_date=dt.datetime(2026, 7, 1, tzinfo=dt.UTC)))
+        ComponentPrice(
+            component_id=c.id,
+            base_amount=Decimal("100"),
+            base_price=Decimal("500"),
+            effective_date=dt.datetime(2026, 7, 1, tzinfo=dt.UTC),
+        )
+    )
     session.flush()
     # as_of BEFORE the only window -> fallback to earliest price
     p = price_line(session, c.id, Decimal("100"), dt.datetime(2026, 1, 1, tzinfo=dt.UTC))

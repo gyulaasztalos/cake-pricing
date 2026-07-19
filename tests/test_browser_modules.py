@@ -51,6 +51,7 @@ def _search(page: Page, value: str) -> None:
 
 # --- Groups ------------------------------------------------------------------
 
+
 def test_groups_create_and_edit(page: Page, clean_db):
     page.goto("/groups")
     page.click("text=Új csoport")
@@ -67,6 +68,7 @@ def test_groups_create_and_edit(page: Page, clean_db):
 
 
 # --- Components ---------------------------------------------------------------
+
 
 def test_components_create_edit_price(page: Page, clean_db):
     page.goto("/components")
@@ -101,6 +103,7 @@ def test_components_search_without_group_filter(page: Page, clean_db, seed_compo
 
 # --- Customers ----------------------------------------------------------------
 
+
 def test_customers_create_edit_anonymize(page: Page, clean_db):
     page.goto("/customers")
     with page.expect_navigation():
@@ -123,6 +126,7 @@ def test_customers_create_edit_anonymize(page: Page, clean_db):
 
 # --- Inventory ----------------------------------------------------------------
 
+
 def test_inventory_receive_delivery(page: Page, clean_db, seed_component):
     seed_component("29x29 Doboz", "Doboz", "db", "stock_item", "1", "300")
     page.goto("/inventory")
@@ -137,6 +141,7 @@ def test_inventory_receive_delivery(page: Page, clean_db, seed_component):
 
 # --- Templates ----------------------------------------------------------------
 
+
 def test_templates_edit_and_delete(page: Page, clean_db, seed_component):
     from app.db import SessionLocal
     from app.models import Recipe
@@ -146,6 +151,7 @@ def test_templates_edit_and_delete(page: Page, clean_db, seed_component):
     from decimal import Decimal
 
     from app.models import RecipeItem
+
     r = Recipe(name="12 szeletes teszt")
     s.add(r)
     s.flush()
@@ -170,6 +176,7 @@ def test_templates_edit_and_delete(page: Page, clean_db, seed_component):
 
 
 # --- Offer (full flow: inline customer, live recalc, save) -------------------
+
 
 def _add_inline_customer(page: Page, name: str) -> None:
     page.select_option("#customer-select", "__new__")

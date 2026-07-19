@@ -31,6 +31,7 @@ HAS_DB = bool(os.getenv("DATABASE_URL"))
 
 # --- DB helpers --------------------------------------------------------------
 
+
 def _reset_db() -> None:
     """Truncate all data and restore the seed groups (fast, keeps schema)."""
     from sqlalchemy import text
@@ -66,8 +67,9 @@ def clean_db():
     yield
 
 
-def _seed_component(name: str, group_name: str, unit: str, ctype: str,
-                    base_amount: str, base_price: str):
+def _seed_component(
+    name: str, group_name: str, unit: str, ctype: str, base_amount: str, base_price: str
+):
     from app.db import SessionLocal
     from app.models import Component, ComponentPrice, Group
 
@@ -77,8 +79,11 @@ def _seed_component(name: str, group_name: str, unit: str, ctype: str,
         c = Component(name=name, group_id=gid, unit=unit, type=ctype, active=True)
         s.add(c)
         s.flush()
-        s.add(ComponentPrice(component_id=c.id, base_amount=Decimal(base_amount),
-                             base_price=Decimal(base_price)))
+        s.add(
+            ComponentPrice(
+                component_id=c.id, base_amount=Decimal(base_amount), base_price=Decimal(base_price)
+            )
+        )
         s.commit()
         return c.id
     finally:
@@ -92,6 +97,7 @@ def seed_component():
 
 
 # --- live server + browser (session-scoped) ----------------------------------
+
 
 def _free_port() -> int:
     with contextlib.closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:

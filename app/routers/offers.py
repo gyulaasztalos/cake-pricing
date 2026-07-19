@@ -46,11 +46,7 @@ def _comps_json(comps_by_group: dict[int, list[Component]]) -> str:
             for gid, comps in comps_by_group.items()
         }
     )
-    return (
-        payload.replace("<", "\\u003c")
-        .replace(">", "\\u003e")
-        .replace("&", "\\u0026")
-    )
+    return payload.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
 
 
 def _sections_ctx(session: Session, group_vms, total) -> dict:
@@ -75,12 +71,13 @@ def _parse_lines(component_ids: list[str], amounts: list[str]) -> list[tuple[int
             continue
         try:
             pairs.append((int(cid), Decimal(amt or "0")))
-        except (ValueError, InvalidOperation):
+        except ValueError, InvalidOperation:
             continue
     return pairs
 
 
 # --- list --------------------------------------------------------------------
+
 
 @router.get("/offers", response_class=HTMLResponse)
 def list_offers(
@@ -117,15 +114,17 @@ def list_offers(
     offers = list(session.scalars(stmt))
     years = list(
         session.scalars(
-            select(created_year)
-            .where(created_year.is_not(None))
-            .distinct()
-            .order_by(created_year)
+            select(created_year).where(created_year.is_not(None)).distinct().order_by(created_year)
         )
     )
     ctx = {
-        "offers": offers, "q": q, "status": status, "year": yr,
-        "statuses": STATUSES, "years": [int(y) for y in years], "active_nav": "offers",
+        "offers": offers,
+        "q": q,
+        "status": status,
+        "year": yr,
+        "statuses": STATUSES,
+        "years": [int(y) for y in years],
+        "active_nav": "offers",
     }
     tmpl = "offers/_rows.html" if request.headers.get("HX-Request") else "offers/list.html"
     return templates.TemplateResponse(request, tmpl, ctx)
@@ -138,12 +137,14 @@ def offer_detail(offer_id: int, request: Request, session: Session = Depends(get
     as_of = offer.entry_date or dt.datetime.now(dt.UTC)
     group_vms, total = offer_svc.build_group_vms(session, pairs, as_of)
     return templates.TemplateResponse(
-        request, "offers/_detail.html",
+        request,
+        "offers/_detail.html",
         {"o": offer, "group_vms": group_vms, "total": total, "statuses": STATUSES},
     )
 
 
 # --- form (create/edit) ------------------------------------------------------
+
 
 def _default_offer_lines(session: Session) -> list[tuple[int, Decimal]]:
     """Lines every new offer starts with: the base-cost service components
@@ -172,8 +173,12 @@ def _form_context(session: Session, offer: Offer | None, pairs, as_of) -> dict:
     ctx = _sections_ctx(session, group_vms, total)
     ctx.update(
         {
-            "o": offer, "customers": customers, "recipes": recipes,
-            "statuses": STATUSES, "active_nav": "offers", "as_of": as_of,
+            "o": offer,
+            "customers": customers,
+            "recipes": recipes,
+            "statuses": STATUSES,
+            "active_nav": "offers",
+            "as_of": as_of,
         }
     )
     return ctx
@@ -227,9 +232,13 @@ def create_offer(
     session: Session = Depends(get_session),
 ):
     offer = Offer(
-        customer_id=customer_id, theme=theme.strip() or None, flavor=flavor.strip() or None,
-        due_date=_parse_dt(due_date) if due_date else None, status=status,
-        final_price=_parse_decimal(final_price), notes=notes.strip() or None,
+        customer_id=customer_id,
+        theme=theme.strip() or None,
+        flavor=flavor.strip() or None,
+        due_date=_parse_dt(due_date) if due_date else None,
+        status=status,
+        final_price=_parse_decimal(final_price),
+        notes=notes.strip() or None,
     )
     session.add(offer)
     session.flush()
@@ -272,9 +281,13 @@ def confirm_delete(offer_id: int, request: Request, session: Session = Depends(g
     offer = get_or_404(session, Offer, offer_id)
     label = f"{offer.customer.name} · {offer.theme or ''}"
     return templates.TemplateResponse(
-        request, "_confirm.html",
-        {"action": f"/offers/{offer_id}/delete", "title": t("confirm.delete.title"),
-         "message": f"„{label}” — {t('offers.title')} + {t('offers.items').lower()}."},
+        request,
+        "_confirm.html",
+        {
+            "action": f"/offers/{offer_id}/delete",
+            "title": t("confirm.delete.title"),
+            "message": f"„{label}” — {t('offers.title')} + {t('offers.items').lower()}.",
+        },
     )
 
 
@@ -286,6 +299,7 @@ def delete_offer(offer_id: int, session: Session = Depends(get_session)):
 
 
 # --- templates on the offer form --------------------------------------------
+
 
 @router.post("/offers/apply-template", response_class=HTMLResponse)
 def apply_template(
@@ -330,6 +344,7 @@ def save_as_template(
 
 # --- helpers -----------------------------------------------------------------
 
+
 def _parse_dt(value: str) -> dt.datetime:
     """Parse an ISO datetime or YYYY-MM-DD date; assume UTC only when tz-naive
     (never override an explicit offset)."""
@@ -349,5 +364,5 @@ def _parse_dt(value: str) -> dt.datetime:
 def _parse_decimal(value: str) -> Decimal | None:
     try:
         return Decimal(value) if value.strip() else None
-    except (InvalidOperation, AttributeError):
+    except InvalidOperation, AttributeError:
         return None

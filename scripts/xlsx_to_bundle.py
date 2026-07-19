@@ -43,6 +43,7 @@ GROUPS = [
 ]
 GROUP_ID = {g["name"]: g["id"] for g in GROUPS}
 
+
 def _col_num(ref: str) -> int:
     letters = re.match(r"[A-Z]+", ref).group()
     n = 0
@@ -122,16 +123,23 @@ def build_bundle(path: str) -> dict:
         cid += 1
         components.append(
             {
-                "id": cid, "name": name, "group_id": group_id,
+                "id": cid,
+                "name": name,
+                "group_id": group_id,
                 "unit": "g" if ctype == "ingredient" else "db",
-                "type": ctype, "active": True, "notes": None,
+                "type": ctype,
+                "active": True,
+                "notes": None,
             }
         )
         prices.append(
             {
-                "id": cid, "component_id": cid,
-                "base_amount": base_amount, "base_price": base_price,
-                "effective_date": "2020-01-01T00:00:00+00:00", "expiration_date": None,
+                "id": cid,
+                "component_id": cid,
+                "base_amount": base_amount,
+                "base_price": base_price,
+                "effective_date": "2020-01-01T00:00:00+00:00",
+                "expiration_date": None,
             }
         )
 

@@ -50,9 +50,7 @@ LINE_COST_VIEW_GUARDED = """
     WHERE o.entry_date IS NOT NULL
 """
 
-LINE_COST_VIEW_ORIGINAL = LINE_COST_VIEW_GUARDED.replace(
-    "\n    WHERE o.entry_date IS NOT NULL", ""
-)
+LINE_COST_VIEW_ORIGINAL = LINE_COST_VIEW_GUARDED.replace("\n    WHERE o.entry_date IS NOT NULL", "")
 
 
 def upgrade() -> None:
@@ -104,8 +102,7 @@ def downgrade() -> None:
         """
     )
     op.execute(
-        "UPDATE offers SET entry_date = COALESCE(request_date, now()) "
-        "WHERE entry_date IS NULL"
+        "UPDATE offers SET entry_date = COALESCE(request_date, now()) WHERE entry_date IS NULL"
     )
     op.alter_column("offers", "entry_date", nullable=False)
     op.drop_constraint("offers_source_check", "offers")

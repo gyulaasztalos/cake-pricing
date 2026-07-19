@@ -145,7 +145,8 @@ def quick_new_create(
     session.commit()
     # Return a tiny script that tells the offer form to select the new component.
     return templates.TemplateResponse(
-        request, "components/_quick_created.html",
+        request,
+        "components/_quick_created.html",
         {"id": comp.id, "name": comp.name, "unit": comp.unit, "group_id": comp.group_id},
     )
 
@@ -163,8 +164,12 @@ def create_component(
     session: Session = Depends(get_session),
 ):
     comp = Component(
-        name=name.strip(), group_id=group_id, unit=unit.strip(), type=type,
-        active=active, notes=notes.strip() or None,
+        name=name.strip(),
+        group_id=group_id,
+        unit=unit.strip(),
+        type=type,
+        active=active,
+        notes=notes.strip() or None,
     )
     session.add(comp)
     session.flush()

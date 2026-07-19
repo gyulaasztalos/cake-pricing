@@ -9,6 +9,7 @@ the btree_gist extension, value CHECK constraints, the temporal EXCLUDE
 constraint, functional/partial indexes, the v_offer_* / v_component_stock
 views, and the initial GROUPS seed.
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -64,9 +65,7 @@ def upgrade() -> None:
     op.create_table(
         "component_prices",
         sa.Column("id", sa.BigInteger, sa.Identity(always=False), primary_key=True),
-        sa.Column(
-            "component_id", sa.BigInteger, sa.ForeignKey("components.id"), nullable=False
-        ),
+        sa.Column("component_id", sa.BigInteger, sa.ForeignKey("components.id"), nullable=False),
         sa.Column("base_amount", sa.Numeric(12, 3), nullable=False),
         sa.Column("base_price", sa.Numeric(12, 2), nullable=False),
         sa.Column("effective_date", TS, nullable=False, server_default=sa.func.now()),
@@ -111,9 +110,7 @@ def upgrade() -> None:
     op.create_table(
         "offers",
         sa.Column("id", sa.BigInteger, sa.Identity(always=False), primary_key=True),
-        sa.Column(
-            "customer_id", sa.BigInteger, sa.ForeignKey("customers.id"), nullable=False
-        ),
+        sa.Column("customer_id", sa.BigInteger, sa.ForeignKey("customers.id"), nullable=False),
         sa.Column("due_date", TS),
         sa.Column("theme", sa.Text),
         sa.Column("flavor", sa.Text),
@@ -140,9 +137,7 @@ def upgrade() -> None:
             sa.ForeignKey("offers.id", ondelete="CASCADE"),
             nullable=False,
         ),
-        sa.Column(
-            "component_id", sa.BigInteger, sa.ForeignKey("components.id"), nullable=False
-        ),
+        sa.Column("component_id", sa.BigInteger, sa.ForeignKey("components.id"), nullable=False),
         sa.Column("amount", sa.Numeric(12, 3), nullable=False),
         sa.Column("entry_date", TS, nullable=False, server_default=sa.func.now()),
         sa.Column("update_date", TS, nullable=False, server_default=sa.func.now()),
@@ -169,9 +164,7 @@ def upgrade() -> None:
             sa.ForeignKey("recipes.id", ondelete="CASCADE"),
             nullable=False,
         ),
-        sa.Column(
-            "component_id", sa.BigInteger, sa.ForeignKey("components.id"), nullable=False
-        ),
+        sa.Column("component_id", sa.BigInteger, sa.ForeignKey("components.id"), nullable=False),
         sa.Column("amount", sa.Numeric(12, 3), nullable=False),
         sa.Column("entry_date", TS, nullable=False, server_default=sa.func.now()),
         sa.Column("update_date", TS, nullable=False, server_default=sa.func.now()),
@@ -183,14 +176,10 @@ def upgrade() -> None:
     op.create_table(
         "stock_movements",
         sa.Column("id", sa.BigInteger, sa.Identity(always=False), primary_key=True),
-        sa.Column(
-            "component_id", sa.BigInteger, sa.ForeignKey("components.id"), nullable=False
-        ),
+        sa.Column("component_id", sa.BigInteger, sa.ForeignKey("components.id"), nullable=False),
         sa.Column("qty_delta", sa.Numeric(12, 3), nullable=False),
         sa.Column("reason", sa.Text, nullable=False),
-        sa.Column(
-            "offer_id", sa.BigInteger, sa.ForeignKey("offers.id", ondelete="CASCADE")
-        ),
+        sa.Column("offer_id", sa.BigInteger, sa.ForeignKey("offers.id", ondelete="CASCADE")),
         sa.Column("entry_date", TS, nullable=False, server_default=sa.func.now()),
         sa.CheckConstraint(
             "reason IN ('delivery', 'order', 'correction')",
