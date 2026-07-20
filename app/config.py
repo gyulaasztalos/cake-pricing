@@ -15,6 +15,12 @@ class Settings:
     mass_volume_step: int = int(os.getenv("MASS_VOLUME_STEP", "10"))
     # Bearer token for the customer-intake API (§8a). Empty = intake disabled.
     intake_token: str = os.getenv("INTAKE_TOKEN", "")
+    # Secret path segment for the published .ics calendar feed. Calendar apps
+    # cannot do Authentik forward-auth, so the feed URL carries an unguessable
+    # token instead ("machines use tokens, humans use Authentik" — PLANNING
+    # §Calendar). The feed exposes customer names and prices, so an empty
+    # token disables it entirely (404).
+    calendar_token: str = os.getenv("CALENDAR_TOKEN", "")
 
 
 settings = Settings()

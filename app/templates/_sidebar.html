@@ -8,11 +8,12 @@
   <ul class="cp-nav">
     {% set active = active_nav | default('') %}
     <li><a href="/offers"     class="{{ 'active' if active == 'offers' }}"><i data-lucide="clipboard-list"></i><span>{{ t('nav.offers') }}</span></a></li>
+    <li><a href="/naptar"     class="{{ 'active' if active == 'calendar' }}"><i data-lucide="calendar-days"></i><span>{{ t('nav.calendar') }}</span></a></li>
     <li><a href="/customers"  class="{{ 'active' if active == 'customers' }}"><i data-lucide="users"></i><span>{{ t('nav.customers') }}</span></a></li>
     <li><a href="/components" class="{{ 'active' if active == 'components' }}"><i data-lucide="puzzle"></i><span>{{ t('nav.components') }}</span></a></li>
-    <li><a href="/groups"     class="{{ 'active' if active == 'groups' }}"><i data-lucide="tags"></i><span>{{ t('nav.groups') }}</span></a></li>
     <li><a href="/templates"  class="{{ 'active' if active == 'templates' }}"><i data-lucide="notebook-text"></i><span>{{ t('nav.templates') }}</span></a></li>
     <li><a href="/inventory"  class="{{ 'active' if active == 'inventory' }}"><i data-lucide="package"></i><span>{{ t('nav.inventory') }}</span></a></li>
+    <li><a href="/groups"     class="{{ 'active' if active == 'groups' }}"><i data-lucide="tags"></i><span>{{ t('nav.groups') }}</span></a></li>
     <li><a href="/stats"      class="{{ 'active' if active == 'stats' }}"><i data-lucide="bar-chart-3"></i><span>{{ t('nav.stats') }}</span></a></li>
   </ul>
   <div class="cp-sidebar__footer">

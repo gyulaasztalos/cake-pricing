@@ -20,6 +20,7 @@ HU: dict[str, str] = {
     "nav.groups": "Csoportok",
     "nav.templates": "Sablonok",
     "nav.inventory": "Készlet",
+    "nav.calendar": "Naptár",
     "nav.stats": "Statisztika",
     "nav.settings": "Beállítások",
     # generic actions
@@ -135,6 +136,24 @@ HU: dict[str, str] = {
     "settings.import_hint": "Korábban exportált fájl visszatöltése.",
     "settings.about": "Névjegy",
     "settings.version": "Verzió",
+    # calendar
+    "calendar.title": "Naptár",
+    "calendar.feed_name": "Anita Tortái — határidők",
+    "calendar.prev_month": "Előző hónap",
+    "calendar.next_month": "Következő hónap",
+    "calendar.today": "Ma",
+    "calendar.excluded_note": "Az elutasított ajánlatok nem jelennek meg a naptárban.",
+    # calendar feed (subscription lives on the Beállítások page)
+    "calendar.subscribe": "Naptár-feliratkozás",
+    "calendar.subscribe_hint": (
+        "Apple Naptár: Fájl → Új naptárelőfizetés… és illeszd be ezt a címet. "
+        "A határidők ezután megjelennek a telefonodon és a gépeden is, és "
+        "automatikusan frissülnek."
+    ),
+    "calendar.secret_warning": (
+        "Ez a cím titkos: aki ismeri, látja az ügyfélneveket és az árakat. Ne oszd meg!"
+    ),
+    "calendar.disabled": ("A naptár-feliratkozás nincs beállítva (hiányzik a CALENDAR_TOKEN)."),
     # stats
     "stats.title": "Statisztika",
     "stats.all_years": "Összes év",

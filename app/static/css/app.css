@@ -147,6 +147,66 @@ body { background: var(--co-cream); }
   justify-content: center;
 }
 
+/* ---- Calendar (Naptár) ---------------------------------------------------- */
+.cp-cal-nav { display: flex; align-items: center; gap: .5rem; }
+.cp-cal-nav a[role="button"] { padding: .25rem .5rem; margin: 0; }
+.cp-cal-month { min-width: 9rem; text-align: center; }
+
+.cp-cal { width: 100%; border-collapse: collapse; }
+/* Day column is fixed and narrow so the offer column takes the rest — the page
+   scrolls vertically only, never sideways. */
+.cp-cal-day {
+  width: 3.5rem;
+  vertical-align: top;
+  padding: .45rem .5rem;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--pico-muted-border-color);
+}
+.cp-cal-offers {
+  vertical-align: top;
+  padding: .35rem .5rem;
+  border-bottom: 1px solid var(--pico-muted-border-color);
+}
+.cp-cal-daynum { font-weight: 700; font-variant-numeric: tabular-nums; }
+.cp-cal-dow { color: var(--pico-muted-color); font-size: .75rem; margin-left: .3rem; }
+.cp-cal-none { color: var(--pico-muted-color); }
+
+/* Empty days stay slim so a month is still scannable in one scroll. */
+.cp-cal-row.is-empty .cp-cal-day,
+.cp-cal-row.is-empty .cp-cal-offers { padding-top: .15rem; padding-bottom: .15rem; }
+
+.cp-cal-row.is-weekend td { background: var(--co-blush); }
+.cp-cal-row.is-past td { background: #f2f2f2; color: var(--pico-muted-color); }
+.cp-cal-row.is-past.is-weekend td { background: #ece7e7; }
+/* Today: a red frame around the whole row (top/bottom on cells, sides on the
+   outer cells — a <tr> can't take a border reliably). */
+.cp-cal-row.is-today td { border-top: 2px solid #c0392b; border-bottom: 2px solid #c0392b; }
+.cp-cal-row.is-today td:first-child { border-left: 2px solid #c0392b; }
+.cp-cal-row.is-today td:last-child { border-right: 2px solid #c0392b; }
+/* Week rhythm: a heavier divider above each Monday. */
+.cp-cal-row.starts-week td { border-top: 2px solid var(--pico-muted-border-color); }
+.cp-cal-row.starts-week.is-today td { border-top: 2px solid #c0392b; }
+
+.cp-cal-offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .35rem;
+  padding: .2rem .3rem;
+  border-radius: 6px;
+  text-decoration: none;
+  color: var(--pico-color);
+}
+.cp-cal-offer:hover { background: var(--pico-secondary-background); }
+.cp-cal-who { font-weight: 600; }
+.cp-cal-meta { color: var(--pico-muted-color); font-size: .88rem; }
+.cp-cal-status { font-size: .7rem; }
+.cp-cal-price { margin-left: auto; font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-width: 640px) {
+  .cp-cal-price { margin-left: 0; }
+  .cp-cal-month { min-width: 7rem; font-size: .95rem; }
+}
+
 /* ---- Statistics ---------------------------------------------------------- */
 .cp-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
 .cp-kpi { background: var(--pico-card-background-color); border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); padding: .9rem 1rem; }

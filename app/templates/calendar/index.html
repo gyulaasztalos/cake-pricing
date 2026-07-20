@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}{{ t('calendar.title') }} · {{ t('app.title') }}{% endblock %}
+{% block heading %}{{ t('calendar.title') }}{% endblock %}
+{% block topbar_actions %}
+  {# Month stepper. Plain links so it works without JS and is bookmarkable. #}
+  <div class="cp-cal-nav">
+    <a role="button" class="outline" href="/naptar?ym={{ prev_ym }}"
+       aria-label="{{ t('calendar.prev_month') }}">{{ m.icon('chevron-left') }}</a>
+    <strong class="cp-cal-month">{{ month_label }}</strong>
+    <a role="button" class="outline" href="/naptar?ym={{ next_ym }}"
+       aria-label="{{ t('calendar.next_month') }}">{{ m.icon('chevron-right') }}</a>
+    {% if not is_current_month %}
+      <a role="button" class="outline" href="/naptar?ym={{ today_ym }}">{{ t('calendar.today') }}</a>
+    {% endif %}
+  </div>
+{% endblock %}
+{% block content %}
+<article>
+  <table class="cp-cal">
+    <tbody>
+      {% for d in days %}
+        <tr class="cp-cal-row
+                   {{ 'is-weekend' if d.is_weekend }}
+                   {{ 'is-past' if d.is_past }}
+                   {{ 'is-today' if d.is_today }}
+                   {{ 'is-empty' if not d.offers }}
+                   {{ 'starts-week' if d.starts_week and not loop.first }}">
+          <td class="cp-cal-day">
+            <span class="cp-cal-daynum">{{ d.date.day }}</span>
+            <span class="cp-cal-dow">{{ weekday_short[d.date.weekday()] }}</span>
+          </td>
+          <td class="cp-cal-offers">
+            {% if d.offers %}
+              {# One line per offer; the whole line opens the offer editor. #}
+              {% for o in d.offers %}
+                <a class="cp-cal-offer" href="/offers/{{ o.id }}/edit">
+                  <span class="cp-cal-who">{{ o.customer.name if o.customer else '—' }}</span>
+                  {% if o.theme %}<span class="cp-cal-meta">· {{ o.theme }}</span>{% endif %}
+                  {% if o.flavor %}<span class="cp-cal-meta">· {{ o.flavor }}</span>{% endif %}
+                  <span class="cp-badge cp-cal-status">{{ t('offers.status.' ~ o.status) }}</span>
+                  <span class="cp-cal-price">{{ o.final_price | huf }}</span>
+                </a>
+              {% endfor %}
+            {% else %}
+              <span class="cp-cal-none">—</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="cp-kpi__sub">{{ t('calendar.excluded_note') }}</p>
+</article>
+{% endblock %}

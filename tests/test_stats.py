@@ -63,12 +63,20 @@ pytestmark_db = pytest.mark.skipif(
 
 @pytest.fixture
 def session():
+    """A Session that is ALWAYS closed.
+
+    Never call SessionLocal() inline in a test: an unclosed session stays
+    'idle in transaction' holding row locks, and the next test's clean_db
+    TRUNCATE then blocks on AccessExclusiveLock forever (the suite just hangs).
+    """
     from app.db import SessionLocal
 
     s = SessionLocal()
-    yield s
-    s.rollback()
-    s.close()
+    try:
+        yield s
+    finally:
+        s.rollback()
+        s.close()
 
 
 def _make_offer(session, customer_id, comp_id, *, status, when, final, flavor=None, theme=None):
@@ -90,36 +98,35 @@ def _make_offer(session, customer_id, comp_id, *, status, when, final, flavor=No
 
 
 @pytestmark_db
-def test_collect_kpis_and_scoping(clean_db, seed_component):
-    from app.db import SessionLocal
+def test_collect_kpis_and_scoping(clean_db, seed_component, session):
     from app.models import Customer
 
     # A component priced 500 Ft per 1000 unit → a 1000-unit line costs 500 Ft.
     comp = seed_component("Piskóta", "Piskóta", "g", "ingredient", "1000", "500")
 
-    s = SessionLocal()
     cust = Customer(name="Teszt Ügyfél", entry_date=_dt(2025, 3, 1))
-    s.add(cust)
-    s.commit()
+    session.add(cust)
+    session.commit()
     cid = cust.id
 
     # 2025: 2 accepted + 1 done (won=3), 1 rejected, 1 sent, 1 draft.
     for st in ("accepted", "accepted", "done"):
-        _make_offer(s, cid, comp, status=st, when=_dt(2025), final="10000", flavor="Csoki")
-    _make_offer(s, cid, comp, status="rejected", when=_dt(2025), final="9000", flavor="Vanília")
-    _make_offer(s, cid, comp, status="sent", when=_dt(2025), final="9000", theme="Unikornis")
-    _make_offer(s, cid, comp, status="draft", when=_dt(2025), final=None)
+        _make_offer(session, cid, comp, status=st, when=_dt(2025), final="10000", flavor="Csoki")
+    _make_offer(
+        session, cid, comp, status="rejected", when=_dt(2025), final="9000", flavor="Vanília"
+    )
+    _make_offer(session, cid, comp, status="sent", when=_dt(2025), final="9000", theme="Unikornis")
+    _make_offer(session, cid, comp, status="draft", when=_dt(2025), final=None)
     # 2024: one won offer, to exercise year scoping + the yearly series.
-    _make_offer(s, cid, comp, status="done", when=_dt(2024), final="5000")
-    s.close()
+    _make_offer(session, cid, comp, status="done", when=_dt(2024), final="5000")
 
-    all_time = stats_svc.collect(SessionLocal(), None)
+    all_time = stats_svc.collect(session, None)
     assert all_time.kpis.total == 7
     assert all_time.kpis.won == 4  # 3 in 2025 + 1 in 2024
     assert all_time.series_kind == "year"
     assert {p.label for p in all_time.series} == {"2024", "2025"}
 
-    y2025 = stats_svc.collect(SessionLocal(), 2025)
+    y2025 = stats_svc.collect(session, 2025)
     k = y2025.kpis
     assert k.total == 6
     assert k.won == 3

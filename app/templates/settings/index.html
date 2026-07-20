@@ -19,6 +19,17 @@
 </article>
 
 <article>
+  <header><strong>{{ t('calendar.subscribe') }}</strong></header>
+  {% if calendar_feed_url %}
+    <p class="cp-muted">{{ t('calendar.subscribe_hint') }}</p>
+    <input type="text" value="{{ calendar_feed_url }}" readonly onclick="this.select()">
+    <p><span class="cp-badge is-warn">{{ t('calendar.secret_warning') }}</span></p>
+  {% else %}
+    <p class="cp-muted">{{ t('calendar.disabled') }}</p>
+  {% endif %}
+</article>
+
+<article>
   <header><strong>{{ t('settings.about') }}</strong></header>
   <p class="cp-muted">{{ t('settings.version') }}: <code>{{ version }}</code></p>
 </article>

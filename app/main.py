@@ -15,6 +15,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 
 from app import __version__
 from app.routers import (
+    calendar,
     components,
     customers,
     groups,
@@ -47,6 +48,7 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 for router in (
     offers,
+    calendar,
     customers,
     components,
     groups,

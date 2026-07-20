@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
 from app.db import get_session
+from app.routers import calendar as calendar_router
 from app.routers._helpers import see_other
 from app.services import portability
 from app.templating import templates
@@ -18,7 +19,13 @@ router = APIRouter()
 
 @router.get("/settings", response_class=HTMLResponse)
 def settings_page(request: Request):
-    return templates.TemplateResponse(request, "settings/index.html", {"active_nav": "settings"})
+    # The .ics subscription URL lives here (not on the Naptár page) — it is a
+    # one-time setup step, and the URL embeds the secret feed token.
+    ctx = {
+        "active_nav": "settings",
+        "calendar_feed_url": calendar_router.feed_url(request),
+    }
+    return templates.TemplateResponse(request, "settings/index.html", ctx)
 
 
 @router.get("/settings/export")
