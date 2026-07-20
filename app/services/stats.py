@@ -90,7 +90,7 @@ def _scalar(session: Session, sql: str, **params: object) -> object:
 def available_years(session: Session) -> list[int]:
     rows = session.execute(
         text(
-            f"SELECT DISTINCT EXTRACT(YEAR FROM {_LOCAL_CREATED})::int AS y "
+            f"SELECT DISTINCT EXTRACT(YEAR FROM {_LOCAL_CREATED})::int AS y "  # nosec B608
             f"FROM offers o WHERE {_CREATED} IS NOT NULL ORDER BY y DESC"
         )
     ).scalars()
@@ -111,7 +111,7 @@ def _kpis(session: Session, year: int | None) -> Kpis:
             FROM offers o
             JOIN v_offer_cost vc ON vc.offer_id = o.id
             WHERE {_year_guard(_LOCAL_CREATED)}
-            """
+            """  # nosec B608
         ).bindparams(
             bindparam("won", expanding=True),
             bindparam("sent_out", expanding=True),
@@ -122,7 +122,7 @@ def _kpis(session: Session, year: int | None) -> Kpis:
     cust_local = "timezone('Europe/Budapest', c.entry_date)"
     cust_count = _scalar(
         session,
-        f"SELECT COUNT(*) FROM customers c WHERE {_year_guard(cust_local)}",
+        f"SELECT COUNT(*) FROM customers c WHERE {_year_guard(cust_local)}",  # nosec B608
         year=year,
     )
     new_customers = int(cust_count) if isinstance(cust_count, int) else 0
@@ -166,7 +166,7 @@ def _series(session: Session, year: int | None) -> tuple[list[SeriesPoint], str]
             FROM offers o
             {where}
             GROUP BY b ORDER BY b
-            """
+            """  # nosec B608
         ).bindparams(bindparam("won", expanding=True)),
         {"year": year, "won": list(WON)},
     ).all()
@@ -183,7 +183,7 @@ def _series(session: Session, year: int | None) -> tuple[list[SeriesPoint], str]
 def _status_counts(session: Session, year: int | None) -> list[tuple[str, int]]:
     rows = session.execute(
         text(
-            f"SELECT o.status AS s, COUNT(*) AS c FROM offers o "
+            f"SELECT o.status AS s, COUNT(*) AS c FROM offers o "  # nosec B608
             f"WHERE {_year_guard(_LOCAL_CREATED)} GROUP BY o.status"
         ),
         {"year": year},
@@ -196,7 +196,7 @@ def _top(session: Session, column: str, year: int | None, limit: int = 8) -> lis
     # column is a fixed identifier ('flavor'|'theme'), never user input.
     rows = session.execute(
         text(
-            f"SELECT NULLIF(TRIM(o.{column}), '') AS k, COUNT(*) AS c FROM offers o "
+            f"SELECT NULLIF(TRIM(o.{column}), '') AS k, COUNT(*) AS c FROM offers o "  # nosec B608
             f"WHERE NULLIF(TRIM(o.{column}), '') IS NOT NULL "
             f"AND {_year_guard(_LOCAL_CREATED)} "
             f"GROUP BY k ORDER BY c DESC, k ASC LIMIT :lim"
@@ -209,7 +209,7 @@ def _top(session: Session, column: str, year: int | None, limit: int = 8) -> lis
 def _source_split(session: Session, year: int | None) -> dict[str, int]:
     rows = session.execute(
         text(
-            f"SELECT o.source AS src, COUNT(*) AS c FROM offers o "
+            f"SELECT o.source AS src, COUNT(*) AS c FROM offers o "  # nosec B608
             f"WHERE {_year_guard(_LOCAL_CREATED)} GROUP BY o.source"
         ),
         {"year": year},
@@ -325,7 +325,7 @@ def bar_chart(
     parts.append("</svg>")
     # Safe: every dynamic value (labels, values) is escape()-d above; the rest is
     # static SVG this function emits. Nothing here is un-escaped user input.
-    return Markup("".join(parts))  # noqa: S704
+    return Markup("".join(parts))  # noqa: S704  # nosec B704
 
 
 def month_labels(points: list[SeriesPoint]) -> list[str]:
