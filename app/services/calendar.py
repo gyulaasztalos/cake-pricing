@@ -100,7 +100,10 @@ def month_days(session: Session, year: int, month: int) -> list[CalendarDay]:
     )
     by_day: dict[dt.date, list[Offer]] = {}
     for offer in rows:
-        assert offer.due_date is not None  # noqa: S101 — guaranteed by the query
+        # The query already filters these out; the guard keeps the type narrow
+        # without an assert (asserts vanish under `python -O`).
+        if offer.due_date is None:
+            continue
         by_day.setdefault(_local_date(offer.due_date), []).append(offer)
 
     today = local_today()
@@ -203,7 +206,9 @@ def build_ics(session: Session, now: dt.datetime | None = None) -> str:
         "X-WR-TIMEZONE:Europe/Budapest",
     ]
     for offer in upcoming_offers(session):
-        assert offer.due_date is not None  # noqa: S101 — guaranteed by the query
+        # Same as month_days(): guard instead of assert (see note there).
+        if offer.due_date is None:
+            continue
         day = _local_date(offer.due_date)
         lines += [
             "BEGIN:VEVENT",
