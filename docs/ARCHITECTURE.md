@@ -197,7 +197,8 @@ paths (PLANNING §Calendar):
 Europe/Budapest, `timeZone` set so no DST maths) runs `python -m
 app.jobs.price_sync`:
 1. download the *árfigyelő* XLSX (`PRICE_SYNC_URL`);
-2. parse **column A** (Termék azonosító, zero-padded string) → **column I**
+2. parse **column A** (Termék azonosító — arbitrary text, matched **exactly**;
+   mostly digit strings but ~5% chain-prefixed like `aldi-10026`) → **column I**
    ("Maximum ár", Hungarian comma). A product id appears once per store chain, so
    several rows are **averaged** to whole forint (owner's choice);
 3. for every component with a `product_id` (**exact** string match), if the price

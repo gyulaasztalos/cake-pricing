@@ -31,7 +31,8 @@ def _xlsx(rows: list[list[object]]) -> bytes:
 def test_parse_prices_averages_duplicates_and_parses_comma():
     data = _xlsx(
         [
-            ["0000000022989", *["x"] * 7, "499,0000"],  # single
+            ["0000000022989", *["x"] * 7, "499,0000"],  # single, digit id
+            ["aldi-10026", *["x"] * 7, "1299,0000"],  # text id (chain-prefixed)
             ["0000040278063", *["x"] * 7, "769,0000"],  # dup 1
             ["0000040278063", *["x"] * 7, "388,0000"],  # dup 2 -> avg 578.5 -> 579
             ["", *["x"] * 7, "100"],  # blank id skipped
@@ -40,6 +41,7 @@ def test_parse_prices_averages_duplicates_and_parses_comma():
     )
     prices = price_sync.parse_prices(data)
     assert prices["0000000022989"] == Decimal("499")
+    assert prices["aldi-10026"] == Decimal("1299")  # arbitrary text id works
     assert prices["0000040278063"] == Decimal("579")  # (769+388)/2 rounded
     assert "" not in prices
     assert "0000000099999" not in prices

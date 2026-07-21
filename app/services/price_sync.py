@@ -8,7 +8,10 @@ Flow (see app/jobs/price_sync.py for the runnable entrypoint):
 
 File shape (verified against the live file):
   * one worksheet, header in row 1, data from row 2;
-  * column A = Termék azonosító (a zero-padded string, e.g. '0000000022989');
+  * column A = Termék azonosító — an ARBITRARY text id, matched EXACTLY. Most are
+    zero-padded digit strings ('0000000022989'), but ~5% are chain-prefixed
+    ('aldi-10026', 'lidl-...'); everything is read/compared as a string, so both
+    work with no numeric assumptions;
   * column I = "Maximum ár" (Hungarian decimal comma, e.g. '499,0000').
   * the SAME product id can appear on several rows (one per store chain) with
     different prices — we AVERAGE them, rounded to whole forint (owner's choice).

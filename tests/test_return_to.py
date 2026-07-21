@@ -61,6 +61,27 @@ def test_new_offer_form_prefills_due_date_and_return(clean_db):
 
 
 @pytestmark_db
+def test_explicit_next_wins_and_works_without_referer(clean_db):
+    # The calendar link passes ?next= explicitly because the edge strips the
+    # Referer — so this must work with NO referer header at all.
+    r = client.get("/offers/new?due_date=2026-07-13&next=/naptar?ym=2026-07")
+    assert r.status_code == 200
+    assert 'name="return_to" value="/naptar?ym=2026-07"' in r.text
+    # And the Cancel link points there too.
+    assert 'href="/naptar?ym=2026-07"' in r.text
+
+
+@pytestmark_db
+def test_calendar_day_links_carry_next(clean_db):
+    # Regression for "cancel from a calendar-opened offer lands on /offers":
+    # every day cell links to a pre-dated new offer AND carries an explicit next=
+    # back to the month (the edge strips the Referer, so we can't rely on it).
+    r = client.get("/naptar?ym=2026-07")
+    assert r.status_code == 200
+    assert "/offers/new?due_date=2026-07-01&next=" in r.text
+
+
+@pytestmark_db
 def test_new_offer_form_ignores_bad_due_date(clean_db):
     r = client.get("/offers/new?due_date=not-a-date")
     assert r.status_code == 200
