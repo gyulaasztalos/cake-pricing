@@ -27,8 +27,13 @@
                    {{ 'is-empty' if not d.offers }}
                    {{ 'starts-week' if d.starts_week and not loop.first }}">
           <td class="cp-cal-day">
-            <span class="cp-cal-daynum">{{ d.date.day }}</span>
-            <span class="cp-cal-dow">{{ weekday_short[d.date.weekday()] }}</span>
+            {# Click the day → new offer with this deadline pre-filled. Save
+               returns here (Referer). #}
+            <a class="cp-cal-daylink" href="/offers/new?due_date={{ d.date.isoformat() }}"
+               title="{{ t('calendar.new_offer') }}">
+              <span class="cp-cal-daynum">{{ d.date.day }}</span>
+              <span class="cp-cal-dow">{{ weekday_short[d.date.weekday()] }}</span>
+            </a>
           </td>
           <td class="cp-cal-offers">
             {% if d.offers %}

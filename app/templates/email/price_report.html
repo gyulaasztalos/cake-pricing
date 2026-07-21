@@ -1,0 +1,32 @@
+{% extends "email/_layout.html" %}
+{% block body %}
+  <h1 style="margin:0 0 12px;font-size:20px;color:#8E2649;">{{ t('email.price_report.heading') }}</h1>
+  <p style="margin:0 0 20px;">{{ t('email.price_report.intro', checked=checked) }}</p>
+
+  {% if changes %}
+    <p style="margin:0 0 8px;font-weight:bold;">{{ t('email.price_report.changes_heading', n=changes|length) }}</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+           style="border-collapse:collapse;margin:0 0 24px;font-size:15px;">
+      <tr style="background:#F5DEE5;">
+        <th align="left" style="padding:8px 10px;">{{ t('email.price_report.col_name') }}</th>
+        <th align="right" style="padding:8px 10px;">{{ t('email.price_report.col_old') }}</th>
+        <th align="right" style="padding:8px 10px;">{{ t('email.price_report.col_new') }}</th>
+      </tr>
+      {% for ch in changes %}
+        <tr style="border-bottom:1px solid #EEDCE2;">
+          <td style="padding:8px 10px;">{{ ch.name }}</td>
+          <td align="right" style="padding:8px 10px;color:#7A5C64;">{{ ch.old_price | huf if ch.old_price is not none else '—' }}</td>
+          <td align="right" style="padding:8px 10px;font-weight:bold;">{{ ch.new_price | huf }}</td>
+        </tr>
+      {% endfor %}
+    </table>
+  {% endif %}
+
+  {% if missing %}
+    <p style="margin:0 0 8px;font-weight:bold;color:#8E2649;">{{ t('email.price_report.missing_heading', n=missing|length) }}</p>
+    <ul style="margin:0 0 8px;padding-left:20px;">
+      {% for name in missing %}<li style="padding:2px 0;">{{ name }}</li>{% endfor %}
+    </ul>
+    <p style="margin:0;font-size:14px;color:#7A5C64;">{{ t('email.price_report.missing_note') }}</p>
+  {% endif %}
+{% endblock %}

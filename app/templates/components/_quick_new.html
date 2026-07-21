@@ -19,8 +19,8 @@
       </select>
     </label>
     <div class="grid">
-      <label>{{ t('components.base_amount') }} <input type="number" step="0.001" name="base_amount" value="1" required></label>
-      <label>{{ t('components.base_price') }} <input type="number" step="0.01" name="base_price" value="0" required></label>
+      <label>{{ t('components.base_amount') }} <input type="text" inputmode="decimal" name="base_amount" value="1" required></label>
+      <label>{{ t('components.base_price') }} <input type="text" inputmode="decimal" name="base_price" value="0" required></label>
     </div>
     <footer style="display:flex;justify-content:space-between;gap:1rem">
       <button type="button" class="secondary" onclick="document.getElementById('cp-modal').close()">{{ t('action.cancel') }}</button>

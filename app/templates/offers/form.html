@@ -13,6 +13,8 @@
 {% endif %}
 <form method="post" action="{{ '/offers' if not o else '/offers/' ~ o.id }}" id="offer-form">
   <input type="hidden" name="entry_date" value="{{ as_of_val.isoformat() }}">
+  {# Where Save returns to (the page that opened this form). #}
+  <input type="hidden" name="return_to" value="{{ return_to | default('/offers') }}">
 
   <fieldset>
     <legend><strong>{{ t('offers.core_data') }}</strong></legend>
@@ -39,7 +41,7 @@
         {# lang="hu" pins the displayed date format to Hungarian (YYYY. MM. DD.)
            regardless of the browser/OS locale — type=date follows the input's
            own lang, not the page. #}
-        <input type="date" lang="hu" name="due_date" value="{{ o.due_date.strftime('%Y-%m-%d') if o and o.due_date else '' }}">
+        <input type="date" lang="hu" name="due_date" value="{{ o.due_date.strftime('%Y-%m-%d') if o and o.due_date else (preset_due_date | default('')) }}">
       </label>
       <span></span>
     </div>
@@ -78,7 +80,7 @@
   </div>
 
   <div class="cp-form-actions">
-    <a role="button" class="secondary" href="/offers">{{ t('action.cancel') }}</a>
+    <a role="button" class="secondary" href="{{ return_to | default('/offers') }}">{{ t('action.cancel') }}</a>
     <button type="submit">{{ m.icon('save') }} {{ t('action.save') }}</button>
   </div>
 </form>

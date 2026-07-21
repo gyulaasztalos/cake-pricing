@@ -9,14 +9,14 @@ from __future__ import annotations
 import datetime as dt
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.db import get_session
 from app.models import Component, ComponentPrice, Group
-from app.routers._helpers import get_or_404, see_other
+from app.routers._helpers import decimal_hu, get_or_404, return_to, see_other, see_other_back
 from app.services.pricing import pick_effective, prices_for
 from app.templating import templates
 
@@ -89,7 +89,12 @@ def new_component_form(
     return templates.TemplateResponse(
         request,
         "components/form.html",
-        {"c": None, "groups": _groups(session), "preset_group": group_id},
+        {
+            "c": None,
+            "groups": _groups(session),
+            "preset_group": group_id,
+            "return_to": return_to(request, "/components"),
+        },
     )
 
 
@@ -104,6 +109,7 @@ def edit_component_form(
             "c": get_or_404(session, Component, component_id),
             "groups": _groups(session),
             "preset_group": None,
+            "return_to": return_to(request, "/components"),
         },
     )
 
@@ -120,6 +126,16 @@ def quick_new_form(
     )
 
 
+def _price_decimal(raw: str, *, allow_zero: bool) -> Decimal:
+    """Parse a base amount/price in Hungarian notation (decimal comma accepted).
+    422 on garbage, on a negative, or on a zero base_amount — matching the DB
+    CHECKs (base_amount > 0, base_price >= 0)."""
+    value = decimal_hu(raw)
+    if value is None or value < 0 or (value == 0 and not allow_zero):
+        raise HTTPException(status_code=422, detail="invalid amount/price")
+    return value
+
+
 @router.post("/components/quick-new", response_class=HTMLResponse)
 def quick_new_create(
     request: Request,
@@ -127,18 +143,18 @@ def quick_new_create(
     group_id: int = Form(...),
     unit: str = Form("db"),
     type: str = Form("ingredient"),
-    base_amount: Decimal = Form(...),
-    base_price: Decimal = Form(...),
+    base_amount: str = Form(...),
+    base_price: str = Form(...),
     session: Session = Depends(get_session),
 ):
+    amount_dec = _price_decimal(base_amount, allow_zero=False)
+    price_dec = _price_decimal(base_price, allow_zero=True)
     comp = Component(
         name=name.strip(), group_id=group_id, unit=unit.strip(), type=type, active=True
     )
     session.add(comp)
     session.flush()
-    session.add(
-        ComponentPrice(component_id=comp.id, base_amount=base_amount, base_price=base_price)
-    )
+    session.add(ComponentPrice(component_id=comp.id, base_amount=amount_dec, base_price=price_dec))
     # Commit before returning the id: the offer form immediately selects this
     # component and can submit an offer referencing it, so it must be durable
     # now — not only in get_session's post-yield teardown (cf. _helpers.see_other).
@@ -159,10 +175,14 @@ def create_component(
     type: str = Form("ingredient"),
     active: bool = Form(False),
     notes: str = Form(""),
-    base_amount: Decimal = Form(...),
-    base_price: Decimal = Form(...),
+    product_id: str = Form(""),
+    base_amount: str = Form(...),
+    base_price: str = Form(...),
+    return_to: str = Form(""),
     session: Session = Depends(get_session),
 ):
+    amount_dec = _price_decimal(base_amount, allow_zero=False)
+    price_dec = _price_decimal(base_price, allow_zero=True)
     comp = Component(
         name=name.strip(),
         group_id=group_id,
@@ -170,13 +190,12 @@ def create_component(
         type=type,
         active=active,
         notes=notes.strip() or None,
+        product_id=product_id.strip() or None,
     )
     session.add(comp)
     session.flush()
-    session.add(
-        ComponentPrice(component_id=comp.id, base_amount=base_amount, base_price=base_price)
-    )
-    return see_other(session, "/components")
+    session.add(ComponentPrice(component_id=comp.id, base_amount=amount_dec, base_price=price_dec))
+    return see_other_back(session, return_to, "/components")
 
 
 @router.post("/components/{component_id:int}")
@@ -188,6 +207,8 @@ def update_component(
     type: str = Form("ingredient"),
     active: bool = Form(False),
     notes: str = Form(""),
+    product_id: str = Form(""),
+    return_to: str = Form(""),
     session: Session = Depends(get_session),
 ):
     comp = get_or_404(session, Component, component_id)
@@ -197,17 +218,24 @@ def update_component(
     comp.type = type
     comp.active = active
     comp.notes = notes.strip() or None
-    return see_other(session, "/components")
+    new_product_id = product_id.strip() or None
+    # Changing/clearing the product id invalidates the old "not found" warning.
+    if new_product_id != comp.product_id:
+        comp.price_missing_at = None
+    comp.product_id = new_product_id
+    return see_other_back(session, return_to, "/components")
 
 
 @router.post("/components/{component_id:int}/price")
 def change_price(
     component_id: int,
-    base_amount: Decimal = Form(...),
-    base_price: Decimal = Form(...),
+    base_amount: str = Form(...),
+    base_price: str = Form(...),
     session: Session = Depends(get_session),
 ):
     """Temporal price change (§3.4): close the open row, insert a new one sharing the instant."""
+    amount_dec = _price_decimal(base_amount, allow_zero=False)
+    price_dec = _price_decimal(base_price, allow_zero=True)
     now = dt.datetime.now(dt.UTC)
     open_row = session.scalars(
         select(ComponentPrice)
@@ -223,8 +251,8 @@ def change_price(
     session.add(
         ComponentPrice(
             component_id=component_id,
-            base_amount=base_amount,
-            base_price=base_price,
+            base_amount=amount_dec,
+            base_price=price_dec,
             effective_date=now,
         )
     )

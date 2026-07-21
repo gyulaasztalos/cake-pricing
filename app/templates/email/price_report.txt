@@ -1,0 +1,16 @@
+{{ t('email.price_report.heading') }}
+
+{{ t('email.price_report.intro', checked=checked) }}
+{% if changes %}
+{{ t('email.price_report.changes_heading', n=changes|length) }}
+{% for ch in changes %}
+- {{ ch.name }}: {{ (ch.old_price | huf) if ch.old_price is not none else '—' }} -> {{ ch.new_price | huf }}
+{% endfor %}
+{% endif %}
+{% if missing %}
+{{ t('email.price_report.missing_heading', n=missing|length) }}
+{% for name in missing %}
+- {{ name }}
+{% endfor %}
+{{ t('email.price_report.missing_note') }}
+{% endif %}

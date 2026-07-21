@@ -33,9 +33,19 @@ verified customer requests here as draft offers via a narrow intake API.
   average offer, new customers) with server-rendered SVG charts; all-time
   (yearly) or a single year (monthly). Aggregate-only, so anonymized customers
   are respected.
+- **Calendar** (`/naptar`) — a month view of offer deadlines (rejected excluded),
+  click a day to start a new offer for it. A published, tokenized `.ics` feed
+  lets the chef subscribe in Apple Calendar (subscription URL on Beállítások).
+- **Automatic price update** — a daily CronJob downloads the *árfigyelő* price
+  file and updates the base price of any component tagged with a *Termék
+  azonosító*; e-mails a change report, warns in the UI on ids it can't find, and
+  exposes a last-success gauge on `/metrics` for staleness alerting.
 - **Intake API** (`/api/intake/offers`) — the single token-authed write path used
   by cake-order to create an external draft offer.
 - **Portability** — full JSON export/import of the database (settings page).
+
+Amounts and prices accept the Hungarian **decimal comma** (`2,5`) in any browser
+locale; edit forms return to the page you came from on Save/Cancel.
 
 ## Stack
 
@@ -97,15 +107,21 @@ Renovate in the ArgoCD repo then bumps the deployed image tag → ArgoCD syncs i
 
 ## Route map
 
-UI (HTML, HTMX partials): `/offers`, `/customers`, `/components`, `/groups`,
-`/templates`, `/inventory`, `/stats`, `/settings` (export/import). Ops:
-`/healthz`, `/readyz`, `/metrics`. API: `POST /api/intake/offers` (bearer token).
+UI (HTML, HTMX partials): `/offers`, `/naptar`, `/customers`, `/components`,
+`/templates`, `/inventory`, `/groups`, `/stats`, `/settings` (export/import).
+Ops: `/healthz`, `/readyz`, `/metrics`. Machine (tokenized, Authentik-skipped):
+`GET /calendar/{token}/offers.ics`. API: `POST /api/intake/offers` (bearer token).
+
+The daily price-sync CronJob runs `python -m app.jobs.price_sync` (not an HTTP
+route) — see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Configuration
 
 Env-driven ([`app/config.py`](app/config.py)): `APP_LOCALE`,
-`ANONYMIZE_AFTER_YEARS`, `MASS_VOLUME_STEP`, and `INTAKE_TOKEN` (empty disables
-the intake API). `DATABASE_URL` is required.
+`ANONYMIZE_AFTER_YEARS`, `MASS_VOLUME_STEP`, `INTAKE_TOKEN` (empty disables the
+intake API), `CALENDAR_TOKEN` (empty disables the `.ics` feed → 404), the
+`SMTP_*` group + `MAIL_FROM`/`ORDER_INBOX` (price-report e-mail), and
+`PRICE_SYNC_URL`. `DATABASE_URL` is required.
 
 ## Where to read next
 

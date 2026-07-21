@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_session
 from app.models import Group
-from app.routers._helpers import get_or_404, see_other
+from app.routers._helpers import get_or_404, return_to, see_other_back
 from app.templating import templates
 
 router = APIRouter()
@@ -28,24 +28,35 @@ def list_groups(request: Request, session: Session = Depends(get_session)):
 
 @router.get("/groups/new", response_class=HTMLResponse)
 def new_group_form(request: Request):
-    return templates.TemplateResponse(request, "groups/form.html", {"group": None})
+    return templates.TemplateResponse(
+        request, "groups/form.html", {"group": None, "return_to": return_to(request, "/groups")}
+    )
 
 
 @router.get("/groups/{group_id:int}/edit", response_class=HTMLResponse)
 def edit_group_form(group_id: int, request: Request, session: Session = Depends(get_session)):
     return templates.TemplateResponse(
-        request, "groups/form.html", {"group": get_or_404(session, Group, group_id)}
+        request,
+        "groups/form.html",
+        {"group": get_or_404(session, Group, group_id), "return_to": return_to(request, "/groups")},
     )
 
 
 @router.post("/groups")
-def create_group(name: str = Form(...), session: Session = Depends(get_session)):
+def create_group(
+    name: str = Form(...), return_to: str = Form(""), session: Session = Depends(get_session)
+):
     session.add(Group(name=name.strip()))
-    return see_other(session, "/groups")
+    return see_other_back(session, return_to, "/groups")
 
 
 @router.post("/groups/{group_id:int}")
-def update_group(group_id: int, name: str = Form(...), session: Session = Depends(get_session)):
+def update_group(
+    group_id: int,
+    name: str = Form(...),
+    return_to: str = Form(""),
+    session: Session = Depends(get_session),
+):
     group = get_or_404(session, Group, group_id)
     group.name = name.strip()
-    return see_other(session, "/groups")
+    return see_other_back(session, return_to, "/groups")

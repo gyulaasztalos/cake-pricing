@@ -3,11 +3,12 @@
 {% block heading %}{{ t('groups.new') if not group else t('action.edit') + ' · ' + group.name }}{% endblock %}
 {% block content %}
 <form method="post" action="{{ '/groups' if not group else '/groups/' ~ group.id }}">
+  <input type="hidden" name="return_to" value="{{ return_to | default('/groups') }}">
   <label>{{ t('groups.name') }}
     <input name="name" value="{{ group.name if group else '' }}" required autofocus>
   </label>
   <div class="cp-form-actions">
-    <a role="button" class="secondary" href="/groups">{{ t('action.cancel') }}</a>
+    <a role="button" class="secondary" href="{{ return_to | default('/groups') }}">{{ t('action.cancel') }}</a>
     <button type="submit">{{ t('action.save') }}</button>
   </div>
 </form>

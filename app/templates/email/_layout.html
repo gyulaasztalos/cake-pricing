@@ -1,0 +1,29 @@
+{# Shared HTML e-mail shell (cake-pricing). Inline styles only — mail clients
+   ignore <style>. Matches the cake-order look. Hungarian only (internal). #}
+<!doctype html>
+<html lang="hu">
+<body style="margin:0;padding:0;background:#FBF6F3;font-family:Georgia,'Times New Roman',serif;color:#3A2A2E;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FBF6F3;padding:24px 0;">
+    <tr><td align="center">
+      <table role="presentation" width="560" cellpadding="0" cellspacing="0"
+             style="max-width:560px;width:100%;background:#FFFFFF;border-radius:12px;overflow:hidden;">
+        <tr>
+          <td style="background:#8E2649;padding:20px 32px;color:#FFF7F4;font-size:22px;font-weight:bold;letter-spacing:.5px;">
+            Anita Tortái
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px;font-size:16px;line-height:1.6;">
+            {% block body %}{% endblock %}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 32px;background:#F5DEE5;font-size:13px;color:#7A5C64;">
+            {{ t('email.footer') }}
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>

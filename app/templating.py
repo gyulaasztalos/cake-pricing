@@ -8,6 +8,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi.templating import Jinja2Templates
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from app import __version__
 from app.config import settings
@@ -70,3 +71,13 @@ templates.env.filters["huf"] = format_huf
 templates.env.filters["amount"] = format_amount
 templates.env.filters["date"] = format_date
 templates.env.filters["datetime"] = format_datetime
+
+# Separate env for e-mail bodies (autoescape HTML, but NOT the .txt alternative).
+email_env = Environment(
+    loader=FileSystemLoader(str(TEMPLATES_DIR)),
+    autoescape=select_autoescape(["html"]),
+)
+email_env.globals["t"] = t
+email_env.filters["huf"] = format_huf
+email_env.filters["amount"] = format_amount
+email_env.filters["datetime"] = format_datetime

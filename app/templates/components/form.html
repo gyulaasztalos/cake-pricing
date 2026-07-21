@@ -3,6 +3,7 @@
 {% block heading %}{{ t('components.new') if not c else t('action.edit') + ' · ' + c.name }}{% endblock %}
 {% block content %}
 <form method="post" action="{{ '/components' if not c else '/components/' ~ c.id }}">
+  <input type="hidden" name="return_to" value="{{ return_to | default('/components') }}">
   <label>{{ t('components.name') }} <input name="name" value="{{ c.name if c else '' }}" required autofocus></label>
   <div class="grid">
     <label>{{ t('components.group') }}
@@ -30,18 +31,26 @@
     </select>
   </label>
   <label><input type="checkbox" name="active" value="true" {{ 'checked' if (c and c.active) or not c }}> {{ t('components.active') }}</label>
+  <label>
+    {{ t('components.product_id') }}
+    {% if c and c.price_missing_at %}
+      <span class="cp-badge is-warn" title="{{ t('components.price_missing') }}">⚠ {{ t('components.price_missing_short') }}</span>
+    {% endif %}
+    <input name="product_id" value="{{ c.product_id if c and c.product_id else '' }}"
+           placeholder="{{ t('components.product_id_hint') }}">
+  </label>
   <label>{{ t('components.notes') }} <textarea name="notes">{{ c.notes if c and c.notes else '' }}</textarea></label>
 
   {% if not c %}
   {# Initial price only on create; existing components change price from the list detail (§3.4). #}
   <fieldset class="grid">
-    <label>{{ t('components.base_amount') }} <input type="number" step="0.001" name="base_amount" value="1" required></label>
-    <label>{{ t('components.base_price') }} <input type="number" step="0.01" name="base_price" value="0" required></label>
+    <label>{{ t('components.base_amount') }} <input type="text" inputmode="decimal" name="base_amount" value="1" required></label>
+    <label>{{ t('components.base_price') }} <input type="text" inputmode="decimal" name="base_price" value="0" required></label>
   </fieldset>
   {% endif %}
 
   <div class="cp-form-actions">
-    <a role="button" class="secondary" href="/components">{{ t('action.cancel') }}</a>
+    <a role="button" class="secondary" href="{{ return_to | default('/components') }}">{{ t('action.cancel') }}</a>
     <button type="submit">{{ t('action.save') }}</button>
   </div>
 </form>

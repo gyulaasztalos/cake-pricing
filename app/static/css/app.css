@@ -167,6 +167,9 @@ body { background: var(--co-cream); }
   padding: .35rem .5rem;
   border-bottom: 1px solid var(--pico-muted-border-color);
 }
+/* The day cell is a link to "new offer on this day". */
+.cp-cal-daylink { display: block; text-decoration: none; color: inherit; border-radius: 6px; padding: .1rem .25rem; }
+.cp-cal-daylink:hover { background: var(--pico-secondary-background); }
 .cp-cal-daynum { font-weight: 700; font-variant-numeric: tabular-nums; }
 .cp-cal-dow { color: var(--pico-muted-color); font-size: .75rem; margin-left: .3rem; }
 .cp-cal-none { color: var(--pico-muted-color); }

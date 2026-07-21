@@ -97,6 +97,12 @@ class Component(Base):
     type: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'ingredient'"))
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
     notes: Mapped[str | None] = mapped_column(Text)
+    # "Termék azonosító" — optional product id used by the daily price-sync job to
+    # look the component up in the árfigyelő XLSX (exact string match on column A).
+    product_id: Mapped[str | None] = mapped_column(Text)
+    # Set by the sync job when a product_id was configured but NOT found in the
+    # latest file; cleared (NULL) when found. Drives the warning icon in the UI.
+    price_missing_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     entry_date: Mapped[dt.datetime] = _entry_date()
     update_date: Mapped[dt.datetime] = _update_date()
 
@@ -307,3 +313,20 @@ class StockMovement(Base):
 
     component: Mapped[Component] = relationship()
     offer: Mapped[Offer | None] = relationship()
+
+
+# --- PRICE_SYNC_STATE (singleton) --------------------------------------------
+
+
+class PriceSyncState(Base):
+    """One row (id=1) recording when the daily price-sync job last SUCCEEDED.
+
+    The app reads it at /metrics scrape time to expose a last-success gauge, and
+    AlertManager fires if it goes stale (> 25h). Written only by the job.
+    """
+
+    __tablename__ = "price_sync_state"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    last_success_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    update_date: Mapped[dt.datetime] = _update_date()

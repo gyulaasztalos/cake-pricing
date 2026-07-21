@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.db import get_session
 from app.i18n import t
 from app.models import Customer, Offer
-from app.routers._helpers import get_or_404, see_other
+from app.routers._helpers import get_or_404, return_to, see_other, see_other_back
 from app.templating import templates
 
 router = APIRouter()
@@ -59,7 +59,9 @@ def customer_detail(customer_id: int, request: Request, session: Session = Depen
 
 @router.get("/customers/new", response_class=HTMLResponse)
 def new_customer_form(request: Request):
-    return templates.TemplateResponse(request, "customers/form.html", {"c": None})
+    return templates.TemplateResponse(
+        request, "customers/form.html", {"c": None, "return_to": return_to(request, "/customers")}
+    )
 
 
 @router.get("/customers/quick-new", response_class=HTMLResponse)
@@ -88,7 +90,12 @@ def quick_new_create(
 @router.get("/customers/{customer_id:int}/edit", response_class=HTMLResponse)
 def edit_customer_form(customer_id: int, request: Request, session: Session = Depends(get_session)):
     return templates.TemplateResponse(
-        request, "customers/form.html", {"c": get_or_404(session, Customer, customer_id)}
+        request,
+        "customers/form.html",
+        {
+            "c": get_or_404(session, Customer, customer_id),
+            "return_to": return_to(request, "/customers"),
+        },
     )
 
 
@@ -111,12 +118,13 @@ def create_customer(
     name: str = Form(...),
     contact: str = Form(""),
     notes: str = Form(""),
+    return_to: str = Form(""),
     session: Session = Depends(get_session),
 ):
     session.add(
         Customer(name=name.strip(), contact=contact.strip() or None, notes=notes.strip() or None)
     )
-    return see_other(session, "/customers")
+    return see_other_back(session, return_to, "/customers")
 
 
 @router.post("/customers/{customer_id:int}")
@@ -125,13 +133,14 @@ def update_customer(
     name: str = Form(...),
     contact: str = Form(""),
     notes: str = Form(""),
+    return_to: str = Form(""),
     session: Session = Depends(get_session),
 ):
     c = get_or_404(session, Customer, customer_id)
     c.name = name.strip()
     c.contact = contact.strip() or None
     c.notes = notes.strip() or None
-    return see_other(session, "/customers")
+    return see_other_back(session, return_to, "/customers")
 
 
 @router.post("/customers/{customer_id:int}/anonymize")

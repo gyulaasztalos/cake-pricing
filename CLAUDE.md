@@ -42,14 +42,21 @@ hang.
   `entry_date`**. **Cost is never stored** — it's computed by SQL views
   (`v_offer_line_cost`, `v_offer_cost`) mirrored in
   [`app/services/pricing.py`](app/services/pricing.py).
-- **8 tables** ([`app/models.py`](app/models.py) / [`schema.sql`](schema.sql)):
+- **9 tables** ([`app/models.py`](app/models.py) / [`schema.sql`](schema.sql)):
   `groups`, `components`, `component_prices` (append-only), `customers`,
   `offers`, `offer_components`, `recipes`/`recipe_items`, `stock_movements`
-  (append-only).
+  (append-only), `price_sync_state` (singleton).
 - Routers under `app/routers/` (one per domain area); services under
   `app/services/`; the external write path is
   [`app/routers/intake.py`](app/routers/intake.py) (`POST /api/intake/offers`,
   bearer token) — cake-order calls it to create external draft offers.
+- **Daily price sync**: a CronJob runs
+  [`app/jobs/price_sync.py`](app/jobs/price_sync.py) (`python -m
+  app.jobs.price_sync`) — downloads the árfigyelő XLSX, updates component base
+  prices via the temporal mechanism, e-mails a report, and records
+  `price_sync_state.last_success_at` (a `/metrics` gauge for staleness alerts).
+- **Calendar**: [`app/routers/calendar.py`](app/routers/calendar.py) — `/naptar`
+  month view + the tokenized `/calendar/{token}/offers.ics` feed.
 
 ## Conventions & invariants (don't break these)
 
@@ -58,6 +65,16 @@ hang.
   chef first saves them (intake writes an explicit SQL `NULL`, not Python `None`).
 - **Append-only tables** (`component_prices`, `stock_movements`): correct by
   inserting a new row (new window / correction movement), never update in place.
+  A price change (manual or the sync job) closes the open window (`expiration_date
+  = now`) and inserts a new one — see `change_price` / `price_sync._apply_price_change`.
+- **Hungarian numbers**: amount/price inputs are `type=text inputmode=decimal`,
+  parsed by `decimal_hu()` in `_helpers.py` (comma + spaces); the `amount` filter
+  trims trailing zeros for display.
+- **Machines use tokens, humans use Authentik**: the `.ics` feed is token-gated in
+  the app AND its `/calendar/` IngressRoute rule skips Authentik. Any new
+  machine-accessed endpoint carrying customer data must do the same.
+- **`.venv/bin/…` for tools; `uv lock` after editing deps; bump BOTH version files
+  AND the ArgoCD image tags** (deployment + migrate-job + price-sync-cronjob).
 - **`see_other()` after every write** (commit-before-redirect); the intake API
   **commits before its 201** because cake-order marks its order forwarded on that
   ack.

@@ -15,7 +15,8 @@
     const input = line.querySelector("input[name=amount]");
     const unit = (line.querySelector(".cp-unit")?.textContent || "").trim();
     const step = (window.cpMassUnits || []).includes(unit) ? (window.cpUnitStep || 10) : 1;
-    const cur = parseFloat(input.value || "0");
+    // Tolerate a decimal comma in the current value before stepping.
+    const cur = parseFloat(String(input.value || "0").replace(",", ".")) || 0;
     input.value = Math.max(0, cur + dir * step);
     window.cpRecalc();
   };
@@ -50,8 +51,56 @@
         if (_recalcQueued) { _recalcQueued = false; window.cpRecalc(); }
       });
   };
+  // Debounce keystrokes so we recalc only after the chef pauses typing, not on
+  // every character (fewer swaps, and less chance of a swap landing mid-word on
+  // a slow box).
+  const RECALC_DELAY_MS = 700;
   let _t = null;
-  window.cpDebouncedRecalc = function () { clearTimeout(_t); _t = setTimeout(window.cpRecalc, 400); };
+  window.cpDebouncedRecalc = function () {
+    clearTimeout(_t);
+    _t = setTimeout(window.cpRecalc, RECALC_DELAY_MS);
+  };
+
+  // --- Keep the caret in the amount field across the recalc swap -------------
+  // The recalc replaces #sections wholesale, which would otherwise blow away
+  // focus + caret in the input the chef is typing in. Capture them right before
+  // the swap and restore them right after, keyed by the input's position among
+  // the amount fields (stable during a plain amount edit). If the chef kept
+  // typing while the request was in flight, keep THEIR newer value and trigger
+  // a follow-up recalc, rather than snapping back to the submitted value.
+  let _caret = null;
+  function amountInputs() {
+    return Array.prototype.slice.call(document.querySelectorAll("#sections .cp-amount"));
+  }
+  document.body.addEventListener("htmx:beforeSwap", function (e) {
+    if (!e.detail || !e.detail.target || e.detail.target.id !== "sections") return;
+    const a = document.activeElement;
+    if (!a || !a.classList || !a.classList.contains("cp-amount")) { _caret = null; return; }
+    let sel = null;
+    try { sel = [a.selectionStart, a.selectionEnd]; } catch (_) { sel = null; }  // number inputs throw
+    _caret = { index: amountInputs().indexOf(a), value: a.value, sel: sel };
+  });
+  document.body.addEventListener("htmx:afterSwap", function (e) {
+    if (!e.detail || !e.detail.target || e.detail.target.id !== "sections") return;
+    const c = _caret;
+    _caret = null;
+    if (!c || c.index < 0) return;
+    const el = amountInputs()[c.index];
+    if (!el) return;
+    // Compare NUMERICALLY: the server trims trailing zeros (2.50 -> 2.5), so a
+    // pure string compare would think the value changed on every recalc and
+    // loop forever restoring the user's value. Only restore when the number the
+    // user has actually differs (they typed more during a slow request).
+    const un = parseFloat(String(c.value).replace(",", "."));
+    const sn = parseFloat(String(el.value).replace(",", "."));
+    const sameNumber = Number.isFinite(un) && Number.isFinite(sn) && un === sn;
+    if (!sameNumber && el.value !== c.value) {
+      el.value = c.value;
+      window.cpDebouncedRecalc();
+    }
+    el.focus();
+    if (c.sel) { try { el.setSelectionRange(c.sel[0], c.sel[1]); } catch (_) {} }
+  });
 
   // Add a blank line to a group's .cp-lines container (builds <select> from comps-data).
   window.cpAddLine = function (groupId) {
@@ -65,7 +114,7 @@
     comps.forEach(c => { opts += '<option value="' + c.id + '" data-unit="' + c.unit + '">' + escapeHtml(c.name) + "</option>"; });
     line.innerHTML =
       '<select name="component_id" required onchange="cpLineChanged(this)">' + opts + "</select>" +
-      '<input class="cp-amount" type="number" step="0.001" min="0" name="amount" value="1" onchange="cpRecalc()" onkeyup="cpDebouncedRecalc()">' +
+      '<input class="cp-amount" type="text" inputmode="decimal" name="amount" value="1" onchange="cpRecalc()" onkeyup="cpDebouncedRecalc()">' +
       '<span class="cp-unit"></span>' +
       '<span class="cp-stepper"><button type="button" onclick="cpStep(this,1)">▲</button><button type="button" onclick="cpStep(this,-1)">▼</button></span>' +
       '<span class="cp-line-cost"></span>' +

@@ -64,6 +64,12 @@ HU: dict[str, str] = {
     "components.base_price": "Alap ár",
     "components.effective": "érvényes",
     "components.now": "most",
+    "components.product_id": "Termék azonosító",
+    "components.product_id_hint": "az árfigyelő termékkódja (opcionális)",
+    "components.price_missing": (
+        "A termékazonosító nem található a legutóbbi árfigyelő fájlban — az ár nem frissült."
+    ),
+    "components.price_missing_short": "ár nem található",
     # customers
     "customers.title": "Ügyfelek",
     "customers.new": "Új ügyfél",
@@ -142,6 +148,7 @@ HU: dict[str, str] = {
     "calendar.prev_month": "Előző hónap",
     "calendar.next_month": "Következő hónap",
     "calendar.today": "Ma",
+    "calendar.new_offer": "Új ajánlat erre a napra",
     "calendar.excluded_note": "Az elutasított ajánlatok nem jelennek meg a naptárban.",
     # calendar feed (subscription lives on the Beállítások page)
     "calendar.subscribe": "Naptár-feliratkozás",
@@ -181,6 +188,20 @@ HU: dict[str, str] = {
     "stats.source.external": "Weboldal (külső)",
     "stats.count": "db",
     "stats.empty": "Még nincs adat.",
+    # price-report e-mail
+    "email.footer": "Anita Tortái — automatikus árfrissítés",
+    "email.price_report.subject": "Árfrissítés: {changed} módosult, {missing} nem található",
+    "email.price_report.heading": "Napi árfrissítés",
+    "email.price_report.intro": "{checked} termékazonosítóval rendelkező összetevő ellenőrizve.",
+    "email.price_report.changes_heading": "Módosult árak ({n})",
+    "email.price_report.col_name": "Összetevő",
+    "email.price_report.col_old": "Régi ár",
+    "email.price_report.col_new": "Új ár",
+    "email.price_report.missing_heading": "Nem található termékazonosítók ({n})",
+    "email.price_report.missing_note": (
+        "Ezek az összetevők termékazonosítóval rendelkeznek, de a mai árfigyelő "
+        "fájlban nem szerepeltek. Ellenőrizd a kódot az összetevőnél."
+    ),
     # empty states
     "empty.no_results": "Nincs találat.",
 }

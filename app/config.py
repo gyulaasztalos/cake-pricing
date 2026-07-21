@@ -22,5 +22,22 @@ class Settings:
     # token disables it entirely (404).
     calendar_token: str = os.getenv("CALENDAR_TOKEN", "")
 
+    # --- daily price-sync job (§ automatic price update) ---
+    # Source XLSX (árfigyelő napi termékadatok) the CronJob downloads.
+    price_sync_url: str = os.getenv(
+        "PRICE_SYNC_URL",
+        "https://cdnarfigyeloprodweu.azureedge.net/excel/arfigyelo_napi_termekadatok.xlsx",
+    )
+    # SMTP for the price-change report e-mail. Same iCloud account cake-order
+    # uses (STARTTLS on 587, app-specific password); creds arrive via env/ESO.
+    smtp_host: str = os.getenv("SMTP_HOST", "localhost")
+    smtp_port: int = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user: str = os.getenv("SMTP_USER", "")
+    smtp_password: str = os.getenv("SMTP_PASSWORD", "")
+    smtp_security: str = os.getenv("SMTP_SECURITY", "starttls")  # starttls | tls | plain
+    mail_from: str = os.getenv("MAIL_FROM", "info@anitatortai.hu")
+    # Where the report goes (info@anitatortai.hu).
+    order_inbox: str = os.getenv("ORDER_INBOX", "info@anitatortai.hu")
+
 
 settings = Settings()

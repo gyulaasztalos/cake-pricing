@@ -7,7 +7,10 @@
          hx-target="#detail-{{ c.id }}" hx-swap="innerHTML"
          onclick="this.closest('.cp-list__row').querySelector('.cp-list__detail').toggleAttribute('hidden')">
       {{ m.icon('chevron-right') }}
-      <div class="cp-grow"><strong>{{ c.name }}</strong> <span class="cp-muted">· {{ c.group.name }}</span></div>
+      <div class="cp-grow">
+        <strong>{{ c.name }}</strong> <span class="cp-muted">· {{ c.group.name }}</span>
+        {% if c.price_missing_at %}<span class="cp-badge is-warn" title="{{ t('components.price_missing') }}">⚠</span>{% endif %}
+      </div>
       <span>{% if p %}{{ p.base_price|huf }} / {{ p.base_amount|amount }} {{ c.unit }}{% else %}—{% endif %}</span>
       <span class="cp-badge {{ '' if c.active else 'is-warn' }}">{{ t('common.active') if c.active else t('common.inactive') }}</span>
       <span class="cp-actions">{{ m.edit_link('/components/' ~ c.id ~ '/edit') }}</span>

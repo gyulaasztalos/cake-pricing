@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse
@@ -15,7 +15,7 @@ from app.config import settings
 from app.db import get_session
 from app.i18n import t
 from app.models import Component, Customer, Offer, Recipe, RecipeItem
-from app.routers._helpers import get_or_404, see_other
+from app.routers._helpers import decimal_hu, get_or_404, return_to, see_other, see_other_back
 from app.services import offers as offer_svc
 from app.templating import templates
 
@@ -63,15 +63,20 @@ def _sections_ctx(session: Session, group_vms, total) -> dict:
 def _parse_lines(component_ids: list[str], amounts: list[str]) -> list[tuple[int, Decimal]]:
     """Zip the parallel form arrays into (component_id, amount) pairs.
 
-    Skips blank/invalid rows so a stray empty picker never breaks a save.
+    Skips blank/invalid rows so a stray empty picker never breaks a save. A blank
+    amount counts as 0; a negative amount is dropped (the input has no native
+    min once it accepts commas, so guard it here).
     """
     pairs: list[tuple[int, Decimal]] = []
     for cid, amt in zip(component_ids, amounts, strict=False):
         if not cid:
             continue
+        amount = Decimal("0") if not (amt or "").strip() else decimal_hu(amt)
+        if amount is None or amount < 0:
+            continue
         try:
-            pairs.append((int(cid), Decimal(amt or "0")))
-        except ValueError, InvalidOperation:
+            pairs.append((int(cid), amount))
+        except ValueError:
             continue
     return pairs
 
@@ -185,8 +190,12 @@ def _form_context(session: Session, offer: Offer | None, pairs, as_of) -> dict:
 
 
 @router.get("/offers/new", response_class=HTMLResponse)
-def new_offer_form(request: Request, session: Session = Depends(get_session)):
+def new_offer_form(request: Request, due_date: str = "", session: Session = Depends(get_session)):
     ctx = _form_context(session, None, _default_offer_lines(session), dt.datetime.now(dt.UTC))
+    # Pre-fill the deadline when arriving from the calendar (?due_date=YYYY-MM-DD),
+    # validated so only a real ISO date reaches the <input value>.
+    ctx["preset_due_date"] = _iso_date_or_blank(due_date)
+    ctx["return_to"] = return_to(request, "/offers")
     return templates.TemplateResponse(request, "offers/form.html", ctx)
 
 
@@ -198,6 +207,7 @@ def edit_offer_form(offer_id: int, request: Request, session: Session = Depends(
     # entry_date to "now", so what she sees is what she gets (§8a).
     as_of = offer.entry_date or dt.datetime.now(dt.UTC)
     ctx = _form_context(session, offer, pairs, as_of)
+    ctx["return_to"] = return_to(request, "/offers")
     return templates.TemplateResponse(request, "offers/form.html", ctx)
 
 
@@ -229,6 +239,7 @@ def create_offer(
     notes: str = Form(""),
     component_id: list[str] = Form(default=[]),
     amount: list[str] = Form(default=[]),
+    return_to: str = Form(""),
     session: Session = Depends(get_session),
 ):
     offer = Offer(
@@ -243,7 +254,7 @@ def create_offer(
     session.add(offer)
     session.flush()
     offer_svc.save_offer_lines(session, offer, _parse_lines(component_id, amount))
-    return see_other(session, "/offers")
+    return see_other_back(session, return_to, "/offers")
 
 
 @router.post("/offers/{offer_id:int}")
@@ -258,6 +269,7 @@ def update_offer(
     notes: str = Form(""),
     component_id: list[str] = Form(default=[]),
     amount: list[str] = Form(default=[]),
+    return_to: str = Form(""),
     session: Session = Depends(get_session),
 ):
     offer = get_or_404(session, Offer, offer_id)
@@ -273,7 +285,7 @@ def update_offer(
     if offer.entry_date is None:
         offer.entry_date = dt.datetime.now(dt.UTC)
     offer_svc.save_offer_lines(session, offer, _parse_lines(component_id, amount))
-    return see_other(session, "/offers")
+    return see_other_back(session, return_to, "/offers")
 
 
 @router.get("/offers/{offer_id:int}/delete", response_class=HTMLResponse)
@@ -362,7 +374,13 @@ def _parse_dt(value: str) -> dt.datetime:
 
 
 def _parse_decimal(value: str) -> Decimal | None:
+    # Final price is entered the same way (accept a Hungarian comma + spaces).
+    return decimal_hu(value)
+
+
+def _iso_date_or_blank(value: str) -> str:
+    """A YYYY-MM-DD string echoed back only if it is a real date, else ''."""
     try:
-        return Decimal(value) if value.strip() else None
-    except InvalidOperation, AttributeError:
-        return None
+        return dt.date.fromisoformat(value.strip()).isoformat() if value.strip() else ""
+    except ValueError:
+        return ""

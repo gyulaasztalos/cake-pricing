@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from prometheus_fastapi_instrumentator import Instrumentator
 
-from app import __version__
+from app import __version__, metrics
 from app.routers import (
     calendar,
     components,
@@ -42,6 +42,8 @@ async def no_store_dynamic(request: Request, call_next):
 
 
 Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+# Custom gauge: last successful price-sync run (read from the DB per scrape).
+metrics.register()
 
 STATIC_DIR = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")

@@ -6,8 +6,6 @@ line set reuses the same grouped-line editor as the offer form.
 
 from __future__ import annotations
 
-from decimal import Decimal, InvalidOperation
-
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy import func, select
@@ -16,7 +14,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.db import get_session
 from app.i18n import t
 from app.models import Component, Recipe, RecipeItem
-from app.routers._helpers import get_or_404, see_other
+from app.routers._helpers import decimal_hu, get_or_404, return_to, see_other, see_other_back
 from app.templating import templates as tmpl
 
 router = APIRouter()
@@ -67,7 +65,9 @@ def edit_template_form(recipe_id: int, request: Request, session: Session = Depe
         )
     )
     return tmpl.TemplateResponse(
-        request, "templates/form.html", {"r": recipe, "components": components}
+        request,
+        "templates/form.html",
+        {"r": recipe, "components": components, "return_to": return_to(request, "/templates")},
     )
 
 
@@ -78,6 +78,7 @@ def update_template(
     notes: str = Form(""),
     component_id: list[str] = Form(default=[]),
     amount: list[str] = Form(default=[]),
+    return_to: str = Form(""),
     session: Session = Depends(get_session),
 ):
     recipe = get_or_404(session, Recipe, recipe_id)
@@ -88,11 +89,14 @@ def update_template(
     for cid, amt in zip(component_id, amount, strict=False):
         if not cid:
             continue
-        try:
-            recipe.items.append(RecipeItem(component_id=int(cid), amount=Decimal(amt or "0")))
-        except ValueError, InvalidOperation:
+        value = decimal_hu(amt) if (amt or "").strip() else None
+        if value is None or value < 0:
             continue
-    return see_other(session, "/templates")
+        try:
+            recipe.items.append(RecipeItem(component_id=int(cid), amount=value))
+        except ValueError:
+            continue
+    return see_other_back(session, return_to, "/templates")
 
 
 @router.get("/templates/{recipe_id:int}/delete", response_class=HTMLResponse)
