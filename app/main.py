@@ -22,9 +22,9 @@ from app.routers import (
     intake,
     inventory,
     offers,
+    recipes,
     settings,
     stats,
-    templates,
 )
 
 app = FastAPI(title="cake-pricing", version=__version__)
@@ -54,7 +54,7 @@ for router in (
     customers,
     components,
     groups,
-    templates,
+    recipes,
     inventory,
     settings,
     stats,

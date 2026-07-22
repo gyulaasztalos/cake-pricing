@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.config import settings
 from app.db import get_session
 from app.i18n import t
-from app.models import Component, Customer, Offer, Recipe, RecipeItem
+from app.models import Component, Customer, Group, Offer, Recipe, RecipeItem
 from app.routers._helpers import decimal_hu, get_or_404, return_to, see_other, see_other_back
 from app.services import offers as offer_svc
 from app.templating import templates
@@ -22,6 +22,10 @@ from app.templating import templates
 router = APIRouter()
 
 STATUSES = ["draft", "sent", "accepted", "rejected", "done"]
+
+# The base-cost group (Munkadíj, Rezsi) — added fresh to every offer, so it is
+# never saved into a Recept (recipe). Identified by its seeded name (§3.1/§3.2).
+BASE_GROUP_NAME = "Alap"
 
 
 def _comps_by_group(session: Session) -> dict[int, list[Component]]:
@@ -211,6 +215,20 @@ def edit_offer_form(offer_id: int, request: Request, session: Session = Depends(
     return templates.TemplateResponse(request, "offers/form.html", ctx)
 
 
+@router.get("/offers/{offer_id:int}/copy", response_class=HTMLResponse)
+def copy_offer_form(offer_id: int, request: Request, session: Session = Depends(get_session)):
+    """Open the NEW-offer form pre-filled from an existing offer: its line set and
+    flavor (Íz) are copied; theme, due date, customer, and notes are intentionally
+    left blank and the status resets to draft (§copy). Posts to POST /offers like
+    any new offer — nothing is written until the chef saves."""
+    src = get_or_404(session, Offer, offer_id)
+    pairs = offer_svc.load_offer_line_pairs(session, offer_id)
+    ctx = _form_context(session, None, pairs, dt.datetime.now(dt.UTC))
+    ctx["preset_flavor"] = src.flavor or ""
+    ctx["return_to"] = return_to(request, "/offers")
+    return templates.TemplateResponse(request, "offers/form.html", ctx)
+
+
 @router.post("/offers/recalc", response_class=HTMLResponse)
 def recalc(
     request: Request,
@@ -310,19 +328,19 @@ def delete_offer(offer_id: int, session: Session = Depends(get_session)):
     return see_other(session, "/offers")
 
 
-# --- templates on the offer form --------------------------------------------
+# --- recipes on the offer form ----------------------------------------------
 
 
-@router.post("/offers/apply-template", response_class=HTMLResponse)
-def apply_template(
+@router.post("/offers/apply-recipe", response_class=HTMLResponse)
+def apply_recipe(
     request: Request,
-    template_id: int = Form(...),
+    recipe_id: int = Form(...),
     entry_date: str = Form(""),
     component_id: list[str] = Form(default=[]),
     amount: list[str] = Form(default=[]),
     session: Session = Depends(get_session),
 ):
-    """Append a template's items to the current form lines (cumulative, §3.5).
+    """Append a recipe's items to the current form lines (cumulative, §3.5).
 
     A component already present becomes a SEPARATE line (amounts are NOT merged).
     Returns the re-rendered sections fragment.
@@ -330,7 +348,7 @@ def apply_template(
     as_of = _parse_dt(entry_date)
     pairs = _parse_lines(component_id, amount)
     items = session.scalars(
-        select(RecipeItem).where(RecipeItem.recipe_id == template_id).order_by(RecipeItem.id)
+        select(RecipeItem).where(RecipeItem.recipe_id == recipe_id).order_by(RecipeItem.id)
     )
     pairs.extend((it.component_id, it.amount) for it in items)
     group_vms, total = offer_svc.build_group_vms(session, pairs, as_of)
@@ -339,19 +357,48 @@ def apply_template(
     )
 
 
-@router.post("/offers/save-as-template")
-def save_as_template(
-    template_name: str = Form(...),
+@router.post("/offers/save-as-recipe", response_class=HTMLResponse)
+def save_as_recipe(
+    recipe_name: str = Form(...),
     component_id: list[str] = Form(default=[]),
     amount: list[str] = Form(default=[]),
     session: Session = Depends(get_session),
 ):
-    recipe = Recipe(name=template_name.strip())
+    """Save the current line set as a reusable Recept, then STAY on the offer form.
+
+    The Alap (base-cost) group is never saved — Munkadíj/Rezsi are added fresh to
+    every offer — so those lines are stripped; if nothing else remains, the save
+    fails with an inline error. Driven by HTMX: an error returns a message
+    fragment (into the dialog), success returns empty + an `HX-Trigger` the form
+    JS uses to append the new recipe to the picker and close the dialog.
+    """
+    base_group_ids = set(session.scalars(select(Group.id).where(Group.name == BASE_GROUP_NAME)))
+    pairs = _parse_lines(component_id, amount)
+    comp_group: dict[int, int] = (
+        dict(
+            session.execute(
+                select(Component.id, Component.group_id).where(
+                    Component.id.in_([cid for cid, _ in pairs])
+                )
+            )
+            .tuples()
+            .all()
+        )
+        if pairs
+        else {}
+    )
+    kept = [(cid, amt) for cid, amt in pairs if comp_group.get(cid) not in base_group_ids]
+    if not kept:
+        return HTMLResponse(f'<p class="cp-error" role="alert">{t("recipes.save_empty")}</p>')
+
+    recipe = Recipe(name=recipe_name.strip())
     session.add(recipe)
     session.flush()
-    for cid, amt in _parse_lines(component_id, amount):
+    for cid, amt in kept:
         session.add(RecipeItem(recipe_id=recipe.id, component_id=cid, amount=amt))
-    return see_other(session, "/templates")
+    session.commit()
+    trigger = json.dumps({"cpRecipeSaved": {"id": recipe.id, "name": recipe.name}})
+    return HTMLResponse("", headers={"HX-Trigger": trigger})
 
 
 # --- helpers -----------------------------------------------------------------

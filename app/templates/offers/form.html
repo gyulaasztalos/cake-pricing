@@ -34,7 +34,7 @@
     </div>
     <div class="grid">
       <label>{{ t('offers.theme') }}<input name="theme" value="{{ o.theme if o and o.theme else '' }}"></label>
-      <label>{{ t('offers.flavor') }}<input name="flavor" value="{{ o.flavor if o and o.flavor else '' }}"></label>
+      <label>{{ t('offers.flavor') }}<input name="flavor" value="{{ o.flavor if o and o.flavor else (preset_flavor | default('')) }}"></label>
     </div>
     <div class="grid">
       <label>{{ t('offers.due_date') }}
@@ -53,17 +53,17 @@
 
   <div style="display:flex;gap:.5rem;margin:.5rem 0">
     <select id="tpl-select" style="max-width:20rem;margin:0">
-      <option value="">{{ t('offers.add_template') }}…</option>
+      <option value="">{{ t('offers.add_recipe') }}…</option>
       {% for r in recipes %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
     </select>
     <button type="button" class="outline"
-            hx-post="/offers/apply-template" hx-target="#sections" hx-swap="innerHTML"
+            hx-post="/offers/apply-recipe" hx-target="#sections" hx-swap="innerHTML"
             hx-include="#offer-form"
-            hx-vals="js:{template_id: document.getElementById('tpl-select').value}">
-      {{ m.icon('plus') }} {{ t('offers.add_template') }}
+            hx-vals="js:{recipe_id: document.getElementById('tpl-select').value}">
+      {{ m.icon('plus') }} {{ t('offers.add_recipe') }}
     </button>
-    <button type="button" class="outline secondary" onclick="cpSaveAsTemplate()">
-      {{ m.icon('save') }} {{ t('offers.save_as_template') }}
+    <button type="button" class="outline secondary" onclick="cpSaveAsRecipe()">
+      {{ m.icon('save') }} {{ t('offers.save_as_recipe') }}
     </button>
   </div>
 
@@ -87,12 +87,18 @@
 
 <dialog id="tpl-save-dialog">
   <article>
-    <header><strong>{{ t('offers.save_as_template') }}</strong></header>
-    <form method="post" action="/offers/save-as-template" id="tpl-save-form">
-      <label>{{ t('templates.name') }}
-        <input name="template_name" required placeholder="pl. 12 szeletes epres torta">
+    <header><strong>{{ t('offers.save_as_recipe') }}</strong></header>
+    {# Posts via HTMX so a successful save STAYS on the offer form (no redirect to
+       the recipe list). The server strips the Alap group and, if nothing else is
+       left, returns an inline error into #tpl-save-result; on success it returns
+       empty + an HX-Trigger the script below uses to close + refresh the picker. #}
+    <form hx-post="/offers/save-as-recipe" hx-target="#tpl-save-result" hx-swap="innerHTML"
+          id="tpl-save-form">
+      <label>{{ t('recipes.name') }}
+        <input name="recipe_name" required placeholder="pl. 12 szeletes epres torta">
       </label>
       <div id="tpl-save-lines"></div>
+      <div id="tpl-save-result" aria-live="polite"></div>
       <footer style="display:flex;justify-content:space-between;gap:1rem">
         <button type="button" class="secondary" onclick="document.getElementById('tpl-save-dialog').close()">{{ t('action.cancel') }}</button>
         <button type="submit">{{ t('action.save') }}</button>
@@ -102,11 +108,13 @@
 </dialog>
 
 <script>
-  // Save-as-template: open an inline dialog; copy the current lines as hidden fields.
-  function cpSaveAsTemplate() {
+  // Save-as-recipe: open an inline dialog; copy the current lines as hidden fields.
+  // The Alap (base-cost) group is filtered server-side, so we send every line.
+  function cpSaveAsRecipe() {
     const dlg = document.getElementById('tpl-save-dialog');
     const holder = document.getElementById('tpl-save-lines');
     holder.innerHTML = '';
+    document.getElementById('tpl-save-result').innerHTML = '';
     document.querySelectorAll('#offer-form [name=component_id]').forEach(sel => {
       if (!sel.value || sel.value === '__new__') return;
       const line = sel.closest('.cp-line');
@@ -116,6 +124,18 @@
     });
     dlg.showModal();
   }
+  // Success: the server fires HX-Trigger `cpRecipeSaved` {id, name}. Close the
+  // dialog, reset it, and add the new recipe to the picker so it is usable at once.
+  document.body.addEventListener('cpRecipeSaved', function (e) {
+    const d = e.detail || {};
+    const sel = document.getElementById('tpl-select');
+    if (sel && d.id) {
+      const o = document.createElement('option'); o.value = d.id; o.textContent = d.name; sel.appendChild(o);
+    }
+    const form = document.getElementById('tpl-save-form');
+    if (form) form.reset();
+    document.getElementById('tpl-save-dialog').close();
+  });
   // Customer picker: handle the [Új ügyfél…] sentinel via an inline dialog.
   window.cpCustomerChanged = function (sel) {
     if (sel.value !== '__new__') return;

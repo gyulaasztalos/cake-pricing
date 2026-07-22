@@ -42,17 +42,17 @@ app/
   templating.py      Jinja env + filters (huf, amount, date, datetime).
   routers/
     offers.py        Offer list/detail, create/edit form, live HTMX recalc,
-                     templates→offer, delete.
+                     apply/save recipe, copy→new draft, delete.
     components.py    Component CRUD + price windows.
     groups.py        Component groups (sections + sort order).
     customers.py     Customer CRUD, history, anonymization.
-    templates.py     Recipes (reusable line sets).
+    recipes.py       Recipes (reusable line sets) — /recipes.
     inventory.py     Stock list, receive deliveries, corrections.
     stats.py         /stats dashboard (KPIs + charts).
     settings.py      JSON export/import (portability).
     intake.py        POST /api/intake/offers — the one external write path.
     _helpers.py      see_other() (commit-before-redirect), get_or_404().
-    calendar.py      /naptar month view + the tokenized .ics feed.
+    calendar.py      /schedule month view + the tokenized .ics feed.
   services/
     pricing.py       Temporal price selection + line-cost math (mirrors views).
     offers.py        Group view-models for the form; save lines + resync stock.
@@ -84,7 +84,7 @@ quantities/multipliers `Numeric(12,3)`.
 | `customers` | People/orgs | `anonymized_at` scrubs identity after the retention window |
 | `offers` | The core entity | see lifecycle below |
 | `offer_components` | Offer line items | `(component_id, amount)` |
-| `recipes` / `recipe_items` | Templates | reusable line sets to seed offers |
+| `recipes` / `recipe_items` | Recipes | reusable line sets to seed offers |
 | `stock_movements` | **Append-only** inventory ledger | `reason ∈ {delivery, order, correction}`; `order` movements carry `offer_id` |
 | `price_sync_state` | Singleton (id=1) | `last_success_at` of the daily price-sync job (read by `/metrics`) |
 
@@ -180,7 +180,7 @@ without being identifiable.
 [`services/calendar.py`](../app/services/calendar.py) +
 [`routers/calendar.py`](../app/routers/calendar.py). Two deliberately separate
 paths (PLANNING §Calendar):
-- **`/naptar`** — the human month view, behind Authentik. Row-per-day, every day
+- **`/schedule`** — the human month view, behind Authentik. Row-per-day, every day
   of the month; click a day → new offer with that `due_date` pre-filled.
 - **`/calendar/{token}/offers.ics`** — the machine feed. Calendar apps can't do
   Authentik forward-auth, so the IngressRoute gives `/calendar/` its own rule

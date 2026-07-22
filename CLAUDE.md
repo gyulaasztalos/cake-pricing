@@ -55,8 +55,13 @@ hang.
   app.jobs.price_sync`) — downloads the árfigyelő XLSX, updates component base
   prices via the temporal mechanism, e-mails a report, and records
   `price_sync_state.last_success_at` (a `/metrics` gauge for staleness alerts).
-- **Calendar**: [`app/routers/calendar.py`](app/routers/calendar.py) — `/naptar`
+- **Calendar**: [`app/routers/calendar.py`](app/routers/calendar.py) — `/schedule`
   month view + the tokenized `/calendar/{token}/offers.ics` feed.
+- **Recipes** (Receptek): [`app/routers/recipes.py`](app/routers/recipes.py) —
+  `/recipes` reusable line sets. Note the router module is `recipes.py` but the
+  Jinja dir is `app/templates/recipes/`; the ORM models are `Recipe`/`RecipeItem`
+  ("template/Sablon" was the old UI name — never reintroduce it). "Save as recipe"
+  from the offer form strips the **Alap** (base-cost) group.
 
 ## Conventions & invariants (don't break these)
 

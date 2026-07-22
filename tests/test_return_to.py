@@ -19,7 +19,7 @@ client = TestClient(app)
 @pytest.mark.parametrize(
     ("raw", "expected"),
     [
-        ("/naptar?ym=2026-07", "/naptar?ym=2026-07"),  # relative path + query kept
+        ("/schedule?ym=2026-07", "/schedule?ym=2026-07"),  # relative path + query kept
         ("/offers", "/offers"),
         ("//evil.com", None),  # protocol-relative
         ("https://evil.com/x", None),  # absolute foreign host
@@ -35,9 +35,8 @@ def test_safe_path_relative_only(raw, expected):
 
 
 def test_safe_path_allows_same_host_absolute():
-    assert (
-        _safe_path("https://torta.local/naptar?ym=2026-07", "torta.local") == "/naptar?ym=2026-07"
-    )
+    same = _safe_path("https://torta.local/schedule?ym=2026-07", "torta.local")
+    assert same == "/schedule?ym=2026-07"
     assert _safe_path("https://torta.local/x", "other.host") is None
 
 
@@ -52,23 +51,23 @@ pytestmark_db = pytest.mark.skipif(
 def test_new_offer_form_prefills_due_date_and_return(clean_db):
     r = client.get(
         "/offers/new?due_date=2026-07-13",
-        headers={"referer": "http://testserver/naptar?ym=2026-07"},
+        headers={"referer": "http://testserver/schedule?ym=2026-07"},
     )
     assert r.status_code == 200
     assert 'name="due_date" value="2026-07-13"' in r.text
     # Referer became the return target (hidden field + cancel link).
-    assert 'name="return_to" value="/naptar?ym=2026-07"' in r.text
+    assert 'name="return_to" value="/schedule?ym=2026-07"' in r.text
 
 
 @pytestmark_db
 def test_explicit_next_wins_and_works_without_referer(clean_db):
     # The calendar link passes ?next= explicitly because the edge strips the
     # Referer — so this must work with NO referer header at all.
-    r = client.get("/offers/new?due_date=2026-07-13&next=/naptar?ym=2026-07")
+    r = client.get("/offers/new?due_date=2026-07-13&next=/schedule?ym=2026-07")
     assert r.status_code == 200
-    assert 'name="return_to" value="/naptar?ym=2026-07"' in r.text
+    assert 'name="return_to" value="/schedule?ym=2026-07"' in r.text
     # And the Cancel link points there too.
-    assert 'href="/naptar?ym=2026-07"' in r.text
+    assert 'href="/schedule?ym=2026-07"' in r.text
 
 
 @pytestmark_db
@@ -76,7 +75,7 @@ def test_calendar_day_links_carry_next(clean_db):
     # Regression for "cancel from a calendar-opened offer lands on /offers":
     # every day cell links to a pre-dated new offer AND carries an explicit next=
     # back to the month (the edge strips the Referer, so we can't rely on it).
-    r = client.get("/naptar?ym=2026-07")
+    r = client.get("/schedule?ym=2026-07")
     assert r.status_code == 200
     assert "/offers/new?due_date=2026-07-01&next=" in r.text
 
@@ -105,11 +104,11 @@ def test_create_offer_redirects_to_return_to(clean_db):
 
     good = client.post(
         "/offers",
-        data={"customer_id": cid, "status": "draft", "return_to": "/naptar?ym=2026-07"},
+        data={"customer_id": cid, "status": "draft", "return_to": "/schedule?ym=2026-07"},
         follow_redirects=False,
     )
     assert good.status_code == 303
-    assert good.headers["location"] == "/naptar?ym=2026-07"
+    assert good.headers["location"] == "/schedule?ym=2026-07"
 
     # A hostile return_to falls back to the list instead of redirecting off-site.
     evil = client.post(

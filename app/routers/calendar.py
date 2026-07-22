@@ -2,7 +2,7 @@
 
 Two deliberately separate paths (PLANNING §Calendar):
 
-  * ``/naptar``                      — the human month view, behind Authentik
+  * ``/schedule``                    — the human month view, behind Authentik
                                        like the rest of the UI.
   * ``/calendar/{token}/offers.ics`` — the machine feed. Calendar apps cannot do
                                        Authentik forward-auth, so this prefix
@@ -76,7 +76,7 @@ def _parse_month(ym: str) -> tuple[int, int]:
     return today.year, today.month
 
 
-@router.get("/naptar", response_class=HTMLResponse)
+@router.get("/schedule", response_class=HTMLResponse)
 def calendar_page(request: Request, ym: str = "", session: Session = Depends(get_session)):
     year, month = _parse_month(ym)
     prev_year, prev_month = calendar_svc.shift_month(year, month, -1)

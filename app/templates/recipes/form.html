@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% import "_macros.html" as m %}
-{% block title %}{{ t('templates.title') }} · {{ t('app.title') }}{% endblock %}
+{% block title %}{{ t('recipes.title') }} · {{ t('app.title') }}{% endblock %}
 {% block heading %}{{ t('action.edit') }} · {{ r.name }}{% endblock %}
 {% block content %}
-<form method="post" action="/templates/{{ r.id }}" id="tpl-form">
-  <input type="hidden" name="return_to" value="{{ return_to | default('/templates') }}">
-  <label>{{ t('templates.name') }} <input name="name" value="{{ r.name }}" required></label>
-  <label>{{ t('templates.notes') }} <textarea name="notes">{{ r.notes or '' }}</textarea></label>
+<form method="post" action="/recipes/{{ r.id }}" id="tpl-form">
+  <input type="hidden" name="return_to" value="{{ return_to | default('/recipes') }}">
+  <label>{{ t('recipes.name') }} <input name="name" value="{{ r.name }}" required></label>
+  <label>{{ t('recipes.notes') }} <textarea name="notes">{{ r.notes or '' }}</textarea></label>
 
   <h5>{{ t('offers.items') }}</h5>
   <div id="tpl-lines">
@@ -28,7 +28,7 @@
   <button type="button" class="outline" onclick="cpTplAddLine()">{{ m.icon('plus') }} {{ t('offers.add_component') }}</button>
 
   <div class="cp-form-actions">
-    <a role="button" class="secondary" href="{{ return_to | default('/templates') }}">{{ t('action.cancel') }}</a>
+    <a role="button" class="secondary" href="{{ return_to | default('/recipes') }}">{{ t('action.cancel') }}</a>
     <button type="submit">{{ t('action.save') }}</button>
   </div>
 </form>

@@ -15,6 +15,7 @@
       <span>{{ o.final_price|huf }}</span>
       <span class="cp-actions">
         {{ m.edit_link('/offers/' ~ o.id ~ '/edit') }}
+        {{ m.copy_link('/offers/' ~ o.id ~ '/copy') }}
         {{ m.delete_button('/offers/' ~ o.id ~ '/delete', t('action.delete')) }}
       </span>
     </div>

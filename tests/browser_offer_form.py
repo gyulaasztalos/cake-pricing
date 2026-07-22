@@ -89,10 +89,10 @@ def run() -> int:
         assert page.locator("select[name=component_id] option", has_text="Tükörzselé").count() > 0
         print("OK inline new-component created + added to group picker")
 
-        # --- save-as-template dialog is inline (not window.prompt) ---
-        page.click("button:has-text('Mentés sablonként')")
+        # --- save-as-recipe dialog is inline (not window.prompt) ---
+        page.click("button:has-text('Mentés receptként')")
         expect(page.locator("#tpl-save-dialog")).to_be_visible()
-        print("OK save-as-template inline dialog opens")
+        print("OK save-as-recipe inline dialog opens")
 
         browser.close()
     print("\n*** BROWSER TESTS PASSED ***")

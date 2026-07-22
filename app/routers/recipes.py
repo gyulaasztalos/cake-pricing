@@ -1,6 +1,6 @@
-"""Sablonok (Templates / Recipes) — list, edit, delete (§3.5).
+"""Receptek (Recipes) — list, edit, delete (§3.5).
 
-A template = a saved line set; size is encoded in the name. Building/editing the
+A recipe = a saved line set; size is encoded in the name. Building/editing the
 line set reuses the same grouped-line editor as the offer form.
 """
 
@@ -20,8 +20,8 @@ from app.templating import templates as tmpl
 router = APIRouter()
 
 
-@router.get("/templates", response_class=HTMLResponse)
-def list_templates(request: Request, q: str = "", session: Session = Depends(get_session)):
+@router.get("/recipes", response_class=HTMLResponse)
+def list_recipes(request: Request, q: str = "", session: Session = Depends(get_session)):
     stmt = select(Recipe)
     if q:
         stmt = stmt.where(func.lower(Recipe.name).like(f"%{q.lower()}%"))
@@ -34,8 +34,8 @@ def list_templates(request: Request, q: str = "", session: Session = Depends(get
         .tuples()
         .all()
     )
-    ctx = {"recipes": recipes, "counts": counts, "q": q, "active_nav": "templates"}
-    name = "templates/_rows.html" if request.headers.get("HX-Request") else "templates/list.html"
+    ctx = {"recipes": recipes, "counts": counts, "q": q, "active_nav": "recipes"}
+    name = "recipes/_rows.html" if request.headers.get("HX-Request") else "recipes/list.html"
     return tmpl.TemplateResponse(request, name, ctx)
 
 
@@ -50,14 +50,14 @@ def _load_recipe(session: Session, recipe_id: int) -> Recipe:
     return recipe
 
 
-@router.get("/templates/detail/{recipe_id:int}", response_class=HTMLResponse)
-def template_detail(recipe_id: int, request: Request, session: Session = Depends(get_session)):
+@router.get("/recipes/detail/{recipe_id:int}", response_class=HTMLResponse)
+def recipe_detail(recipe_id: int, request: Request, session: Session = Depends(get_session)):
     recipe = _load_recipe(session, recipe_id)
-    return tmpl.TemplateResponse(request, "templates/_detail.html", {"r": recipe})
+    return tmpl.TemplateResponse(request, "recipes/_detail.html", {"r": recipe})
 
 
-@router.get("/templates/{recipe_id:int}/edit", response_class=HTMLResponse)
-def edit_template_form(recipe_id: int, request: Request, session: Session = Depends(get_session)):
+@router.get("/recipes/{recipe_id:int}/edit", response_class=HTMLResponse)
+def edit_recipe_form(recipe_id: int, request: Request, session: Session = Depends(get_session)):
     recipe = _load_recipe(session, recipe_id)
     components = list(
         session.scalars(
@@ -66,13 +66,13 @@ def edit_template_form(recipe_id: int, request: Request, session: Session = Depe
     )
     return tmpl.TemplateResponse(
         request,
-        "templates/form.html",
-        {"r": recipe, "components": components, "return_to": return_to(request, "/templates")},
+        "recipes/form.html",
+        {"r": recipe, "components": components, "return_to": return_to(request, "/recipes")},
     )
 
 
-@router.post("/templates/{recipe_id:int}")
-def update_template(
+@router.post("/recipes/{recipe_id:int}")
+def update_recipe(
     recipe_id: int,
     name: str = Form(...),
     notes: str = Form(""),
@@ -96,24 +96,24 @@ def update_template(
             recipe.items.append(RecipeItem(component_id=int(cid), amount=value))
         except ValueError:
             continue
-    return see_other_back(session, return_to, "/templates")
+    return see_other_back(session, return_to, "/recipes")
 
 
-@router.get("/templates/{recipe_id:int}/delete", response_class=HTMLResponse)
+@router.get("/recipes/{recipe_id:int}/delete", response_class=HTMLResponse)
 def confirm_delete(recipe_id: int, request: Request, session: Session = Depends(get_session)):
     recipe = get_or_404(session, Recipe, recipe_id)
     return tmpl.TemplateResponse(
         request,
         "_confirm.html",
         {
-            "action": f"/templates/{recipe_id}/delete",
+            "action": f"/recipes/{recipe_id}/delete",
             "title": t("confirm.delete.title"),
             "message": f"„{recipe.name}”",
         },
     )
 
 
-@router.post("/templates/{recipe_id:int}/delete")
-def delete_template(recipe_id: int, session: Session = Depends(get_session)):
+@router.post("/recipes/{recipe_id:int}/delete")
+def delete_recipe(recipe_id: int, session: Session = Depends(get_session)):
     session.delete(get_or_404(session, Recipe, recipe_id))
-    return see_other(session, "/templates")
+    return see_other(session, "/recipes")

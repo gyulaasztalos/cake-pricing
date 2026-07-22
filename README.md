@@ -25,7 +25,9 @@ verified customer requests here as draft offers via a narrow intake API.
   stock_item) has an append-only price history with non-overlapping validity
   windows. An offer is always priced with the price **effective on its pricing
   date**, so re-opening an old offer never re-prices it.
-- **Templates (recipes)** — reusable line sets to seed a new offer quickly.
+- **Recipes** (`/recipes`) — reusable line sets to seed a new offer quickly.
+  "Save as recipe" from an offer excludes the Alap (base-cost) group. Any offer
+  can also be **copied** into a new draft (its lines + flavor; other fields reset).
 - **Customers** — history and notes; auto-anonymization after a retention window.
 - **Inventory** — a stock-movement ledger; stock-item lines on an offer consume
   stock automatically; deliveries/corrections adjust it. Warning-only at zero.
@@ -33,7 +35,7 @@ verified customer requests here as draft offers via a narrow intake API.
   average offer, new customers) with server-rendered SVG charts; all-time
   (yearly) or a single year (monthly). Aggregate-only, so anonymized customers
   are respected.
-- **Calendar** (`/naptar`) — a month view of offer deadlines (rejected excluded),
+- **Calendar** (`/schedule`) — a month view of offer deadlines (rejected excluded),
   click a day to start a new offer for it. A published, tokenized `.ics` feed
   lets the chef subscribe in Apple Calendar (subscription URL on Beállítások).
 - **Automatic price update** — a daily CronJob downloads the *árfigyelő* price
@@ -107,8 +109,8 @@ Renovate in the ArgoCD repo then bumps the deployed image tag → ArgoCD syncs i
 
 ## Route map
 
-UI (HTML, HTMX partials): `/offers`, `/naptar`, `/customers`, `/components`,
-`/templates`, `/inventory`, `/groups`, `/stats`, `/settings` (export/import).
+UI (HTML, HTMX partials): `/offers`, `/schedule`, `/customers`, `/components`,
+`/recipes`, `/inventory`, `/groups`, `/stats`, `/settings` (export/import).
 Ops: `/healthz`, `/readyz`, `/metrics`. Machine (tokenized, Authentik-skipped):
 `GET /calendar/{token}/offers.ics`. API: `POST /api/intake/offers` (bearer token).
 

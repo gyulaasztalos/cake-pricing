@@ -178,8 +178,8 @@ def test_ics_feed_contains_all_required_fields(clean_db, session, monkeypatch):
 
 @pytestmark_db
 def test_month_page_renders(clean_db):
-    r = client.get("/naptar?ym=2026-07")
+    r = client.get("/schedule?ym=2026-07")
     assert r.status_code == 200
     assert "2026. július" in r.text
     # Bad input falls back to the current month rather than erroring.
-    assert client.get("/naptar?ym=nonsense").status_code == 200
+    assert client.get("/schedule?ym=nonsense").status_code == 200

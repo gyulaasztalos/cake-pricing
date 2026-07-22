@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}{{ t('recipes.title') }} · {{ t('app.title') }}{% endblock %}
+{% block heading %}{{ t('recipes.title') }}{% endblock %}
+{% block topbar_actions %}
+  <span class="cp-muted">{{ t('offers.save_as_recipe') }} → {{ t('offers.title') }}</span>
+{% endblock %}
+{% block content %}
+<form class="cp-topbar" hx-get="/recipes" hx-target="#cp-rows" hx-trigger="keyup changed delay:250ms from:input[name=q]" hx-push-url="false">
+  <input type="search" name="q" value="{{ q }}" placeholder="{{ t('action.search') }}…">
+</form>
+<div id="cp-rows">{% include "recipes/_rows.html" %}</div>
+{% endblock %}

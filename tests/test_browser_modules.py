@@ -142,7 +142,7 @@ def test_inventory_receive_delivery(page: Page, clean_db, seed_component):
 # --- Templates ----------------------------------------------------------------
 
 
-def test_templates_edit_and_delete(page: Page, clean_db, seed_component):
+def test_recipes_edit_and_delete(page: Page, clean_db, seed_component):
     from app.db import SessionLocal
     from app.models import Recipe
 
@@ -159,7 +159,7 @@ def test_templates_edit_and_delete(page: Page, clean_db, seed_component):
     s.commit()
     s.close()
 
-    page.goto("/templates")
+    page.goto("/recipes")
     expect(page.locator(".cp-list")).to_contain_text("12 szeletes teszt")
     page.locator(".cp-list__row", has_text="12 szeletes teszt").locator("a[href$='/edit']").click()
     page.wait_for_url("**/edit")

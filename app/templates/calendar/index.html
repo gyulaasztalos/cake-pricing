@@ -5,13 +5,13 @@
 {% block topbar_actions %}
   {# Month stepper. Plain links so it works without JS and is bookmarkable. #}
   <div class="cp-cal-nav">
-    <a role="button" class="outline" href="/naptar?ym={{ prev_ym }}"
+    <a role="button" class="outline" href="/schedule?ym={{ prev_ym }}"
        aria-label="{{ t('calendar.prev_month') }}">{{ m.icon('chevron-left') }}</a>
     <strong class="cp-cal-month">{{ month_label }}</strong>
-    <a role="button" class="outline" href="/naptar?ym={{ next_ym }}"
+    <a role="button" class="outline" href="/schedule?ym={{ next_ym }}"
        aria-label="{{ t('calendar.next_month') }}">{{ m.icon('chevron-right') }}</a>
     {% if not is_current_month %}
-      <a role="button" class="outline" href="/naptar?ym={{ today_ym }}">{{ t('calendar.today') }}</a>
+      <a role="button" class="outline" href="/schedule?ym={{ today_ym }}">{{ t('calendar.today') }}</a>
     {% endif %}
   </div>
 {% endblock %}
@@ -31,7 +31,7 @@
                explicit next= so Save/Cancel return to THIS month view — the
                edge strips the Referer, so we can't rely on it. #}
             <a class="cp-cal-daylink" title="{{ t('calendar.new_offer') }}"
-               href="/offers/new?due_date={{ d.date.isoformat() }}&next={{ ('/naptar?ym=%04d-%02d' % (year, month)) | urlencode }}">
+               href="/offers/new?due_date={{ d.date.isoformat() }}&next={{ ('/schedule?ym=%04d-%02d' % (year, month)) | urlencode }}">
               <span class="cp-cal-daynum">{{ d.date.day }}</span>
               <span class="cp-cal-dow">{{ weekday_short[d.date.weekday()] }}</span>
             </a>

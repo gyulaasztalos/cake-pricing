@@ -15,6 +15,10 @@
   <a role="button" class="outline" href="{{ url }}" title="{{ t('action.edit') }}">{{ icon('pencil') }}</a>
 {% endmacro %}
 
+{% macro copy_link(url) %}
+  <a role="button" class="outline" href="{{ url }}" title="{{ t('action.copy') }}">{{ icon('copy') }}</a>
+{% endmacro %}
+
 {# Confirmation modal body (rendered into #cp-modal). posts to `action` on confirm. #}
 {% macro confirm_modal(action, title, message) %}
 <article>

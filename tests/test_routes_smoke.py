@@ -1,6 +1,6 @@
 """Smoke tests: every GET route must render (200), and key list pages must not 500.
 
-This is the guard that was missing when /customers and /templates regressed to
+This is the guard that was missing when /customers and /recipes regressed to
 500 after a refactor — a plain page load with no test. Runs against Postgres
 (gated on DATABASE_URL) with a minimal seeded dataset so list/detail queries
 execute for real.
@@ -62,7 +62,7 @@ def seeded():
     s.add(offer)
     s.flush()
     s.add(OfferComponent(offer_id=offer.id, component_id=comp.id, amount=Decimal("500")))
-    recipe = Recipe(name="Smoke sablon")
+    recipe = Recipe(name="Smoke recept")
     s.add(recipe)
     s.flush()
     s.add(RecipeItem(recipe_id=recipe.id, component_id=comp.id, amount=Decimal("500")))
@@ -85,7 +85,7 @@ STATIC_ROUTES = [
     "/components/quick-new",
     "/groups",
     "/groups/new",
-    "/templates",
+    "/recipes",
     "/inventory",
     "/inventory/receive",
     "/settings",
@@ -110,9 +110,9 @@ def test_detail_and_edit_routes_ok(client, seeded):
         f"/customers/{seeded['customer']}/delete",
         f"/components/detail/{seeded['component']}",
         f"/components/{seeded['component']}/edit",
-        f"/templates/detail/{seeded['recipe']}",
-        f"/templates/{seeded['recipe']}/edit",
-        f"/templates/{seeded['recipe']}/delete",
+        f"/recipes/detail/{seeded['recipe']}",
+        f"/recipes/{seeded['recipe']}/edit",
+        f"/recipes/{seeded['recipe']}/delete",
         f"/inventory/detail/{seeded['component']}",
     ]
     for path in checks:
