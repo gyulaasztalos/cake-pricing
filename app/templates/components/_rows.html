@@ -9,7 +9,10 @@
       {{ m.icon('chevron-right') }}
       <div class="cp-grow">
         <strong>{{ c.name }}</strong> <span class="cp-muted">· {{ c.group.name }}</span>
-        {% if c.price_missing_at %}<span class="cp-badge is-warn" title="{{ t('components.price_missing') }}">⚠</span>{% endif %}
+        {% if c.product_id %}
+          {% if c.price_missing_at %}<span class="cp-badge is-warn" title="{{ t('components.price_missing') }}">⚠</span>
+          {% else %}<span class="cp-badge is-ok" title="{{ t('components.price_synced') }}">Ⓐ</span>{% endif %}
+        {% endif %}
       </div>
       <span>{% if p %}{{ p.base_price|huf }} / {{ p.base_amount|amount }} {{ c.unit }}{% else %}—{% endif %}</span>
       <span class="cp-badge {{ '' if c.active else 'is-warn' }}">{{ t('common.active') if c.active else t('common.inactive') }}</span>

@@ -204,7 +204,8 @@ app.jobs.price_sync`:
 3. for every component with a `product_id` (**exact** string match), if the price
    differs, apply a **temporal price change** (close the open `component_prices`
    row, insert a new one — same mechanism as the manual endpoint); ids not found
-   get `price_missing_at` (⚠ in the UI);
+   get `price_missing_at` (⚠ in the UI), while a tagged component that is not
+   flagged missing shows an in-sync badge (Ⓐ);
 4. commit, then **e-mail a report** to `ORDER_INBOX` when there were changes *or*
    not-found ids (reuses cake-order's iCloud SMTP creds via ESO);
 5. `mark_success()` bumps `price_sync_state.last_success_at`.

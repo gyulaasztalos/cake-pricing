@@ -78,8 +78,15 @@ hang.
 - **Machines use tokens, humans use Authentik**: the `.ics` feed is token-gated in
   the app AND its `/calendar/` IngressRoute rule skips Authentik. Any new
   machine-accessed endpoint carrying customer data must do the same.
-- **`.venv/bin/…` for tools; `uv lock` after editing deps; bump BOTH version files
-  AND the ArgoCD image tags** (deployment + migrate-job + price-sync-cronjob).
+- **`.venv/bin/…` for tools; `uv lock` after editing deps (incl. after a version
+  bump — the lock records the package version).**
+- **Release/version bump** (deploy is now Helm-chart-based, not raw manifests):
+  bump `pyproject.toml` + `app/__init__.py`, run `uv lock`, then bump the container
+  image tag in **both** `../homelab-charts/charts/cake-pricing/values.yaml` and
+  `../ArgoCD/apps/cake-pricing/values.yaml` (key `image.tag`; single source of
+  truth — Chart.yaml has no appVersion). One tag drives the Deployment, migrate
+  Job, and price-sync CronJob. A semver git tag builds/pushes the image; Renovate
+  in ArgoCD then syncs it. Run the full gate set before committing.
 - **`see_other()` after every write** (commit-before-redirect); the intake API
   **commits before its 201** because cake-order marks its order forwarded on that
   ack.

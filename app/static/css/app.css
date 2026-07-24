@@ -113,6 +113,7 @@ body { background: var(--co-cream); }
 .cp-list__detail { padding: .5rem 1rem 1rem; background: var(--pico-card-sectioning-background-color); }
 .cp-badge { font-size: .75rem; padding: .1rem .5rem; border-radius: 1rem; background: var(--pico-secondary-background); }
 .cp-badge.is-warn { background: #ffe08a; color: #663c00; }
+.cp-badge.is-ok { background: #c6f0d0; color: #14532d; }
 .cp-muted { color: var(--pico-muted-color); }
 .cp-actions { display: flex; gap: .5rem; }
 .cp-actions button, .cp-actions a { padding: .25rem .5rem; margin: 0; }

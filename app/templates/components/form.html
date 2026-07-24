@@ -33,8 +33,12 @@
   <label><input type="checkbox" name="active" value="true" {{ 'checked' if (c and c.active) or not c }}> {{ t('components.active') }}</label>
   <label>
     {{ t('components.product_id') }}
-    {% if c and c.price_missing_at %}
-      <span class="cp-badge is-warn" title="{{ t('components.price_missing') }}">⚠ {{ t('components.price_missing_short') }}</span>
+    {% if c and c.product_id %}
+      {% if c.price_missing_at %}
+        <span class="cp-badge is-warn" title="{{ t('components.price_missing') }}">⚠ {{ t('components.price_missing_short') }}</span>
+      {% else %}
+        <span class="cp-badge is-ok" title="{{ t('components.price_synced') }}">Ⓐ {{ t('components.price_synced_short') }}</span>
+      {% endif %}
     {% endif %}
     <input name="product_id" value="{{ c.product_id if c and c.product_id else '' }}"
            placeholder="{{ t('components.product_id_hint') }}">

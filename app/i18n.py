@@ -71,6 +71,10 @@ HU: dict[str, str] = {
         "A termékazonosító nem található a legutóbbi árfigyelő fájlban — az ár nem frissült."
     ),
     "components.price_missing_short": "ár nem található",
+    "components.price_synced": (
+        "A termékazonosító megtalálható a legutóbbi árfigyelő fájlban — az ár szinkronban van."
+    ),
+    "components.price_synced_short": "ár szinkronban",
     # customers
     "customers.title": "Ügyfelek",
     "customers.new": "Új ügyfél",

@@ -40,7 +40,8 @@ verified customer requests here as draft offers via a narrow intake API.
   lets the chef subscribe in Apple Calendar (subscription URL on Beállítások).
 - **Automatic price update** — a daily CronJob downloads the *árfigyelő* price
   file and updates the base price of any component tagged with a *Termék
-  azonosító*; e-mails a change report, warns in the UI on ids it can't find, and
+  azonosító*; e-mails a change report, badges each tagged component in the UI as
+  in-sync (Ⓐ) or not-found (⚠), and
   exposes a last-success gauge on `/metrics` for staleness alerting.
 - **Intake API** (`/api/intake/offers`) — the single token-authed write path used
   by cake-order to create an external draft offer.
