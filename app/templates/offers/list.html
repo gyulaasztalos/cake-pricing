@@ -13,7 +13,7 @@
   <input type="search" name="q" value="{{ q }}" placeholder="{{ t('action.search') }}…">
   {{ m.multiselect('status', t('offers.status'), status_options, selected_status) }}
   <select name="year">
-    <option value="">{{ '' }}—</option>
+    <option value="">{{ t('offers.year') }} —</option>
     {% for y in years %}<option value="{{ y }}" {{ 'selected' if year == y }}>{{ y }}</option>{% endfor %}
   </select>
 </form>
