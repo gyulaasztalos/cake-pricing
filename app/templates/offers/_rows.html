@@ -7,6 +7,7 @@
          onclick="this.closest('.cp-list__row').querySelector('.cp-list__detail').toggleAttribute('hidden')">
       {{ m.icon('chevron-right') }}
       <span class="cp-grow"><strong>{{ o.customer.name }}</strong>
+        <span class="cp-badge cp-cal-status">{{ t('offers.status.' ~ o.status) }}</span>
         {% if o.source == 'external' %}<small class="cp-muted">✉ {{ t('offers.external') }}{% if not o.entry_date %} · {{ t('offers.unpriced') }}{% endif %}</small>{% endif %}
       </span>
       <span>{{ o.theme or '' }}</span>
