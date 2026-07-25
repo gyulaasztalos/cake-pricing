@@ -23,12 +23,13 @@
    `options` is a list of (value, label) pairs; `selected` is a set/list of the
    selected values (compared as strings). The enclosing form's HTMX trigger must
    include `change from:input[type=checkbox]` so ticking a box re-runs the query. #}
-{% macro multiselect(name, label, options, selected) %}
+{% macro multiselect(name, label, options, selected, badge_prefix="") %}
 <details class="cp-filter">
   <summary>{{ label }}{% if selected %} <span class="cp-filter__count">{{ selected|length }}</span>{% endif %}</summary>
   <div class="cp-filter__menu">
     {% for value, text in options %}
-    <label><input type="checkbox" name="{{ name }}" value="{{ value }}" {{ 'checked' if (value|string) in (selected|map('string')|list) }}> {{ text }}</label>
+    <label><input type="checkbox" name="{{ name }}" value="{{ value }}" {{ 'checked' if (value|string) in (selected|map('string')|list) }}>
+      {% if badge_prefix %}<span class="cp-badge {{ badge_prefix }}{{ value }}">{{ text }}</span>{% else %}{{ text }}{% endif %}</label>
     {% endfor %}
   </div>
 </details>

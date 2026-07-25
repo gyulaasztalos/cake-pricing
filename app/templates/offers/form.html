@@ -77,6 +77,10 @@
     <label style="margin:0">{{ t('offers.final_price') }}
       <input type="number" step="0.01" name="final_price" value="{{ o.final_price|amount if o and o.final_price is not none else '' }}" style="width:9rem">
     </label>
+    <label style="margin:0">{{ t('offers.paid') }}
+      {# Recorded payment: below final price → status becomes Előlegezve, at/above → Kész. #}
+      <input type="number" step="0.01" name="paid" value="{{ o.paid|amount if o and o.paid is not none else '' }}" style="width:9rem">
+    </label>
   </div>
 
   <div class="cp-form-actions">

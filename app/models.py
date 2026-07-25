@@ -184,7 +184,7 @@ class Offer(Base):
     __tablename__ = "offers"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('draft', 'sent', 'accepted', 'rejected', 'done')",
+            "status IN ('draft', 'sent', 'accepted', 'deposit', 'rejected', 'done')",
             name="offers_status_check",
         ),
         CheckConstraint(
@@ -202,6 +202,9 @@ class Offer(Base):
     flavor: Mapped[str | None] = mapped_column(Text)
     portions: Mapped[int | None] = mapped_column(Integer)  # Szelet (customer intake)
     final_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    # Amount actually paid (Fizetve). NULL until recorded; on save, a value < the
+    # final_price sets status 'deposit' (Előlegezve), a value >= it sets 'done'.
+    paid: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'draft'"))
     notes: Mapped[str | None] = mapped_column(Text)
     # Intake provenance (§8a): 'external' = came from the public cake-order app.

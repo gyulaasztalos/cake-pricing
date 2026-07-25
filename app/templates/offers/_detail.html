@@ -20,5 +20,6 @@
   <p>
     <strong>{{ t('offers.calculated_price') }}: {{ total|huf }}</strong> ·
     {{ t('offers.final_price') }}: {{ o.final_price|huf }}
+    {% if o.paid is not none %} · {{ t('offers.paid') }}: {{ o.paid|huf }}{% endif %}
   </p>
 </div>

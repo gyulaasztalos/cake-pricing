@@ -21,11 +21,22 @@ from app.templating import templates
 
 router = APIRouter()
 
-STATUSES = ["draft", "sent", "accepted", "rejected", "done"]
+STATUSES = ["draft", "sent", "accepted", "deposit", "rejected", "done"]
 # Default status filter on the offers list: the "active" statuses — everything
 # except the terminal rejected/done (owner's choice). Applied until the chef
 # touches the filter (see `f` marker in list_offers).
-DEFAULT_STATUS_FILTER = ["draft", "sent", "accepted"]
+DEFAULT_STATUS_FILTER = ["draft", "sent", "accepted", "deposit"]
+
+
+def _auto_status(paid: Decimal | None, final_price: Decimal | None, current: str) -> str:
+    """Fizetve drives the status: once a paid amount is recorded, a value below the
+    final price marks the offer 'deposit' (Előlegezve), at or above it marks it
+    'done' (Kész). With no paid amount (or no final price to compare), the chef's
+    chosen status stands."""
+    if paid is None or final_price is None:
+        return current
+    return "done" if paid >= final_price else "deposit"
+
 
 # The base-cost group (Munkadíj, Rezsi) — added fresh to every offer, so it is
 # never saved into a Recept (recipe). Identified by its seeded name (§3.1/§3.2).
@@ -264,19 +275,23 @@ def create_offer(
     due_date: str = Form(""),
     status: str = Form("draft"),
     final_price: str = Form(""),
+    paid: str = Form(""),
     notes: str = Form(""),
     component_id: list[str] = Form(default=[]),
     amount: list[str] = Form(default=[]),
     return_to: str = Form(""),
     session: Session = Depends(get_session),
 ):
+    final_dec = _parse_decimal(final_price)
+    paid_dec = _parse_decimal(paid)
     offer = Offer(
         customer_id=customer_id,
         theme=theme.strip() or None,
         flavor=flavor.strip() or None,
         due_date=_parse_dt(due_date) if due_date else None,
-        status=status,
-        final_price=_parse_decimal(final_price),
+        status=_auto_status(paid_dec, final_dec, status),
+        final_price=final_dec,
+        paid=paid_dec,
         notes=notes.strip() or None,
     )
     session.add(offer)
@@ -294,6 +309,7 @@ def update_offer(
     due_date: str = Form(""),
     status: str = Form("draft"),
     final_price: str = Form(""),
+    paid: str = Form(""),
     notes: str = Form(""),
     component_id: list[str] = Form(default=[]),
     amount: list[str] = Form(default=[]),
@@ -305,8 +321,13 @@ def update_offer(
     offer.theme = theme.strip() or None
     offer.flavor = flavor.strip() or None
     offer.due_date = _parse_dt(due_date) if due_date else None
-    offer.status = status
     offer.final_price = _parse_decimal(final_price)
+    new_paid = _parse_decimal(paid)
+    # Only the Fizetve *changing* drives the status; a plain re-save with the same
+    # paid amount leaves the chef's chosen status alone (so it stays overridable).
+    paid_changed = new_paid != offer.paid
+    offer.paid = new_paid
+    offer.status = _auto_status(new_paid, offer.final_price, status) if paid_changed else status
     offer.notes = notes.strip() or None
     # entry_date is immutable ONCE SET (§3.4). External drafts arrive without
     # one (§8a) — the chef's first save prices the offer as of that moment.

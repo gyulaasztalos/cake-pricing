@@ -24,11 +24,16 @@ from markupsafe import Markup, escape
 from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
-# Offer statuses that represent a real, won sale (revenue-bearing).
-WON = ("accepted", "done")
+# Offer statuses that represent a real, won sale (revenue-bearing). 'deposit'
+# (Előlegezve) is included so an accepted offer that receives a deposit does not
+# fall out of revenue.
+WON = ("accepted", "deposit", "done")
 # Statuses that left the draft stage (were actually sent to a customer).
-SENT_OUT = ("sent", "accepted", "rejected", "done")
-STATUS_ORDER = ("draft", "sent", "accepted", "rejected", "done")
+SENT_OUT = ("sent", "accepted", "deposit", "rejected", "done")
+STATUS_ORDER = ("draft", "sent", "accepted", "deposit", "rejected", "done")
+# Revenue prefers the amount actually paid (Fizetve), falling back to the quoted
+# final price when nothing is recorded yet.
+_REVENUE = "COALESCE(o.paid, o.final_price)"
 
 # Local-time created moment, reused across queries.
 _CREATED = "COALESCE(o.entry_date, o.request_date)"
@@ -42,7 +47,7 @@ class Kpis:
     sent_out: int
     drafts: int
     win_rate: float  # won / sent_out, 0..1
-    revenue: Decimal  # SUM(final_price) of won offers
+    revenue: Decimal  # SUM(paid, falling back to final_price) of won offers
     cost: Decimal  # SUM(calculated_price) of won offers
     margin: Decimal  # revenue - cost
     margin_pct: float  # margin / revenue, 0..1
@@ -106,7 +111,7 @@ def _kpis(session: Session, year: int | None) -> Kpis:
               COUNT(*) FILTER (WHERE o.status IN :won) AS won,
               COUNT(*) FILTER (WHERE o.status IN :sent_out) AS sent_out,
               COUNT(*) FILTER (WHERE o.status = 'draft') AS drafts,
-              COALESCE(SUM(o.final_price) FILTER (WHERE o.status IN :won), 0) AS revenue,
+              COALESCE(SUM({_REVENUE}) FILTER (WHERE o.status IN :won), 0) AS revenue,
               COALESCE(SUM(vc.calculated_price) FILTER (WHERE o.status IN :won), 0) AS cost
             FROM offers o
             JOIN v_offer_cost vc ON vc.offer_id = o.id
@@ -162,7 +167,7 @@ def _series(session: Session, year: int | None) -> tuple[list[SeriesPoint], str]
             SELECT {bucket} AS b,
                    COUNT(*) AS offers,
                    COUNT(*) FILTER (WHERE o.status IN :won) AS won,
-                   COALESCE(SUM(o.final_price) FILTER (WHERE o.status IN :won), 0) AS revenue
+                   COALESCE(SUM({_REVENUE}) FILTER (WHERE o.status IN :won), 0) AS revenue
             FROM offers o
             {where}
             GROUP BY b ORDER BY b

@@ -105,8 +105,11 @@ CREATE TABLE offers (
     theme        TEXT,                               -- Téma
     flavor       TEXT,                               -- Íz
     final_price  NUMERIC(12,2),                      -- manual (§3.2); NULL until set
+    paid         NUMERIC(12,2),                      -- Fizetve; NULL until recorded.
+                                                     -- On save, a change < final_price
+                                                     -- sets status 'deposit', >= sets 'done'.
     status       TEXT        NOT NULL DEFAULT 'draft'
-                 CHECK (status IN ('draft', 'sent', 'accepted', 'rejected', 'done')),
+                 CHECK (status IN ('draft', 'sent', 'accepted', 'deposit', 'rejected', 'done')),
     notes        TEXT,
     entry_date   TIMESTAMPTZ NOT NULL DEFAULT now(), -- pricing reference date
     update_date  TIMESTAMPTZ NOT NULL DEFAULT now()

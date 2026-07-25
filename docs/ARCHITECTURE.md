@@ -89,7 +89,10 @@ quantities/multipliers `Numeric(12,3)`.
 | `price_sync_state` | Singleton (id=1) | `last_success_at` of the daily price-sync job (read by `/metrics`) |
 
 ### Offers: lifecycle & the two provenances
-- **Status**: `draft → sent → accepted → rejected → done` (CHECK-constrained).
+- **Status**: `draft → sent → accepted → deposit → rejected → done` (CHECK-constrained).
+  Recording a **paid** amount (Fizetve) auto-sets the status on save: below the
+  final price → `deposit` (Előlegezve), at or above → `done`. Stats revenue prefers
+  `paid` over `final_price` (`COALESCE`), and `deposit` counts as a won sale.
 - **`source`**: `internal` (built by the chef) or `external` (came from cake-order).
 - **`entry_date` is the pricing reference date** and is *immutable once set*. For
   external drafts it is **NULL** until the chef first saves/prices the offer —
