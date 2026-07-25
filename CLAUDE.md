@@ -80,13 +80,19 @@ hang.
   machine-accessed endpoint carrying customer data must do the same.
 - **`.venv/bin/…` for tools; `uv lock` after editing deps (incl. after a version
   bump — the lock records the package version).**
-- **Release/version bump** (deploy is now Helm-chart-based, not raw manifests):
-  bump `pyproject.toml` + `app/__init__.py`, run `uv lock`, then bump the container
-  image tag in **both** `../homelab-charts/charts/cake-pricing/values.yaml` and
-  `../ArgoCD/apps/cake-pricing/values.yaml` (key `image.tag`; single source of
-  truth — Chart.yaml has no appVersion). One tag drives the Deployment, migrate
-  Job, and price-sync CronJob. A semver git tag builds/pushes the image; Renovate
-  in ArgoCD then syncs it. Run the full gate set before committing.
+- **Release/version bump** (deploy is Helm-chart-based). Bump `pyproject.toml` +
+  `app/__init__.py`, run `uv lock`, then bump the container image tag in **FOUR**
+  places — miss one and the app can ship ahead of its migrations:
+  1. `../homelab-charts/charts/cake-pricing/values.yaml` — `image.tag` (Deployment)
+  2. `../ArgoCD/apps/cake-pricing/values.yaml` — `image.tag` (Deployment)
+  3. `../ArgoCD/apps/cake-pricing/post-install/migrate-job.yaml` — hardcoded `image:`
+  4. `../ArgoCD/apps/cake-pricing/post-install/price-sync-cronjob.yaml` — hardcoded `image:`
+  The **post-install Jobs (3, 4) have their OWN hardcoded tag**, NOT driven by the
+  Helm `image.tag`, and Renovate does not track them. The migrate Job is an ArgoCD
+  **PreSync hook** running `alembic upgrade head`; if it lags the app image, a
+  release with a new migration deploys an app whose DB is missing the new column
+  (this happened at 1.11.0 → `offers.paid` 500s). Always bump all four together.
+  A semver git tag builds/pushes the image. Run the full gate set before committing.
 - **`see_other()` after every write** (commit-before-redirect); the intake API
   **commits before its 201** because cake-order marks its order forwarded on that
   ack.
