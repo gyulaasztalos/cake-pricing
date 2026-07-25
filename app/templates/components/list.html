@@ -8,10 +8,7 @@
 {% block content %}
 <form class="cp-topbar" style="gap:.5rem" hx-get="/components" hx-target="#cp-rows" hx-trigger="keyup changed delay:250ms from:input[name=q], change from:select, change from:input[type=checkbox]" hx-push-url="false">
   <input type="search" name="q" value="{{ q }}" placeholder="{{ t('action.search') }}…">
-  <select name="group_id">
-    <option value="">{{ t('components.group') }}: —</option>
-    {% for g in groups %}<option value="{{ g.id }}" {{ 'selected' if group_id == g.id }}>{{ g.name }}</option>{% endfor %}
-  </select>
+  {{ m.multiselect('group_id', t('components.group'), group_options, selected_groups) }}
   <label style="white-space:nowrap"><input type="checkbox" name="only_active" value="true" {{ 'checked' if only_active }}> {{ t('components.only_active') }}</label>
 </form>
 <div id="cp-rows">

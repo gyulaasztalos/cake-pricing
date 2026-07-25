@@ -6,7 +6,7 @@ import datetime as dt
 import json
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy import extract, func, or_, select
 from sqlalchemy.orm import Session, selectinload
@@ -22,6 +22,10 @@ from app.templating import templates
 router = APIRouter()
 
 STATUSES = ["draft", "sent", "accepted", "rejected", "done"]
+# Default status filter on the offers list: the "active" statuses — everything
+# except the terminal rejected/done (owner's choice). Applied until the chef
+# touches the filter (see `f` marker in list_offers).
+DEFAULT_STATUS_FILTER = ["draft", "sent", "accepted"]
 
 # The base-cost group (Munkadíj, Rezsi) — added fresh to every offer, so it is
 # never saved into a Recept (recipe). Identified by its seeded name (§3.1/§3.2).
@@ -92,10 +96,16 @@ def _parse_lines(component_ids: list[str], amounts: list[str]) -> list[tuple[int
 def list_offers(
     request: Request,
     q: str = "",
-    status: str = "",
+    status: list[str] = Query(default=[]),
     year: str = "",
+    f: str = "",
     session: Session = Depends(get_session),
 ):
+    # `f` marks that the filter form was submitted. On first load (no `f`) default
+    # to the active statuses; once the chef touches the filter their selection
+    # wins, and an explicit empty selection means "no status filter" (show all)
+    # rather than an empty result.
+    selected_status = [s for s in status if s in STATUSES] if f else list(DEFAULT_STATUS_FILTER)
     yr = int(year) if year.strip().isdigit() else None
     # Creation date: entry_date for internal offers, request_date for still-
     # unpriced external drafts. Drives both the newest-first order and the year
@@ -116,8 +126,8 @@ def list_offers(
             | func.lower(func.coalesce(Offer.flavor, "")).like(like)
             | func.lower(Customer.name).like(like)
         )
-    if status.strip():
-        stmt = stmt.where(Offer.status == status)
+    if selected_status:
+        stmt = stmt.where(Offer.status.in_(selected_status))
     if yr:
         stmt = stmt.where(created_year == yr)
     offers = list(session.scalars(stmt))
@@ -129,9 +139,9 @@ def list_offers(
     ctx = {
         "offers": offers,
         "q": q,
-        "status": status,
+        "status_options": [(s, t(f"offers.status.{s}")) for s in STATUSES],
+        "selected_status": set(selected_status),
         "year": yr,
-        "statuses": STATUSES,
         "years": [int(y) for y in years],
         "active_nav": "offers",
     }

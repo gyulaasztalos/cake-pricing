@@ -92,6 +92,12 @@ hang.
   ack.
 - **HTMX dual-return**: list routes return full HTML normally, the `_rows`/section
   partial when `HX-Request` is set. Preserve that when adding filters.
+- **Multi-select list filters** use the reusable `macros.multiselect` (a native
+  `<details>` + checkboxes, no JS); the router param is `list[str] = Query([])`
+  and empty = no filter (show all). The offers status filter additionally defaults
+  to the *active* statuses on first load via a hidden `f=1` marker that tells
+  first-load from an explicit empty selection — keep that marker when editing the
+  offers filter form.
 - **Raw SQL in `stats.py`** is intentional; interpolate only module constants /
   the fixed `flavor`/`theme` identifiers, and always **bind** user values. Use
   `CAST(:year AS INTEGER)` (not `:year::int`, which breaks SQLAlchemy binds).

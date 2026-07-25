@@ -9,7 +9,7 @@ from __future__ import annotations
 import datetime as dt
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
@@ -31,16 +31,20 @@ def _groups(session: Session) -> list[Group]:
 def list_components(
     request: Request,
     q: str = "",
-    group_id: str = "",
+    group_id: list[str] = Query(default=[]),
     only_active: bool = False,
     session: Session = Depends(get_session),
 ):
-    gid = int(group_id) if group_id.strip().isdigit() else None
+    groups = _groups(session)
+    # Keep only submitted ids that map to a real group (string-compared, so a
+    # garbage value is simply ignored — no int parsing to blow up).
+    submitted = set(group_id)
+    gids = [g.id for g in groups if str(g.id) in submitted]
     stmt = select(Component).options(selectinload(Component.group))
     if q.strip():
         stmt = stmt.where(func.lower(Component.name).like(f"%{q.strip().lower()}%"))
-    if gid:
-        stmt = stmt.where(Component.group_id == gid)
+    if gids:
+        stmt = stmt.where(Component.group_id.in_(gids))
     if only_active:
         stmt = stmt.where(Component.active.is_(True))
     stmt = stmt.order_by(Component.name)
@@ -52,9 +56,9 @@ def list_components(
     ctx = {
         "components": components,
         "prices": prices,
-        "groups": _groups(session),
+        "group_options": [(g.id, g.name) for g in groups],
+        "selected_groups": set(gids),
         "q": q,
-        "group_id": gid,
         "only_active": only_active,
         "active_nav": "components",
     }

@@ -19,6 +19,21 @@
   <a role="button" class="outline" href="{{ url }}" title="{{ t('action.copy') }}">{{ icon('copy') }}</a>
 {% endmacro %}
 
+{# Reusable multi-select filter: a native <details> dropdown of checkboxes (no JS).
+   `options` is a list of (value, label) pairs; `selected` is a set/list of the
+   selected values (compared as strings). The enclosing form's HTMX trigger must
+   include `change from:input[type=checkbox]` so ticking a box re-runs the query. #}
+{% macro multiselect(name, label, options, selected) %}
+<details class="cp-filter">
+  <summary>{{ label }}{% if selected %} <span class="cp-filter__count">{{ selected|length }}</span>{% endif %}</summary>
+  <div class="cp-filter__menu">
+    {% for value, text in options %}
+    <label><input type="checkbox" name="{{ name }}" value="{{ value }}" {{ 'checked' if (value|string) in (selected|map('string')|list) }}> {{ text }}</label>
+    {% endfor %}
+  </div>
+</details>
+{% endmacro %}
+
 {# Confirmation modal body (rendered into #cp-modal). posts to `action` on confirm. #}
 {% macro confirm_modal(action, title, message) %}
 <article>

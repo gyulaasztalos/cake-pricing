@@ -20,7 +20,8 @@ verified customer requests here as draft offers via a narrow intake API.
 - **Offers** — build a priced offer by picking components into groups (Alap,
   Piskóta, Töltelék, …); live cost recalc via HTMX; a final ("quoted") price is
   recorded alongside the **calculated** cost so margin is visible. Statuses:
-  draft → sent → accepted → rejected → done.
+  draft → sent → accepted → rejected → done. The list filters by multi-select
+  status (defaulting to the active ones — everything but rejected/done) and year.
 - **Components & temporal prices** — each component (ingredient / service /
   stock_item) has an append-only price history with non-overlapping validity
   windows. An offer is always priced with the price **effective on its pricing

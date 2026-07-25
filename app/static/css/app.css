@@ -118,6 +118,28 @@ body { background: var(--co-cream); }
 .cp-actions { display: flex; gap: .5rem; }
 .cp-actions button, .cp-actions a { padding: .25rem .5rem; margin: 0; }
 
+/* ---- Multi-select filter dropdown (macros.multiselect) ------------------- */
+.cp-filter { position: relative; }
+.cp-filter > summary {
+  list-style: none; cursor: pointer; white-space: nowrap;
+  padding: .5rem .75rem; border: 1px solid var(--pico-form-element-border-color);
+  border-radius: var(--pico-border-radius); background: var(--pico-form-element-background-color);
+}
+.cp-filter > summary::-webkit-details-marker { display: none; }
+.cp-filter > summary::after { content: " ▾"; color: var(--pico-muted-color); }
+.cp-filter[open] > summary { border-color: var(--pico-primary); }
+.cp-filter__count {
+  font-size: .7rem; padding: 0 .4rem; border-radius: 1rem;
+  background: var(--pico-primary); color: var(--pico-primary-inverse);
+}
+.cp-filter__menu {
+  position: absolute; z-index: 20; top: calc(100% + .25rem); left: 0; min-width: max(100%, 12rem);
+  display: flex; flex-direction: column; gap: .1rem; padding: .5rem;
+  background: var(--pico-card-background-color); border: 1px solid var(--pico-form-element-border-color);
+  border-radius: var(--pico-border-radius); box-shadow: var(--pico-card-box-shadow);
+}
+.cp-filter__menu label { white-space: nowrap; margin: 0; padding: .15rem .25rem; }
+
 /* ---- Offer form ---------------------------------------------------------- */
 .cp-group { border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); margin-bottom: 1rem; }
 .cp-group__head { display: flex; align-items: center; justify-content: space-between; padding: .5rem .75rem; background: var(--pico-card-sectioning-background-color); }
