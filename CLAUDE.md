@@ -88,10 +88,13 @@ hang.
   3. `../ArgoCD/apps/cake-pricing/post-install/migrate-job.yaml` — hardcoded `image:`
   4. `../ArgoCD/apps/cake-pricing/post-install/price-sync-cronjob.yaml` — hardcoded `image:`
   The **post-install Jobs (3, 4) have their OWN hardcoded tag**, NOT driven by the
-  Helm `image.tag`, and Renovate does not track them. The migrate Job is an ArgoCD
-  **PreSync hook** running `alembic upgrade head`; if it lags the app image, a
-  release with a new migration deploys an app whose DB is missing the new column
-  (this happened at 1.11.0 → `offers.paid` 500s). Always bump all four together.
+  Helm `image.tag`. Renovate *does* track all four (kubernetes manager matches all
+  `*.yaml`; helm-values for values.yaml), but it bumps via scheduled automerge PRs
+  — so a manual `values.yaml` bump makes the Deployment race ahead of the still-
+  pending Job bumps. Bumping all four in the SAME release commit closes that race.
+  The migrate Job is an ArgoCD **PreSync hook** running `alembic upgrade head`; if
+  it lags the app image, a release with a new migration deploys an app whose DB is
+  missing the new column (this happened at 1.11.0 → `offers.paid` 500s).
   A semver git tag builds/pushes the image. Run the full gate set before committing.
 - **`see_other()` after every write** (commit-before-redirect); the intake API
   **commits before its 201** because cake-order marks its order forwarded on that
