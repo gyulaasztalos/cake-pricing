@@ -222,3 +222,29 @@ def test_offer_delete_via_modal(page: Page, clean_db, seed_component):
     expect(page.locator("#cp-modal")).to_be_visible()
     _submit(page, "#cp-modal button[type=submit]")
     expect(page.locator(".cp-list")).not_to_contain_text("Törlendő Ügyfél")
+
+
+def test_per_portion_note_updates_live(page: Page, clean_db):
+    """The Ft/szelet note must react to typing, not only to a save round-trip.
+
+    Server-rendered on load (works with JS off); offer-form.js keeps it live. NBSP
+    is what format_huf emits, so assert on the exact characters.
+    """
+    page.goto("/offers/new")
+    note = page.locator("#per-portion")
+    expect(note).to_have_text("")  # nothing yet: neither field is filled
+
+    page.fill("#final-price", "15000")
+    expect(note).to_have_text("")  # still no slice count → no per-slice price
+    page.fill("#portions", "12")
+    expect(note).to_have_text("1 250 Ft / szelet")
+
+    # Reacts to either field changing.
+    page.fill("#portions", "10")
+    expect(note).to_have_text("1 500 Ft / szelet")
+    page.fill("#final-price", "20000")
+    expect(note).to_have_text("2 000 Ft / szelet")
+
+    # Clearing a field withdraws the note rather than showing a bogus number.
+    page.fill("#portions", "")
+    expect(note).to_have_text("")

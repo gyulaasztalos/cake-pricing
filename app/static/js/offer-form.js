@@ -171,4 +171,47 @@
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
+
+  // --- live "Ft / szelet" note ------------------------------------------------
+  // The note is server-rendered on load/save (so it works with JS off and is
+  // correct on first paint); this keeps it in step while the chef types. Mirrors
+  // templating.format_huf EXACTLY: whole forint, U+00A0 thousands separator,
+  // U+00A0 before "Ft" — otherwise the live text would differ from the saved one.
+  // The label pattern comes from the element's data-tpl (filled from i18n.py), so
+  // no Hungarian string is duplicated here. Uses FINAL price, never Fizetve.
+  const NBSP = "\u00a0";  // non-breaking space, as format_huf emits
+
+  // Python's round() is HALF-TO-EVEN ("banker's rounding"), but JS Math.round is
+  // half-UP: round(12500.5) is 12500 in Python and 12501 in JS. That case is
+  // reachable (e.g. 25001 Ft over 2 slices), and the live note must never
+  // contradict what the server renders after saving \u2014 so mirror Python here.
+  function roundHalfToEven(value) {
+    const low = Math.floor(value);
+    const frac = value - low;
+    if (frac > 0.5) return low + 1;
+    if (frac < 0.5) return low;
+    return low % 2 === 0 ? low : low + 1;  // exactly .5 \u2192 pick the even neighbour
+  }
+
+  function formatHuf(value) {
+    const grouped = String(roundHalfToEven(value)).replace(/\B(?=(\d{3})+(?!\d))/g, NBSP);
+    return grouped + NBSP + "Ft";
+  }
+
+  (function livePerPortion() {
+    const out = document.getElementById("per-portion");
+    const price = document.getElementById("final-price");
+    const portions = document.getElementById("portions");
+    if (!out || !price || !portions) return;
+    const tpl = out.dataset.tpl || "{price}";
+    const update = function () {
+      // Tolerate a decimal comma, as the server does (decimal_hu).
+      const p = parseFloat(String(price.value).replace(",", "."));
+      const n = parseInt(portions.value, 10);
+      const showable = Number.isFinite(p) && Number.isFinite(n) && n > 0;
+      out.textContent = showable ? tpl.replace("{price}", formatHuf(p / n)) : "";
+    };
+    price.addEventListener("input", update);
+    portions.addEventListener("input", update);
+  })();
 })();

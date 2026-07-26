@@ -107,14 +107,20 @@ hang.
 - **Raw SQL in `stats.py`** is intentional; interpolate only module constants /
   the fixed `flavor`/`theme` identifiers, and always **bind** user values. Use
   `CAST(:year AS INTEGER)` (not `:year::int`, which breaks SQLAlchemy binds).
-- **Prefer ZERO client-side JavaScript.** Before writing any JS, check whether a
-  Jinja expression, a server-rendered value, CSS, or a native HTML element does the
-  job — it is leaner, safer, and keeps the logic (rounding, formatting) in ONE
-  place. Examples in-tree: `macros.multiselect` is a `<details>` + checkboxes with
-  no JS; the "Ft / szelet" note is one Jinja line reusing the `huf` filter. Inline
-  `<script>`/`onclick` *is* permitted here (no strict CSP, unlike cake-order), but
-  "allowed" ≠ "right" — only add JS for genuinely client-only interactivity (the
-  amount stepper, caret preservation across the live recalc).
+- **Prefer the server-rendered / native-HTML option; add JS only for genuine
+  interactivity.** Check first whether a Jinja expression, CSS, or a native element
+  does the job (`macros.multiselect` is a `<details>` + checkboxes with no JS). But
+  *don't drop live behaviour to avoid JS*: values the chef watches while typing DO
+  need a script — server-render them for the no-JS/first-paint case and enhance from
+  there (see the "Ft / szelet" note: Jinja renders it, `offer-form.js` keeps it
+  live). Inline `<script>`/`onclick` is permitted here (no strict CSP, unlike
+  cake-order), but external files are still preferred.
+- **If JS must re-implement a Python formatter, pin the parity with a test.**
+  `offer-form.js` mirrors `templating.format_huf` (whole forint, U+00A0 separators)
+  and carries its own `roundHalfToEven` because Python's `round()` is half-to-EVEN
+  while JS `Math.round` is half-UP (12500.5 → 12500 vs 12501).
+  `tests/test_huf_js_parity.py` executes the shipped JS under node and diffs it
+  against Python — keep it green when touching either side.
 - **Slice count** is `offers.portions` (Szelet) — set by intake OR the chef, always
   optional here (cake-order makes it mandatory for its per-slice cake types). It
   renders as `t('offers.portions_short')` → "12 szeletes" in the list/calendar, and

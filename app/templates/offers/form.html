@@ -45,7 +45,7 @@
       </label>
       <label>{{ t('offers.portions') }}
         {# Optional here (unlike the customer form): set by intake or the chef. #}
-        <input type="number" min="1" max="500" step="1" name="portions"
+        <input type="number" min="1" max="500" step="1" name="portions" id="portions"
                value="{{ o.portions if o and o.portions else (preset_portions | default('')) }}">
       </label>
     </div>
@@ -79,13 +79,16 @@
   <div class="cp-offer-footer">
     <div><strong>{{ t('offers.calculated_price') }}:</strong> <span id="calc-total">{{ total|huf }}</span></div>
     <label style="margin:0">{{ t('offers.final_price') }}
-      <input type="number" step="0.01" name="final_price" value="{{ o.final_price|amount if o and o.final_price is not none else '' }}" style="width:9rem">
-      {# Ft/szelet derived from the FINAL price (never Fizetve). Server-rendered:
-         no client code, and the rounding lives in exactly one place. Appears once
-         both the final price and the slice count are saved. #}
-      {% if o and o.final_price is not none and o.portions %}
-      <small class="cp-muted">{{ t('offers.per_portion', price=(o.final_price / o.portions) | huf) }}</small>
-      {% endif %}
+      <input type="number" step="0.01" name="final_price" id="final-price" value="{{ o.final_price|amount if o and o.final_price is not none else '' }}" style="width:9rem">
+      {# Ft/szelet derived from the FINAL price (never Fizetve). Server-rendered so
+         it is correct without JS and on first paint; offer-form.js then keeps it
+         live while the chef types. `data-tpl` carries the i18n pattern (with the
+         {price} placeholder intact) so the Hungarian string stays defined only in
+         i18n.py — the script formats the number and substitutes it. #}
+      <small id="per-portion" class="cp-muted"
+             data-tpl="{{ t('offers.per_portion', price='{price}') }}">
+        {%- if o and o.final_price is not none and o.portions %}{{ t('offers.per_portion', price=(o.final_price / o.portions) | huf) }}{% endif -%}
+      </small>
     </label>
     <label style="margin:0">{{ t('offers.paid') }}
       {# Recorded payment: below final price → status becomes Előlegezve, at/above → Kész. #}
