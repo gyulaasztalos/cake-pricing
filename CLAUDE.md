@@ -107,8 +107,19 @@ hang.
 - **Raw SQL in `stats.py`** is intentional; interpolate only module constants /
   the fixed `flavor`/`theme` identifiers, and always **bind** user values. Use
   `CAST(:year AS INTEGER)` (not `:year::int`, which breaks SQLAlchemy binds).
-- **Internal app**: inline `<script>`/`onclick` is fine (no strict CSP), unlike
-  cake-order.
+- **Prefer ZERO client-side JavaScript.** Before writing any JS, check whether a
+  Jinja expression, a server-rendered value, CSS, or a native HTML element does the
+  job — it is leaner, safer, and keeps the logic (rounding, formatting) in ONE
+  place. Examples in-tree: `macros.multiselect` is a `<details>` + checkboxes with
+  no JS; the "Ft / szelet" note is one Jinja line reusing the `huf` filter. Inline
+  `<script>`/`onclick` *is* permitted here (no strict CSP, unlike cake-order), but
+  "allowed" ≠ "right" — only add JS for genuinely client-only interactivity (the
+  amount stepper, caret preservation across the live recalc).
+- **Slice count** is `offers.portions` (Szelet) — set by intake OR the chef, always
+  optional here (cake-order makes it mandatory for its per-slice cake types). It
+  renders as `t('offers.portions_short')` → "12 szeletes" in the list/calendar, and
+  with a final price yields `t('offers.per_portion')`. Per-slice money is always
+  derived from **`final_price`, never `paid`**.
 - **i18n**: user-facing strings via `t()`; add to the Hungarian catalog.
 - **CI parity** with cake-order (Postgres service + `alembic upgrade head`), plus
   Playwright Chromium.
