@@ -64,6 +64,15 @@ class SeriesPoint:
 
 
 @dataclass(frozen=True)
+class PortionStat:
+    """One slice-count bucket: how many offers, and what a slice went for."""
+
+    portions: int
+    offers: int
+    avg_per_portion: Decimal  # mean final_price/portions across those offers
+
+
+@dataclass(frozen=True)
 class Stats:
     year: int | None
     years: list[int]
@@ -73,6 +82,8 @@ class Stats:
     status_counts: list[tuple[str, int]]
     top_flavors: list[tuple[str, int]]
     top_themes: list[tuple[str, int]]
+    by_portions: list[PortionStat] = field(default_factory=list)
+    avg_per_portion: Decimal | None = None  # overall, across all priced offers
     source_split: dict[str, int] = field(default_factory=dict)
 
 
@@ -211,6 +222,43 @@ def _top(session: Session, column: str, year: int | None, limit: int = 8) -> lis
     return [(str(r.k), int(r.c)) for r in rows]
 
 
+def _by_portions(session: Session, year: int | None, limit: int = 8) -> list[PortionStat]:
+    """Per slice-count: offer count and the average price per slice.
+
+    Only offers that have BOTH a slice count and a final price can yield a
+    per-slice figure, so the average is taken over those; the offer count uses the
+    same population to keep the two columns consistent. Ordered by frequency
+    (most common cake size first) like the top-flavors/themes tables.
+    """
+    rows = session.execute(
+        text(
+            f"SELECT o.portions AS p, COUNT(*) AS c, "  # nosec B608
+            f"       AVG(o.final_price / o.portions) AS avg_pp "
+            f"FROM offers o "
+            f"WHERE o.portions IS NOT NULL AND o.portions > 0 "
+            f"  AND o.final_price IS NOT NULL "
+            f"  AND {_year_guard(_LOCAL_CREATED)} "
+            f"GROUP BY o.portions ORDER BY c DESC, p ASC LIMIT :lim"
+        ),
+        {"year": year, "lim": limit},
+    ).all()
+    return [PortionStat(int(r.p), int(r.c), Decimal(r.avg_pp)) for r in rows]
+
+
+def _avg_per_portion(session: Session, year: int | None) -> Decimal | None:
+    """Overall average price per slice — the mean of each offer's own per-slice
+    price (not total/total, which would let big cakes dominate the figure)."""
+    value = _scalar(
+        session,
+        f"SELECT AVG(o.final_price / o.portions) FROM offers o "  # nosec B608
+        f"WHERE o.portions IS NOT NULL AND o.portions > 0 "
+        f"  AND o.final_price IS NOT NULL AND {_year_guard(_LOCAL_CREATED)}",
+        year=year,
+    )
+    # AVG over NUMERIC comes back as Decimal; NULL (no qualifying rows) as None.
+    return value if isinstance(value, Decimal) else None
+
+
 def _source_split(session: Session, year: int | None) -> dict[str, int]:
     rows = session.execute(
         text(
@@ -236,6 +284,8 @@ def collect(session: Session, year: int | None) -> Stats:
         status_counts=_status_counts(session, year),
         top_flavors=_top(session, "flavor", year),
         top_themes=_top(session, "theme", year),
+        by_portions=_by_portions(session, year),
+        avg_per_portion=_avg_per_portion(session, year),
         source_split=_source_split(session, year),
     )
 

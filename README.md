@@ -20,24 +20,28 @@ verified customer requests here as draft offers via a narrow intake API.
 - **Offers** — build a priced offer by picking components into groups (Alap,
   Piskóta, Töltelék, …); live cost recalc via HTMX; a final ("quoted") price is
   recorded alongside the **calculated** cost so margin is visible. Statuses:
-  draft → sent → accepted → deposit → rejected → done. Recording a **Fizetve**
-  (paid) amount auto-sets the status: below the final price → Előlegezve (deposit),
-  at/above → Kész (done). The list filters by multi-select status (defaulting to
-  the active ones — everything but rejected/done) and year.
+  draft → sent → accepted → deposit → rejected → done. The **slice count** (Szelet)
+  comes from the customer request or the chef, shows as "12 szeletes" in the list
+  and calendar, and with a final price yields a Ft/slice note. Recording a
+  **Fizetve** (paid) amount auto-sets the status: below the final price → Előlegezve
+  (deposit), at/above → Kész (done). The list filters by multi-select status
+  (defaulting to the active ones — everything but rejected/done) and year.
 - **Components & temporal prices** — each component (ingredient / service /
   stock_item) has an append-only price history with non-overlapping validity
   windows. An offer is always priced with the price **effective on its pricing
   date**, so re-opening an old offer never re-prices it.
 - **Recipes** (`/recipes`) — reusable line sets to seed a new offer quickly.
   "Save as recipe" from an offer excludes the Alap (base-cost) group. Any offer
-  can also be **copied** into a new draft (its lines + flavor; other fields reset).
+  can also be **copied** into a new draft (its lines, flavor, and slice count; the
+  customer, theme, deadline, and notes reset).
 - **Customers** — history and notes; auto-anonymization after a retention window.
 - **Inventory** — a stock-movement ledger; stock-item lines on an offer consume
   stock automatically; deliveries/corrections adjust it. Warning-only at zero.
 - **Statistics** (`/stats`) — KPIs (win rate, revenue, calculated cost, margin,
-  average offer, new customers) with server-rendered SVG charts; all-time
-  (yearly) or a single year (monthly). Aggregate-only, so anonymized customers
-  are respected.
+  average offer, average price per slice, new customers), a breakdown of offers by
+  slice count with the average Ft/slice per size, and server-rendered SVG charts;
+  all-time (yearly) or a single year (monthly). Aggregate-only, so anonymized
+  customers are respected.
 - **Calendar** (`/schedule`) — a month view of offer deadlines (rejected excluded),
   click a day to start a new offer for it. A published, tokenized `.ics` feed
   lets the chef subscribe in Apple Calendar (subscription URL on Beállítások).

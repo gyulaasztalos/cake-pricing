@@ -43,7 +43,11 @@
            own lang, not the page. #}
         <input type="date" lang="hu" name="due_date" value="{{ o.due_date.strftime('%Y-%m-%d') if o and o.due_date else (preset_due_date | default('')) }}">
       </label>
-      <span></span>
+      <label>{{ t('offers.portions') }}
+        {# Optional here (unlike the customer form): set by intake or the chef. #}
+        <input type="number" min="1" max="500" step="1" name="portions"
+               value="{{ o.portions if o and o.portions else (preset_portions | default('')) }}">
+      </label>
     </div>
     <label>{{ t('offers.notes') }}
       {% if o and o.source == 'external' %}<small class="cp-muted">— {{ t('offers.notes_from_customer') }}</small>{% endif %}
@@ -76,6 +80,12 @@
     <div><strong>{{ t('offers.calculated_price') }}:</strong> <span id="calc-total">{{ total|huf }}</span></div>
     <label style="margin:0">{{ t('offers.final_price') }}
       <input type="number" step="0.01" name="final_price" value="{{ o.final_price|amount if o and o.final_price is not none else '' }}" style="width:9rem">
+      {# Ft/szelet derived from the FINAL price (never Fizetve). Server-rendered:
+         no client code, and the rounding lives in exactly one place. Appears once
+         both the final price and the slice count are saved. #}
+      {% if o and o.final_price is not none and o.portions %}
+      <small class="cp-muted">{{ t('offers.per_portion', price=(o.final_price / o.portions) | huf) }}</small>
+      {% endif %}
     </label>
     <label style="margin:0">{{ t('offers.paid') }}
       {# Recorded payment: below final price → status becomes Előlegezve, at/above → Kész. #}

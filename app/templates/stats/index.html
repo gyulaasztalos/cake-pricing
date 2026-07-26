@@ -45,6 +45,13 @@
         <p class="cp-kpi__label">{{ t('stats.kpi.new_customers') }}</p>
         <p class="cp-kpi__value">{{ s.kpis.new_customers }}</p>
       </div>
+      {% if s.avg_per_portion is not none %}
+      <div class="cp-kpi">
+        <p class="cp-kpi__label">{{ t('stats.kpi.per_portion') }}</p>
+        <p class="cp-kpi__value">{{ t('offers.per_portion', price=s.avg_per_portion | huf) }}</p>
+        <p class="cp-kpi__sub">{{ t('stats.kpi.per_portion_hint') }}</p>
+      </div>
+      {% endif %}
     </div>
 
     <div class="cp-stats-grid">
@@ -94,6 +101,23 @@
           <table class="cp-breakdown"><tbody>
             {% for name, cnt in s.top_themes %}
               <tr><td>{{ name }}</td><td>{{ cnt }} {{ t('stats.count') }}</td></tr>
+            {% endfor %}
+          </tbody></table>
+        {% else %}<p class="cp-muted">{{ t('stats.empty') }}</p>{% endif %}
+      </article>
+
+      <article>
+        <header><strong>{{ t('stats.portions') }}</strong>
+          <small class="cp-muted">— {{ t('stats.portions_hint') }}</small>
+        </header>
+        {% if s.by_portions %}
+          <table class="cp-breakdown"><tbody>
+            {% for ps in s.by_portions %}
+              <tr>
+                <td>{{ t('offers.portions_short', n=ps.portions) }}</td>
+                <td>{{ ps.offers }} {{ t('stats.count') }}</td>
+                <td>{{ t('offers.per_portion', price=ps.avg_per_portion | huf) }}</td>
+              </tr>
             {% endfor %}
           </tbody></table>
         {% else %}<p class="cp-muted">{{ t('stats.empty') }}</p>{% endif %}

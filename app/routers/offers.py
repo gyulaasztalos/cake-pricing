@@ -238,14 +238,16 @@ def edit_offer_form(offer_id: int, request: Request, session: Session = Depends(
 
 @router.get("/offers/{offer_id:int}/copy", response_class=HTMLResponse)
 def copy_offer_form(offer_id: int, request: Request, session: Session = Depends(get_session)):
-    """Open the NEW-offer form pre-filled from an existing offer: its line set and
-    flavor (Íz) are copied; theme, due date, customer, and notes are intentionally
-    left blank and the status resets to draft (§copy). Posts to POST /offers like
-    any new offer — nothing is written until the chef saves."""
+    """Open the NEW-offer form pre-filled from an existing offer: its line set,
+    flavor (Íz), and slice count (Szelet) are copied — they describe the same cake;
+    theme, due date, customer, and notes are intentionally left blank and the status
+    resets to draft (§copy). Posts to POST /offers like any new offer — nothing is
+    written until the chef saves."""
     src = get_or_404(session, Offer, offer_id)
     pairs = offer_svc.load_offer_line_pairs(session, offer_id)
     ctx = _form_context(session, None, pairs, dt.datetime.now(dt.UTC))
     ctx["preset_flavor"] = src.flavor or ""
+    ctx["preset_portions"] = src.portions or ""
     ctx["return_to"] = return_to(request, "/offers")
     return templates.TemplateResponse(request, "offers/form.html", ctx)
 
@@ -276,6 +278,7 @@ def create_offer(
     status: str = Form("draft"),
     final_price: str = Form(""),
     paid: str = Form(""),
+    portions: str = Form(""),
     notes: str = Form(""),
     component_id: list[str] = Form(default=[]),
     amount: list[str] = Form(default=[]),
@@ -288,6 +291,7 @@ def create_offer(
         customer_id=customer_id,
         theme=theme.strip() or None,
         flavor=flavor.strip() or None,
+        portions=_parse_portions(portions),
         due_date=_parse_dt(due_date) if due_date else None,
         status=_auto_status(paid_dec, final_dec, status),
         final_price=final_dec,
@@ -310,6 +314,7 @@ def update_offer(
     status: str = Form("draft"),
     final_price: str = Form(""),
     paid: str = Form(""),
+    portions: str = Form(""),
     notes: str = Form(""),
     component_id: list[str] = Form(default=[]),
     amount: list[str] = Form(default=[]),
@@ -320,6 +325,7 @@ def update_offer(
     offer.customer_id = customer_id
     offer.theme = theme.strip() or None
     offer.flavor = flavor.strip() or None
+    offer.portions = _parse_portions(portions)
     offer.due_date = _parse_dt(due_date) if due_date else None
     offer.final_price = _parse_decimal(final_price)
     new_paid = _parse_decimal(paid)
@@ -454,6 +460,16 @@ def _parse_dt(value: str) -> dt.datetime:
 def _parse_decimal(value: str) -> Decimal | None:
     # Final price is entered the same way (accept a Hungarian comma + spaces).
     return decimal_hu(value)
+
+
+def _parse_portions(value: str) -> int | None:
+    """Slice count (Szelet) from the form: a positive int, else None. Optional
+    here — unlike the customer-facing form, the chef may leave it empty."""
+    try:
+        portions = int(value.strip())
+    except AttributeError, ValueError:
+        return None
+    return portions if 1 <= portions <= 500 else None
 
 
 def _iso_date_or_blank(value: str) -> str:

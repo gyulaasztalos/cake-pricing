@@ -104,6 +104,7 @@ CREATE TABLE offers (
     due_date     TIMESTAMPTZ,                        -- Határidő
     theme        TEXT,                               -- Téma
     flavor       TEXT,                               -- Íz
+    portions     INTEGER,                            -- Szelet; set by intake or the chef
     final_price  NUMERIC(12,2),                      -- manual (§3.2); NULL until set
     paid         NUMERIC(12,2),                      -- Fizetve; NULL until recorded.
                                                      -- On save, a change < final_price
@@ -111,7 +112,12 @@ CREATE TABLE offers (
     status       TEXT        NOT NULL DEFAULT 'draft'
                  CHECK (status IN ('draft', 'sent', 'accepted', 'deposit', 'rejected', 'done')),
     notes        TEXT,
-    entry_date   TIMESTAMPTZ NOT NULL DEFAULT now(), -- pricing reference date
+    -- Intake provenance (§8a): 'external' came from the public cake-order app.
+    source       TEXT        NOT NULL DEFAULT 'internal'
+                 CHECK (source IN ('internal', 'external')),
+    request_date TIMESTAMPTZ,                        -- when the customer submitted
+    -- NULLABLE: external drafts arrive unpriced; the chef's first save sets it.
+    entry_date   TIMESTAMPTZ          DEFAULT now(), -- pricing reference date
     update_date  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_offers_customer ON offers (customer_id);

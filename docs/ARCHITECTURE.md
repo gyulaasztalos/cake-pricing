@@ -158,6 +158,11 @@ Charts are **server-rendered SVG** (no JS/deps); every dynamic label is escaped.
 Only aggregates are shown, so anonymized customers keep contributing to totals
 without being identifiable.
 
+Per-slice figures (`by_portions`, `avg_per_portion`) cover only offers that have
+BOTH a slice count and a final price — the only ones from which a Ft/slice can be
+derived. The overall average is the **mean of each offer's own per-slice price**
+(not total revenue / total slices), so one large cake cannot dominate it.
+
 > The raw-SQL is intentional (grouping + timezone extraction). Interpolated
 > fragments are module constants or the fixed identifiers `flavor`/`theme`; the
 > only user value (`year`) is always a **bound param** — hence the scoped
