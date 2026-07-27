@@ -347,8 +347,10 @@ def bar_chart(
     maxv = max(values) or 1.0
 
     parts: list[str] = [
-        f'<svg class="cp-chart" viewBox="0 0 {width} {height}" role="img" '
-        f'preserveAspectRatio="xMidYMid meet">'
+        (
+            f'<svg class="cp-chart" viewBox="0 0 {width} {height}" role="img" '
+            f'preserveAspectRatio="xMidYMid meet">'
+        )
     ]
     for i, (label, value) in enumerate(zip(labels, values, strict=True)):
         cx = pad_l + slot * i + slot / 2
