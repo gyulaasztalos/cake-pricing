@@ -37,6 +37,8 @@ verified customer requests here as draft offers via a narrow intake API.
 - **Customers** — history and notes; auto-anonymization after a retention window.
 - **Inventory** — a stock-movement ledger; stock-item lines on an offer consume
   stock automatically; deliveries/corrections adjust it. Warning-only at zero.
+  Each line shows its **stock value** (on-hand × current unit price, 0 when the
+  balance is zero or negative), with a total under the list.
 - **Statistics** (`/stats`) — KPIs (win rate, revenue, calculated cost, margin,
   average offer, average price per slice, new customers), a breakdown of offers by
   slice count with the average Ft/slice per size, and server-rendered SVG charts;

@@ -148,6 +148,8 @@ HU: dict[str, str] = {
     "inventory.reason.order": "Rendelés",
     "inventory.reason.correction": "Korrekció",
     "inventory.qty": "Mennyiség",
+    "inventory.stock_value": "Készletérték",
+    "inventory.total_value": "Összesen",
     # settings
     "settings.title": "Beállítások",
     "settings.export": "Adatmentés (Export)",

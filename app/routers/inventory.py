@@ -7,6 +7,7 @@ only at zero — never blocks.
 
 from __future__ import annotations
 
+import datetime as dt
 from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -18,6 +19,7 @@ from app.db import get_session
 from app.models import Component, StockMovement
 from app.routers._helpers import see_other
 from app.services import stock
+from app.services.pricing import price_from_rows, prices_for
 from app.templating import templates
 
 router = APIRouter()
@@ -38,15 +40,36 @@ def list_inventory(
             .order_by(Component.name)
         )
     )
+    now = dt.datetime.now(dt.UTC)
+    # One query for every stock item's price history (no N+1), then value each row
+    # with the same (amount / base_amount) * base_price rounding offers use.
+    price_rows = prices_for(session, [c.id for c in items])
     rows = []
+    total_value = Decimal(0)
     for c in items:
         if q and q.lower() not in c.name.lower():
             continue
         on_hand = stock.on_hand(session, c.id)
         if only_low and on_hand > 0:
             continue
-        rows.append({"c": c, "on_hand": on_hand})
-    ctx = {"rows": rows, "q": q, "only_low": only_low, "active_nav": "inventory"}
+        # Nothing on the shelf is worth nothing: a zero/negative balance (an
+        # over-consumed item) contributes 0 rather than a negative value.
+        value = (
+            price_from_rows(price_rows.get(c.id, []), on_hand, now, c.id).line_price
+            if on_hand > 0
+            else Decimal(0)
+        )
+        total_value += value
+        rows.append({"c": c, "on_hand": on_hand, "value": value})
+    # The total covers the rows actually shown, so it stays consistent with an
+    # active search / "only low" filter.
+    ctx = {
+        "rows": rows,
+        "q": q,
+        "only_low": only_low,
+        "total_value": total_value,
+        "active_nav": "inventory",
+    }
     tmpl = "inventory/_rows.html" if request.headers.get("HX-Request") else "inventory/list.html"
     return templates.TemplateResponse(request, tmpl, ctx)
 

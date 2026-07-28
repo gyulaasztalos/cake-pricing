@@ -147,6 +147,13 @@ idempotent: it deletes that offer's existing `order` movements and re-creates on
 negative movement per **stock-item** line. Deleting an offer removes its movements
 via FK cascade. Zero stock is **warning-only** — never blocks a save.
 
+The list also values the shelf: each row is `on_hand / base_amount * base_price`
+(whole HUF, via `pricing.price_from_rows`, so it rounds exactly like an offer
+line), floored at **0** for a zero/negative balance so an over-consumed item never
+subtracts. The total sums the rows **currently displayed**, so it follows the
+search and "only low" filters. Prices are fetched once for all items
+(`prices_for`), not per row.
+
 ## 7. Statistics (`/stats`)
 
 [`app/services/stats.py`](../app/services/stats.py) +
