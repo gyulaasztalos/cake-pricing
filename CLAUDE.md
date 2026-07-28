@@ -105,8 +105,8 @@ hang.
   first-load from an explicit empty selection — keep that marker when editing the
   offers filter form.
 - **Raw SQL in `stats.py`** is intentional; interpolate only module constants /
-  the fixed `flavor`/`theme` identifiers, and always **bind** user values. Use
-  `CAST(:year AS INTEGER)` (not `:year::int`, which breaks SQLAlchemy binds).
+  the fixed `flavor`/`theme`/`sponge` identifiers, and always **bind** user values.
+  Use `CAST(:year AS INTEGER)` (not `:year::int`, which breaks SQLAlchemy binds).
 - **Prefer the server-rendered / native-HTML option; add JS only for genuine
   interactivity.** Check first whether a Jinja expression, CSS, or a native element
   does the job (`macros.multiselect` is a `<details>` + checkboxes with no JS). But
@@ -126,6 +126,13 @@ hang.
   renders as `t('offers.portions_short')` → "12 szeletes" in the list/calendar, and
   with a final price yields `t('offers.per_portion')`. Per-slice money is always
   derived from **`final_price`, never `paid`**.
+- **Choice fields that arrive from intake are FREE TEXT here.** cake-order owns the
+  option list (slugs + hu/en/de labels in its `i18n.py`) and sends the **Hungarian
+  display name**; this app stores it verbatim in a plain `Text` column, so the chef
+  can also type anything. That is why `theme`/`flavor`/`sponge` are not enums and
+  why stats can group them by value. Adding another such field = column + migration,
+  `IntakeOffer` field, offer-form input, list/calendar display, and a `_top()` call
+  in `stats.py` (mirror `sponge`, added 2026-07-26, for the full checklist).
 - **i18n**: user-facing strings via `t()`; add to the Hungarian catalog.
 - **CI parity** with cake-order (Postgres service + `alembic upgrade head`), plus
   Playwright Chromium.
