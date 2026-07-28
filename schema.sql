@@ -103,6 +103,7 @@ CREATE TABLE offers (
     customer_id  BIGINT      NOT NULL REFERENCES customers(id),  -- never cascade-delete customer
     due_date     TIMESTAMPTZ,                        -- Határidő
     theme        TEXT,                               -- Téma
+    sponge       TEXT,                               -- Piskóta (intake or chef)
     flavor       TEXT,                               -- Íz
     portions     INTEGER,                            -- Szelet; set by intake or the chef
     final_price  NUMERIC(12,2),                      -- manual (§3.2); NULL until set

@@ -199,6 +199,8 @@ class Offer(Base):
     customer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("customers.id"), nullable=False)
     due_date: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     theme: Mapped[str | None] = mapped_column(Text)
+    # Piskóta (sponge base) — set by intake or the chef; free text like flavor.
+    sponge: Mapped[str | None] = mapped_column(Text)
     flavor: Mapped[str | None] = mapped_column(Text)
     portions: Mapped[int | None] = mapped_column(Integer)  # Szelet (customer intake)
     final_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))

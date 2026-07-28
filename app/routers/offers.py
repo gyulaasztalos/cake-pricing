@@ -135,6 +135,7 @@ def list_offers(
         stmt = stmt.join(Customer).where(
             func.lower(func.coalesce(Offer.theme, "")).like(like)
             | func.lower(func.coalesce(Offer.flavor, "")).like(like)
+            | func.lower(func.coalesce(Offer.sponge, "")).like(like)
             | func.lower(Customer.name).like(like)
         )
     if selected_status:
@@ -239,7 +240,8 @@ def edit_offer_form(offer_id: int, request: Request, session: Session = Depends(
 @router.get("/offers/{offer_id:int}/copy", response_class=HTMLResponse)
 def copy_offer_form(offer_id: int, request: Request, session: Session = Depends(get_session)):
     """Open the NEW-offer form pre-filled from an existing offer: its line set,
-    flavor (Íz), and slice count (Szelet) are copied — they describe the same cake;
+    sponge (Piskóta), flavor (Íz), and slice count (Szelet) are copied — they
+    describe the same cake;
     theme, due date, customer, and notes are intentionally left blank and the status
     resets to draft (§copy). Posts to POST /offers like any new offer — nothing is
     written until the chef saves."""
@@ -247,6 +249,7 @@ def copy_offer_form(offer_id: int, request: Request, session: Session = Depends(
     pairs = offer_svc.load_offer_line_pairs(session, offer_id)
     ctx = _form_context(session, None, pairs, dt.datetime.now(dt.UTC))
     ctx["preset_flavor"] = src.flavor or ""
+    ctx["preset_sponge"] = src.sponge or ""
     ctx["preset_portions"] = src.portions or ""
     ctx["return_to"] = return_to(request, "/offers")
     return templates.TemplateResponse(request, "offers/form.html", ctx)
@@ -273,6 +276,7 @@ def recalc(
 def create_offer(
     customer_id: int = Form(...),
     theme: str = Form(""),
+    sponge: str = Form(""),
     flavor: str = Form(""),
     due_date: str = Form(""),
     status: str = Form("draft"),
@@ -290,6 +294,7 @@ def create_offer(
     offer = Offer(
         customer_id=customer_id,
         theme=theme.strip() or None,
+        sponge=sponge.strip() or None,
         flavor=flavor.strip() or None,
         portions=_parse_portions(portions),
         due_date=_parse_dt(due_date) if due_date else None,
@@ -309,6 +314,7 @@ def update_offer(
     offer_id: int,
     customer_id: int = Form(...),
     theme: str = Form(""),
+    sponge: str = Form(""),
     flavor: str = Form(""),
     due_date: str = Form(""),
     status: str = Form("draft"),
@@ -324,6 +330,7 @@ def update_offer(
     offer = get_or_404(session, Offer, offer_id)
     offer.customer_id = customer_id
     offer.theme = theme.strip() or None
+    offer.sponge = sponge.strip() or None
     offer.flavor = flavor.strip() or None
     offer.portions = _parse_portions(portions)
     offer.due_date = _parse_dt(due_date) if due_date else None

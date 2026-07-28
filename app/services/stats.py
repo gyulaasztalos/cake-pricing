@@ -80,6 +80,7 @@ class Stats:
     series: list[SeriesPoint]
     series_kind: str  # "month" | "year"
     status_counts: list[tuple[str, int]]
+    top_sponges: list[tuple[str, int]]
     top_flavors: list[tuple[str, int]]
     top_themes: list[tuple[str, int]]
     by_portions: list[PortionStat] = field(default_factory=list)
@@ -209,7 +210,7 @@ def _status_counts(session: Session, year: int | None) -> list[tuple[str, int]]:
 
 
 def _top(session: Session, column: str, year: int | None, limit: int = 8) -> list[tuple[str, int]]:
-    # column is a fixed identifier ('flavor'|'theme'), never user input.
+    # column is a fixed identifier ('flavor'|'theme'|'sponge'), never user input.
     rows = session.execute(
         text(
             f"SELECT NULLIF(TRIM(o.{column}), '') AS k, COUNT(*) AS c FROM offers o "  # nosec B608
@@ -282,6 +283,7 @@ def collect(session: Session, year: int | None) -> Stats:
         series=series,
         series_kind=kind,
         status_counts=_status_counts(session, year),
+        top_sponges=_top(session, "sponge", year),
         top_flavors=_top(session, "flavor", year),
         top_themes=_top(session, "theme", year),
         by_portions=_by_portions(session, year),

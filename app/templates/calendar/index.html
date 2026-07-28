@@ -44,6 +44,7 @@
                   <span class="cp-cal-who">{{ o.customer.name if o.customer else '—' }}</span>
                   {% if o.portions %}<span class="cp-cal-meta">· {{ t('offers.portions_short', n=o.portions) }}</span>{% endif %}
                   {% if o.theme %}<span class="cp-cal-meta">· {{ o.theme }}</span>{% endif %}
+                  {% if o.sponge %}<span class="cp-cal-meta">· {{ o.sponge }}</span>{% endif %}
                   {% if o.flavor %}<span class="cp-cal-meta">· {{ o.flavor }}</span>{% endif %}
                   <span class="cp-badge cp-cal-status cp-status-{{ o.status }}">{{ t('offers.status.' ~ o.status) }}</span>
                   <span class="cp-cal-price">{{ o.final_price | huf }}</span>

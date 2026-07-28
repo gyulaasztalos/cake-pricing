@@ -164,7 +164,8 @@ derived. The overall average is the **mean of each offer's own per-slice price**
 (not total revenue / total slices), so one large cake cannot dominate it.
 
 > The raw-SQL is intentional (grouping + timezone extraction). Interpolated
-> fragments are module constants or the fixed identifiers `flavor`/`theme`; the
+> fragments are module constants or the fixed identifiers
+> `flavor`/`theme`/`sponge`; the
 > only user value (`year`) is always a **bound param** — hence the scoped
 > `S608` ignore in `pyproject.toml`. Note `:year::int` breaks SQLAlchemy's bind
 > parsing (it protects `::` casts), so the code uses `CAST(:year AS INTEGER)`.

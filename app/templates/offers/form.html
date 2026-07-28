@@ -34,6 +34,7 @@
     </div>
     <div class="grid">
       <label>{{ t('offers.theme') }}<input name="theme" value="{{ o.theme if o and o.theme else '' }}"></label>
+      <label>{{ t('offers.sponge') }}<input name="sponge" value="{{ o.sponge if o and o.sponge else (preset_sponge | default('')) }}"></label>
       <label>{{ t('offers.flavor') }}<input name="flavor" value="{{ o.flavor if o and o.flavor else (preset_flavor | default('')) }}"></label>
     </div>
     <div class="grid">

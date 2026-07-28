@@ -13,6 +13,7 @@
       {# Slice count reads as "12 szeletes" ahead of the theme; blank when unset. #}
       <span class="cp-muted">{% if o.portions %}{{ t('offers.portions_short', n=o.portions) }}{% endif %}</span>
       <span>{{ o.theme or '' }}</span>
+      <span class="cp-muted">{{ o.sponge or '' }}</span>
       <span class="cp-muted">{{ o.flavor or '' }}</span>
       <span>{{ o.due_date|date }}</span>
       <span>{{ o.final_price|huf }}</span>

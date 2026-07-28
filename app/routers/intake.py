@@ -35,6 +35,7 @@ class IntakeOffer(BaseModel):
     phone: str | None = Field(default=None, max_length=64)
     due_date: dt.date
     theme: str | None = Field(default=None, max_length=200)
+    sponge: str | None = Field(default=None, max_length=200)
     flavor: str | None = Field(default=None, max_length=200)
     portions: int | None = Field(default=None, ge=1, le=500)
     description: str = Field(min_length=1, max_length=4000)
@@ -91,6 +92,7 @@ def create_intake_offer(
         customer_id=customer.id,
         due_date=dt.datetime.combine(payload.due_date, dt.time(), tzinfo=dt.UTC),
         theme=payload.theme,
+        sponge=payload.sponge,
         flavor=payload.flavor,
         portions=payload.portions,
         status="draft",

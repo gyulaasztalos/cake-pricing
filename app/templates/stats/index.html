@@ -85,6 +85,17 @@
       </article>
 
       <article>
+        <header><strong>{{ t('stats.sponges') }}</strong></header>
+        {% if s.top_sponges %}
+          <table class="cp-breakdown"><tbody>
+            {% for name, cnt in s.top_sponges %}
+              <tr><td>{{ name }}</td><td>{{ cnt }} {{ t('stats.count') }}</td></tr>
+            {% endfor %}
+          </tbody></table>
+        {% else %}<p class="cp-muted">{{ t('stats.empty') }}</p>{% endif %}
+      </article>
+
+      <article>
         <header><strong>{{ t('stats.flavors') }}</strong></header>
         {% if s.top_flavors %}
           <table class="cp-breakdown"><tbody>
