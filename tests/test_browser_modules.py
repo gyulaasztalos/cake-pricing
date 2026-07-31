@@ -7,6 +7,7 @@ Each test starts from a clean DB (only seed groups) and drives the real UI.
 
 from __future__ import annotations
 
+import datetime as dt
 import os
 import re
 
@@ -248,3 +249,46 @@ def test_per_portion_note_updates_live(page: Page, clean_db):
     # Clearing a field withdraws the note rather than showing a bogus number.
     page.fill("#portions", "")
     expect(note).to_have_text("")
+
+
+def test_sort_toggle_shows_one_arrow_and_flips_order(page: Page, clean_db):
+    """The icon toggle must render a real lucide arrow, swap on click, and re-sort."""
+    from app.db import SessionLocal
+    from app.models import Customer, Offer
+
+    s = SessionLocal()
+    try:
+        c = Customer(name="Sorrend")
+        s.add(c)
+        s.flush()
+        for theme, day in (("kesoi", 30), ("korai", 1)):
+            s.add(
+                Offer(
+                    customer_id=c.id,
+                    theme=theme,
+                    status="sent",
+                    due_date=dt.datetime(2026, 9, day, tzinfo=dt.UTC),
+                )
+            )
+        s.commit()
+    finally:
+        s.close()
+
+    page.goto("/offers")
+    toggle = page.locator(".cp-sort-toggle")
+    asc, desc = toggle.locator(".cp-sort-asc"), toggle.locator(".cp-sort-desc")
+
+    # lucide replaced the placeholder with a real <svg> (wrong icon name = no svg).
+    expect(asc.locator("svg")).to_have_count(1)
+    expect(desc.locator("svg")).to_have_count(1)
+    # Exactly one arrow visible: ascending by default.
+    expect(asc).to_be_visible()
+    expect(desc).to_be_hidden()
+    expect(page.locator(".cp-list__row").first).to_contain_text("korai")
+
+    toggle.click()
+    # Icon swaps...
+    expect(desc).to_be_visible()
+    expect(asc).to_be_hidden()
+    # ...and the list actually re-sorted (HTMX refreshed #cp-rows).
+    expect(page.locator(".cp-list__row").first).to_contain_text("kesoi", timeout=8000)

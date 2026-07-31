@@ -12,10 +12,16 @@
   <input type="hidden" name="f" value="1">
   <input type="search" name="q" value="{{ q }}" placeholder="{{ t('action.search') }}…">
   {{ m.multiselect('status', t('offers.status'), status_options, selected_status, badge_prefix='cp-status-') }}
-  {# Deadline sort direction. Default (unchecked) = nearest deadline first; ticking
-     it flips to latest-first, which suits the "show everything" view. #}
-  <label style="white-space:nowrap" title="{{ t('offers.sort_desc_hint') }}">
-    <input type="checkbox" name="desc" value="true" {{ 'checked' if desc }}> {{ t('offers.sort_desc') }}
+  {# Deadline sort direction as an icon toggle: ↑ = nearest deadline first
+     (default), ↓ = latest first. It is a real checkbox, visually hidden but still
+     focusable — so it keeps native keyboard/form behaviour and the form's existing
+     `change from:input[type=checkbox]` HTMX trigger. Only one arrow is ever shown
+     (CSS sibling rules); the label text lives in aria-label + title instead. #}
+  <label class="cp-sort-toggle" title="{{ t('offers.sort_desc_hint') }}">
+    <input type="checkbox" name="desc" value="true" {{ 'checked' if desc }}
+           aria-label="{{ t('offers.sort_desc') }}">
+    <span class="cp-sort-asc">{{ m.icon('arrow-up-narrow-wide') }}</span>
+    <span class="cp-sort-desc">{{ m.icon('arrow-down-wide-narrow') }}</span>
   </label>
   <select name="year">
     <option value="">{{ t('offers.year') }} —</option>
