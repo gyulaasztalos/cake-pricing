@@ -292,3 +292,27 @@ def test_sort_toggle_shows_one_arrow_and_flips_order(page: Page, clean_db):
     expect(asc).to_be_hidden()
     # ...and the list actually re-sorted (HTMX refreshed #cp-rows).
     expect(page.locator(".cp-list__row").first).to_contain_text("kesoi", timeout=8000)
+
+
+def test_filter_bar_controls_are_aligned(page: Page, clean_db):
+    """Every control in the offers filter bar shares one baseline and height.
+
+    Pico gives form controls a bottom margin for stacked forms; in this flex row
+    `align-items: center` centres the MARGIN box, so a control that keeps the
+    margin sits visibly higher than one without it (this misaligned the sort
+    toggle). The icon also needs a full line box or the button ends up shorter.
+    """
+    page.goto("/offers")
+    boxes = {
+        name: page.locator(sel).bounding_box()
+        for name, sel in {
+            "search": "form.cp-topbar input[name=q]",
+            "status": "form.cp-topbar .cp-filter > summary",
+            "sort": "form.cp-topbar .cp-sort-toggle",
+            "year": "form.cp-topbar select[name=year]",
+        }.items()
+    }
+    centres = [b["y"] + b["height"] / 2 for b in boxes.values()]
+    heights = [b["height"] for b in boxes.values()]
+    assert max(centres) - min(centres) <= 1.5, f"vertically misaligned: {boxes}"
+    assert max(heights) - min(heights) <= 1.5, f"heights differ: {boxes}"

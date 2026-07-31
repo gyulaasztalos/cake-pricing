@@ -144,7 +144,13 @@ body { background: var(--co-cream); }
 .cp-sort-toggle:focus-within { outline: 2px solid var(--pico-primary); outline-offset: 2px; }
 /* Hidden, not display:none — display:none would drop it from the tab order. */
 .cp-sort-toggle input { position: absolute; opacity: 0; width: 0; height: 0; margin: 0; }
-.cp-sort-toggle span { display: inline-flex; }
+/* The icon is 24px but a text line box is 1.5em (30px), so without this the button
+   would be 6px shorter than the neighbouring fields. Give the icon exactly one
+   line box so the whole control matches their height. */
+.cp-sort-toggle span {
+  display: inline-flex; align-items: center;
+  height: calc(var(--pico-line-height, 1.5) * 1em);
+}
 .cp-sort-toggle .cp-sort-desc { display: none; }
 .cp-sort-toggle input:checked ~ .cp-sort-asc { display: none; }
 .cp-sort-toggle input:checked ~ .cp-sort-desc { display: inline-flex; }
@@ -186,6 +192,12 @@ body { background: var(--co-cream); }
 
 /* Filter-bar layout: the search field takes the free width; enumerated filters
    (multiselect, the year select) keep their natural, content width. */
+/* Pico gives form controls (and <details>) a bottom margin for stacked forms. In
+   this flex row `align-items: center` centres each MARGIN box, so a control with
+   that margin renders visibly higher than a zero-margin one — which knocked the
+   sort toggle out of line. Drop the margin for every child so they share one
+   baseline; the bar's own margin-bottom still separates it from the list. */
+form.cp-topbar > * { margin-bottom: 0; }
 form.cp-topbar > input[type="search"] { flex: 1 1 0; width: auto; min-width: 8rem; }
 form.cp-topbar > .cp-filter,
 form.cp-topbar > select,
