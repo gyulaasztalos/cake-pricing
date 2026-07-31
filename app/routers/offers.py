@@ -109,6 +109,7 @@ def list_offers(
     q: str = "",
     status: list[str] = Query(default=[]),
     year: str = "",
+    desc: bool = False,
     f: str = "",
     session: Session = Depends(get_session),
 ):
@@ -125,10 +126,16 @@ def list_offers(
     # Year in the chef's timezone, not the container's UTC — otherwise an offer
     # created just after Budapest New Year is filed under the previous year.
     created_year = extract("year", func.timezone("Europe/Budapest", created))
+    # Ordered by DEADLINE, not creation: the chef works to due dates. Ascending by
+    # default so the nearest deadline is on top; `desc` flips it, which is what you
+    # want once the status filter is cleared and the list is mostly finished work.
+    # Undated offers sort LAST either way — they have no deadline to be urgent
+    # about, so they never push real work off the top.
+    due_order = Offer.due_date.desc() if desc else Offer.due_date.asc()
     stmt = (
         select(Offer)
         .options(selectinload(Offer.customer))
-        .order_by(created.desc().nullslast(), Offer.id.desc())
+        .order_by(due_order.nullslast(), Offer.id.desc())
     )
     if q.strip():
         like = f"%{q.strip().lower()}%"
@@ -155,6 +162,7 @@ def list_offers(
         "selected_status": set(selected_status),
         "year": yr,
         "years": [int(y) for y in years],
+        "desc": desc,
         "active_nav": "offers",
     }
     tmpl = "offers/_rows.html" if request.headers.get("HX-Request") else "offers/list.html"

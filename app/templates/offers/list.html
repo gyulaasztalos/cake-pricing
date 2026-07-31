@@ -12,6 +12,11 @@
   <input type="hidden" name="f" value="1">
   <input type="search" name="q" value="{{ q }}" placeholder="{{ t('action.search') }}…">
   {{ m.multiselect('status', t('offers.status'), status_options, selected_status, badge_prefix='cp-status-') }}
+  {# Deadline sort direction. Default (unchecked) = nearest deadline first; ticking
+     it flips to latest-first, which suits the "show everything" view. #}
+  <label style="white-space:nowrap" title="{{ t('offers.sort_desc_hint') }}">
+    <input type="checkbox" name="desc" value="true" {{ 'checked' if desc }}> {{ t('offers.sort_desc') }}
+  </label>
   <select name="year">
     <option value="">{{ t('offers.year') }} —</option>
     {% for y in years %}<option value="{{ y }}" {{ 'selected' if year == y }}>{{ y }}</option>{% endfor %}

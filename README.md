@@ -25,7 +25,9 @@ verified customer requests here as draft offers via a narrow intake API.
   and calendar, and with a final price yields a Ft/slice note. Recording a
   **Fizetve** (paid) amount auto-sets the status: below the final price → Előlegezve
   (deposit), at/above → Kész (done). The list filters by multi-select status
-  (defaulting to the active ones — everything but rejected/done) and year.
+  (defaulting to the active ones — everything but rejected/done) and year, and is
+  ordered by **deadline, nearest first**; a toggle flips it to latest-first (handy
+  once the status filter is cleared). Undated offers always sort last.
 - **Components & temporal prices** — each component (ingredient / service /
   stock_item) has an append-only price history with non-overlapping validity
   windows. An offer is always priced with the price **effective on its pricing

@@ -104,6 +104,11 @@ hang.
   to the *active* statuses on first load via a hidden `f=1` marker that tells
   first-load from an explicit empty selection — keep that marker when editing the
   offers filter form.
+- **The offers list sorts by `due_date`, not creation** — ascending (nearest
+  deadline first) by default, reversed by the `desc` checkbox. `nullslast()` is
+  applied in BOTH directions on purpose so undated offers never head the list;
+  `Offer.id.desc()` is the stable tiebreak. `entry_date`/`request_date` still drive
+  only the year filter + dropdown.
 - **Raw SQL in `stats.py`** is intentional; interpolate only module constants /
   the fixed `flavor`/`theme`/`sponge` identifiers, and always **bind** user values.
   Use `CAST(:year AS INTEGER)` (not `:year::int`, which breaks SQLAlchemy binds).

@@ -106,6 +106,8 @@ HU: dict[str, str] = {
     "offers.entry_date_unset": "az első mentéskor rögzül",
     "offers.status": "Státusz",
     "offers.year": "Év",
+    "offers.sort_desc": "Legkésőbbi elöl",
+    "offers.sort_desc_hint": "Alapértelmezés: a legközelebbi határidő van elöl.",
     "offers.status.draft": "Vázlat",
     "offers.status.sent": "Elküldve",
     "offers.status.accepted": "Elfogadva",
