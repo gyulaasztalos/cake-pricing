@@ -44,9 +44,9 @@ verified customer requests here as draft offers via a narrow intake API.
   Each line shows its **stock value** (on-hand × current unit price, 0 when the
   balance is zero or negative), with a total under the list.
 - **Statistics** (`/stats`) — a **Kész-only money split** (each Alap component —
-  Munkadíj, Rezsi+amortizáció — plus borravaló, anyagköltség and business
-  nyereség), KPIs (win rate, revenue, calculated cost, margin,
-  average offer, average price per slice, new customers), a breakdown of offers by
+  Munkadíj, Rezsi+amortizáció — plus borravaló and anyagköltség) and a separate
+  **Üzleti profit** block (quote − computed cost: total, per-offer average and
+  average %), KPIs (win rate, revenue, average offer, new customers), offers by
   slice count with the average Ft/slice per size, and server-rendered SVG charts;
   all-time (yearly) or a single year (monthly). Aggregate-only, so anonymized
   customers are respected.

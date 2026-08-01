@@ -123,6 +123,13 @@ def test_collect_kpis_and_scoping(clean_db, seed_component, session):
     all_time = stats_svc.collect(session, None)
     assert all_time.kpis.total == 7
     assert all_time.kpis.won == 4  # 3 in 2025 + 1 in 2024
+    # Üzleti profit is Kész(done)-only: 2025 done (10000−500) + 2024 done (5000−500).
+    bp_all = all_time.biz_profit
+    assert bp_all.count == 2
+    assert bp_all.total == Decimal("14000")
+    assert bp_all.avg == Decimal("7000")
+    # mean of per-offer markup: (10000/500−1)=19 and (5000/500−1)=9 → 14.0
+    assert bp_all.avg_pct == pytest.approx(14.0)
     assert all_time.series_kind == "year"
     assert {p.label for p in all_time.series} == {"2024", "2025"}
 
@@ -133,9 +140,12 @@ def test_collect_kpis_and_scoping(clean_db, seed_component, session):
     assert k.sent_out == 5  # sent + accepted*2 + rejected + done
     assert k.win_rate == pytest.approx(3 / 5)
     assert k.revenue == Decimal("30000")  # 3 won × 10000
-    assert k.cost == Decimal("1500")  # 3 won × 500
-    assert k.margin == Decimal("28500")
     assert k.drafts == 1
+    # Üzleti profit for 2025: one done offer, 10000 − 500 cost.
+    bp = y2025.biz_profit
+    assert bp.count == 1
+    assert bp.total == Decimal("9500") and bp.avg == Decimal("9500")
+    assert bp.avg_pct == pytest.approx(19.0)  # 10000/500 − 1
     assert k.new_customers == 1
     # Monthly series is a dense 12-point axis; all offers are in June (month 6).
     assert y2025.series_kind == "month"

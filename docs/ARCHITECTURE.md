@@ -165,6 +165,15 @@ Charts are **server-rendered SVG** (no JS/deps); every dynamic label is escaped.
 Only aggregates are shown, so anonymized customers keep contributing to totals
 without being identifiable.
 
+**Üzleti profit** (`biz_profit`) and the **Kész money split** (`done_split`) are
+both scoped to `done`: only a finished job has earned its Munkadíj and its tip,
+and restricting to it avoids the part-payment distortion a `deposit` offer would
+cause (partial revenue against full cost). Profit is `final_price −
+calculated_price` — the pricing decision — so it deliberately ignores `paid`.
+`avg_pct` is the **mean of each offer's own markup**, not total/total, matching
+the % shown on the offer sheet; it is `FILTER`ed to offers with a positive cost so
+a line-less offer cannot divide by zero (such an offer still counts in `total`).
+
 Per-slice figures (`by_portions`, `avg_per_portion`) cover only offers that have
 BOTH a slice count and a final price — the only ones from which a Ft/slice can be
 derived. The overall average is the **mean of each offer's own per-slice price**

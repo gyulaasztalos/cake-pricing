@@ -37,11 +37,6 @@
         <p class="cp-kpi__sub">{{ t('stats.kpi.avg') }}: {{ s.kpis.avg_offer | huf }}</p>
       </div>
       <div class="cp-kpi">
-        <p class="cp-kpi__label">{{ t('stats.kpi.margin') }}</p>
-        <p class="cp-kpi__value">{{ s.kpis.margin | huf }}</p>
-        <p class="cp-kpi__sub">{{ (s.kpis.margin_pct * 100) | round(0) | int }}% · {{ t('stats.kpi.cost') }} {{ s.kpis.cost | huf }}</p>
-      </div>
-      <div class="cp-kpi">
         <p class="cp-kpi__label">{{ t('stats.kpi.new_customers') }}</p>
         <p class="cp-kpi__value">{{ s.kpis.new_customers }}</p>
       </div>
@@ -90,15 +85,30 @@
       <article>
         <header><strong>{{ t('stats.base_split') }}</strong></header>
         {% set d = s.done_split %}
-        {% if d and (d.base_rows or d.tip or d.materials or d.profit) %}
+        {% if d and (d.base_rows or d.tip or d.materials) %}
           <table class="cp-breakdown"><tbody>
             {% for name, total in d.base_rows %}
               <tr><td>{{ name }}</td><td>{{ total | huf }}</td></tr>
             {% endfor %}
             <tr><td>{{ t('stats.tip') }}</td><td>{{ d.tip | huf }}</td></tr>
             <tr><td>{{ t('stats.materials') }}</td><td>{{ d.materials | huf }}</td></tr>
-            <tr><td><strong>{{ t('stats.kpi.margin') }}</strong></td>
-                <td><strong>{{ d.profit | huf }}</strong></td></tr>
+          </tbody></table>
+        {% else %}<p class="cp-muted">{{ t('stats.empty') }}</p>{% endif %}
+      </article>
+
+      {# Üzleti profit (Kész-only): quote − computed cost, independent of `paid`. #}
+      <article>
+        <header><strong>{{ t('stats.biz_profit') }}</strong>
+          <small class="cp-muted">— {{ t('stats.biz_profit_hint') }}</small>
+        </header>
+        {% set b = s.biz_profit %}
+        {% if b and b.count %}
+          <table class="cp-breakdown"><tbody>
+            <tr><td>{{ t('stats.biz_profit.avg_pct') }}</td>
+                <td>{{ (b.avg_pct * 100) | round(0) | int }}%</td></tr>
+            <tr><td>{{ t('stats.biz_profit.avg') }}</td><td>{{ b.avg | huf }}</td></tr>
+            <tr><td><strong>{{ t('stats.biz_profit.total') }}</strong></td>
+                <td><strong>{{ b.total | huf }}</strong></td></tr>
           </tbody></table>
         {% else %}<p class="cp-muted">{{ t('stats.empty') }}</p>{% endif %}
       </article>

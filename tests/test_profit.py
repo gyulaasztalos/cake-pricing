@@ -177,14 +177,20 @@ def test_done_split_reports_alap_components_tip_and_profit(clean_db, seed_compon
 
     s2 = SessionLocal()
     try:
-        d = stats_svc.collect(s2, None).done_split
+        st = stats_svc.collect(s2, None)
+        d = st.done_split
+        bp = st.biz_profit
     finally:
         s2.close()
 
     assert dict(d.base_rows) == {"Munkadíj": Decimal("5000"), "Rezsi+amortizáció": Decimal("1000")}
     assert d.materials == Decimal("2000")
     assert d.tip == Decimal("500")
-    assert d.profit == Decimal("1000")  # 9000 quoted − 8000 cost base
+    # Üzleti profit lives on its own block now (not in the Alap breakdown).
+    assert bp.count == 1
+    assert bp.total == Decimal("1000")  # 9000 quoted − 8000 cost base
+    assert bp.avg == Decimal("1000")
+    assert bp.avg_pct == pytest.approx(0.125)  # 9000/8000 − 1
 
 
 def test_underpayment_is_not_a_negative_tip(clean_db, seed_component):

@@ -51,9 +51,6 @@ class Kpis:
     drafts: int
     win_rate: float  # won / sent_out, 0..1
     revenue: Decimal  # SUM(paid, falling back to final_price) of won offers
-    cost: Decimal  # SUM(calculated_price) of won offers
-    margin: Decimal  # revenue - cost
-    margin_pct: float  # margin / revenue, 0..1
     avg_offer: Decimal  # revenue / won
     new_customers: int
 
@@ -87,7 +84,21 @@ class DoneSplit:
     base_rows: list[tuple[str, Decimal]]  # each Alap-group component, by name
     tip: Decimal  # Σ (paid − final_price) where positive
     materials: Decimal  # everything outside the Alap group
-    profit: Decimal  # Σ (final_price − calculated_price)
+
+
+@dataclass(frozen=True)
+class BizProfit:
+    """Üzleti profit over FINISHED (Kész/done) offers.
+
+    Profit is quote − computed cost (final_price − calculated_price); it ignores
+    `paid` on purpose, so it measures the pricing decision, not what was actually
+    collected. Done-only for the same reason as DoneSplit (no deposit distortion).
+    """
+
+    count: int  # done offers with a final price
+    total: Decimal  # Σ (final_price − calculated_price)
+    avg: Decimal  # mean (final_price − calculated_price) per offer
+    avg_pct: float  # mean per-offer (final_price / calculated_price − 1), 0..1
 
 
 @dataclass(frozen=True)
@@ -104,6 +115,7 @@ class Stats:
     by_portions: list[PortionStat] = field(default_factory=list)
     avg_per_portion: Decimal | None = None  # overall, across all priced offers
     done_split: DoneSplit | None = None
+    biz_profit: BizProfit | None = None
     source_split: dict[str, int] = field(default_factory=dict)
 
 
@@ -148,10 +160,8 @@ def _kpis(session: Session, year: int | None) -> Kpis:
               COUNT(*) FILTER (WHERE o.status IN :won) AS won,
               COUNT(*) FILTER (WHERE o.status IN :sent_out) AS sent_out,
               COUNT(*) FILTER (WHERE o.status = 'draft') AS drafts,
-              COALESCE(SUM({_REVENUE}) FILTER (WHERE o.status IN :won), 0) AS revenue,
-              COALESCE(SUM(vc.calculated_price) FILTER (WHERE o.status IN :won), 0) AS cost
+              COALESCE(SUM({_REVENUE}) FILTER (WHERE o.status IN :won), 0) AS revenue
             FROM offers o
-            JOIN v_offer_cost vc ON vc.offer_id = o.id
             WHERE {_year_guard(_LOCAL_CREATED)}
             """  # nosec B608
         ).bindparams(
@@ -170,8 +180,6 @@ def _kpis(session: Session, year: int | None) -> Kpis:
     new_customers = int(cust_count) if isinstance(cust_count, int) else 0
 
     revenue = Decimal(row.revenue)
-    cost = Decimal(row.cost)
-    margin = revenue - cost
     won = int(row.won)
     sent_out = int(row.sent_out)
     return Kpis(
@@ -181,9 +189,6 @@ def _kpis(session: Session, year: int | None) -> Kpis:
         drafts=int(row.drafts),
         win_rate=(won / sent_out) if sent_out else 0.0,
         revenue=revenue,
-        cost=cost,
-        margin=margin,
-        margin_pct=(float(margin) / float(revenue)) if revenue else 0.0,
         avg_offer=(revenue / won) if won else Decimal(0),
         new_customers=new_customers,
     )
@@ -350,18 +355,40 @@ def _done_split(session: Session, year: int | None) -> DoneSplit:
         """,  # nosec B608
         year=year,
     )
-    profit = _money(
-        session,
-        f"""
-        SELECT COALESCE(SUM(o.final_price - vc.calculated_price), 0)
-        FROM offers o
-        JOIN v_offer_cost vc ON vc.offer_id = o.id
-        WHERE o.status = 'done' AND o.final_price IS NOT NULL
-          AND {_year_guard(_LOCAL_CREATED)}
-        """,  # nosec B608
-        year=year,
+    return DoneSplit(base_rows=base_rows, tip=tip, materials=materials)
+
+
+def _biz_profit(session: Session, year: int | None) -> BizProfit:
+    """Üzleti profit over finished (Kész/done) offers — quote minus computed cost.
+
+    `avg_pct` is the mean of each offer's markup (final_price / calculated_price −
+    1), matching the % on the offer sheet; the division is guarded to offers with
+    a positive cost. `paid` is deliberately not consulted (see BizProfit)."""
+    row = session.execute(
+        text(
+            f"""
+            SELECT
+              COUNT(*) AS cnt,
+              COALESCE(SUM(o.final_price - vc.calculated_price), 0) AS total,
+              COALESCE(AVG(o.final_price - vc.calculated_price), 0) AS avg,
+              COALESCE(
+                AVG(o.final_price / vc.calculated_price - 1)
+                  FILTER (WHERE vc.calculated_price > 0), 0
+              ) AS avg_pct
+            FROM offers o
+            JOIN v_offer_cost vc ON vc.offer_id = o.id
+            WHERE o.status = 'done' AND o.final_price IS NOT NULL
+              AND {_year_guard(_LOCAL_CREATED)}
+            """  # nosec B608
+        ),
+        {"year": year},
+    ).one()
+    return BizProfit(
+        count=int(row.cnt),
+        total=Decimal(row.total),
+        avg=Decimal(row.avg),
+        avg_pct=float(row.avg_pct),
     )
-    return DoneSplit(base_rows=base_rows, tip=tip, materials=materials, profit=profit)
 
 
 def collect(session: Session, year: int | None) -> Stats:
@@ -379,6 +406,7 @@ def collect(session: Session, year: int | None) -> Stats:
         by_portions=_by_portions(session, year),
         avg_per_portion=_avg_per_portion(session, year),
         done_split=_done_split(session, year),
+        biz_profit=_biz_profit(session, year),
         source_split=_source_split(session, year),
     )
 
