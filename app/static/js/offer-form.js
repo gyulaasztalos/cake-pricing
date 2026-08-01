@@ -204,14 +204,65 @@
     const portions = document.getElementById("portions");
     if (!out || !price || !portions) return;
     const tpl = out.dataset.tpl || "{price}";
-    const update = function () {
+    // Exposed so the profit⇄price binding can refresh it after it writes the
+    // price programmatically (assigning .value fires no `input` event).
+    window.cpUpdatePerPortion = function () {
       // Tolerate a decimal comma, as the server does (decimal_hu).
       const p = parseFloat(String(price.value).replace(",", "."));
       const n = parseInt(portions.value, 10);
       const showable = Number.isFinite(p) && Number.isFinite(n) && n > 0;
       out.textContent = showable ? tpl.replace("{price}", formatHuf(p / n)) : "";
     };
-    price.addEventListener("input", update);
-    portions.addEventListener("input", update);
+    price.addEventListener("input", window.cpUpdatePerPortion);
+    portions.addEventListener("input", window.cpUpdatePerPortion);
+  })();
+
+  // --- profit % ⇄ final price ------------------------------------------------
+  // Bound pair over the cost base (calculated price = materials + Munkadíj +
+  // Rezsi), which every recalc republishes as window.cpCostBase:
+  //     price = cost * (1 + pct/100)        pct = (price/cost - 1) * 100
+  // Editing either recomputes the other. When the COST BASE moves (a line edit),
+  // we follow whichever field the chef touched last, so her most recent intent is
+  // never overwritten: last-edited "pct" (also the initial state, i.e. the default
+  // 10%) re-derives the price; last-edited "price" re-derives the pct instead.
+  // A negative pct is legal — pricing below cost is allowed, just visible.
+  (function pricingBinding() {
+    const pctEl = document.getElementById("profit-pct");
+    const priceEl = document.getElementById("final-price");
+    if (!pctEl || !priceEl) return;
+    let anchor = "pct";
+
+    const num = (v) => parseFloat(String(v).replace(",", "."));
+    const cost = () => Number(window.cpCostBase);
+
+    function priceFromPct() {
+      const c = cost();
+      const p = num(pctEl.value);
+      if (!Number.isFinite(c) || c <= 0 || !Number.isFinite(p)) return;
+      priceEl.value = roundHalfToEven(c * (1 + p / 100));
+      window.cpUpdatePerPortion && window.cpUpdatePerPortion();
+    }
+
+    function pctFromPrice() {
+      const c = cost();
+      const v = num(priceEl.value);
+      if (!Number.isFinite(c) || c <= 0 || !Number.isFinite(v)) return;
+      // One decimal is plenty and keeps the field tidy.
+      pctEl.value = Math.round((v / c - 1) * 1000) / 10;
+    }
+
+    pctEl.addEventListener("input", function () {
+      anchor = "pct";
+      priceFromPct();
+    });
+    priceEl.addEventListener("input", function () {
+      anchor = "price";
+      pctFromPrice();
+    });
+    // Called by the recalc fragment once it has published a new cost base.
+    window.cpResyncPricing = function () {
+      if (anchor === "price") pctFromPrice();
+      else priceFromPct();
+    };
   })();
 })();

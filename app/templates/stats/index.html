@@ -84,6 +84,25 @@
           {{ t('stats.source.external') }} {{ s.source_split.external }}</p>
       </article>
 
+      {# Where the money from FINISHED work went. Kész-only: only a completed,
+         fully-paid job has earned its Munkadíj and its tip. The Alap group is
+         listed per component (Munkadíj, Rezsi+amortizáció) rather than lumped. #}
+      <article>
+        <header><strong>{{ t('stats.base_split') }}</strong></header>
+        {% set d = s.done_split %}
+        {% if d and (d.base_rows or d.tip or d.materials or d.profit) %}
+          <table class="cp-breakdown"><tbody>
+            {% for name, total in d.base_rows %}
+              <tr><td>{{ name }}</td><td>{{ total | huf }}</td></tr>
+            {% endfor %}
+            <tr><td>{{ t('stats.tip') }}</td><td>{{ d.tip | huf }}</td></tr>
+            <tr><td>{{ t('stats.materials') }}</td><td>{{ d.materials | huf }}</td></tr>
+            <tr><td><strong>{{ t('stats.kpi.margin') }}</strong></td>
+                <td><strong>{{ d.profit | huf }}</strong></td></tr>
+          </tbody></table>
+        {% else %}<p class="cp-muted">{{ t('stats.empty') }}</p>{% endif %}
+      </article>
+
       <article>
         <header><strong>{{ t('stats.sponges') }}</strong></header>
         {% if s.top_sponges %}

@@ -121,6 +121,17 @@ CREATE TABLE offers (
     entry_date   TIMESTAMPTZ          DEFAULT now(), -- pricing reference date
     update_date  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- ---------------------------------------------------------------------------
+-- APP_SETTINGS — one row (id=1) of chef-editable settings (Beállítások).
+-- default_profit_pct only PREFILLS a new offer; the profit % of an existing offer
+-- is DERIVED (final_price / calculated_price - 1), never stored.
+-- ---------------------------------------------------------------------------
+CREATE TABLE app_settings (
+    id                  INTEGER     PRIMARY KEY,          -- always 1
+    default_profit_pct  NUMERIC(7,2) NOT NULL,
+    update_date         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE INDEX idx_offers_customer ON offers (customer_id);
 CREATE INDEX idx_offers_entry    ON offers (entry_date);
 

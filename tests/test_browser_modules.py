@@ -316,3 +316,42 @@ def test_filter_bar_controls_are_aligned(page: Page, clean_db):
     heights = [b["height"] for b in boxes.values()]
     assert max(centres) - min(centres) <= 1.5, f"vertically misaligned: {boxes}"
     assert max(heights) - min(heights) <= 1.5, f"heights differ: {boxes}"
+
+
+def test_profit_pct_and_final_price_are_bound(page: Page, clean_db, seed_component):
+    """profit% ⇄ final price, and what a cost-base change follows (last edited)."""
+    # Munkadíj 10 000 alone makes the cost base exactly 10 000 Ft.
+    seed_component("Munkadíj", "Alap", "db", "service", "1", "10000")
+    seed_component("Liszt", "Piskóta", "g", "ingredient", "1000", "2000")
+
+    page.goto("/offers/new")
+    pct, price = page.locator("#profit-pct"), page.locator("#final-price")
+    expect(page.locator("#calc-total")).to_have_text("10 000 Ft")
+    # Prefill: default 10% → 11 000 Ft.
+    expect(pct).to_have_value("10")
+    expect(price).to_have_value("11000")
+
+    # Overwrite the price → the % follows.
+    price.fill("12000")
+    expect(pct).to_have_value("20")
+
+    # Overwrite the % → the price follows.
+    pct.fill("15")
+    expect(price).to_have_value("11500")
+
+    # Cost base changes; the % was edited last, so the PRICE re-derives.
+    pis = page.locator(".cp-group", has=page.locator('text="Piskóta"')).first
+    pis.locator("button.cp-add-line").click()
+    page.wait_for_timeout(500)
+    piskota = page.locator(".cp-group", has=page.locator('text="Piskóta"'))
+    piskota.first.locator(".cp-line").first.locator("select[name=component_id]").select_option(
+        label="Liszt"
+    )
+    page.wait_for_timeout(800)
+    amount = piskota.first.locator(".cp-line").first.locator("input[name=amount]")
+    amount.fill("1000")
+    amount.dispatch_event("change")
+    # 10 000 + (1000 g × 2000 Ft/1000 g) = 12 000 → still 15% → 13 800
+    expect(page.locator("#calc-total")).to_have_text("12 000 Ft", timeout=8000)
+    expect(price).to_have_value("13800")
+    expect(pct).to_have_value("15")

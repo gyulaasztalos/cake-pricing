@@ -26,6 +26,7 @@ EXPECTED_TABLES = {
     "recipe_items",
     "stock_movements",
     "price_sync_state",
+    "app_settings",
 }
 
 

@@ -109,6 +109,17 @@ hang.
   applied in BOTH directions on purpose so undated offers never head the list;
   `Offer.id.desc()` is the stable tiebreak. `entry_date`/`request_date` still drive
   only the year filter + dropdown.
+- **Profit % is DERIVED, never stored** — like cost. The offer form shows
+  `final_price / calculated_price - 1`; only `app_settings.default_profit_pct`
+  (Beállítások, a seeded singleton) is persisted, and it *only* prefills a
+  not-yet-priced offer. The two footer fields are bound in `offer-form.js`:
+  editing either recomputes the other, and a cost-base change follows whichever
+  was edited last (initially the %). Never add an `offers.profit_pct` column.
+- **Money/percent inputs are `type=text inputmode=decimal`** + `decimal_hu()`, so
+  the Hungarian comma survives any browser locale — `type=number` silently
+  discards "12,5". This covers final_price, paid, profit % and the amounts.
+- **`app_settings` is a seeded singleton**: `tests/conftest._reset_db` restores it
+  (UPSERT) rather than truncating, or a saved default leaks between tests.
 - **Raw SQL in `stats.py`** is intentional; interpolate only module constants /
   the fixed `flavor`/`theme`/`sponge` identifiers, and always **bind** user values.
   Use `CAST(:year AS INTEGER)` (not `:year::int`, which breaks SQLAlchemy binds).

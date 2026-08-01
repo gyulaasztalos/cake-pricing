@@ -15,7 +15,14 @@ from app.config import settings
 from app.db import get_session
 from app.i18n import t
 from app.models import Component, Customer, Group, Offer, Recipe, RecipeItem
-from app.routers._helpers import decimal_hu, get_or_404, return_to, see_other, see_other_back
+from app.routers._helpers import (
+    decimal_hu,
+    default_profit_pct,
+    get_or_404,
+    return_to,
+    see_other,
+    see_other_back,
+)
 from app.services import offers as offer_svc
 from app.templating import templates
 
@@ -213,6 +220,7 @@ def _form_context(session: Session, offer: Offer | None, pairs, as_of) -> dict:
     ctx.update(
         {
             "o": offer,
+            "default_profit_pct": default_profit_pct(session),
             "customers": customers,
             "recipes": recipes,
             "statuses": STATUSES,

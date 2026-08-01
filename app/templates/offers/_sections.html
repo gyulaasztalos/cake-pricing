@@ -32,5 +32,9 @@
   window.cpUnitStep = {{ mass_volume_step | default(10) }};
   window.cpMassUnits = ["g","ml"];
   document.getElementById('calc-total') && (document.getElementById('calc-total').textContent = {{ (total|huf)|tojson }});
+  // Raw cost base for the profit%/price binding — the formatted total above can't
+  // be parsed back reliably (NBSP separators).
+  window.cpCostBase = {{ total | float | tojson }};
+  window.cpResyncPricing && window.cpResyncPricing();
   window.lucide && lucide.createIcons();
 </script>

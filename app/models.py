@@ -323,6 +323,22 @@ class StockMovement(Base):
 # --- PRICE_SYNC_STATE (singleton) --------------------------------------------
 
 
+class AppSettings(Base):
+    """One row (id=1) for chef-editable settings that must survive a redeploy.
+
+    Env vars stay the deployment-level defaults; this table is what the Beállítások
+    page writes. Only `default_profit_pct` so far: the business profit % used to
+    prefill a NEW offer's price. Changing it never affects existing offers — their
+    % is DERIVED from the price they already have, not stored.
+    """
+
+    __tablename__ = "app_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    default_profit_pct: Mapped[Decimal] = mapped_column(Numeric(7, 2), nullable=False)
+    update_date: Mapped[dt.datetime] = _update_date()
+
+
 class PriceSyncState(Base):
     """One row (id=1) recording when the daily price-sync job last SUCCEEDED.
 

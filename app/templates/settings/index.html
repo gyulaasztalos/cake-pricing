@@ -19,6 +19,18 @@
 </article>
 
 <article>
+  <header><strong>{{ t('settings.pricing') }}</strong></header>
+  <form method="post" action="/settings/profit">
+    <label>{{ t('settings.default_profit_pct') }}
+      <input type="text" inputmode="decimal" name="default_profit_pct" style="max-width:8rem"
+             value="{{ default_profit_pct | amount }}">
+    </label>
+    <small class="cp-muted">{{ t('settings.default_profit_pct_hint') }}</small>
+    <button type="submit">{{ t('action.save') }}</button>
+  </form>
+</article>
+
+<article>
   <header><strong>{{ t('calendar.subscribe') }}</strong></header>
   {% if calendar_feed_url %}
     <p class="cp-muted">{{ t('calendar.subscribe_hint') }}</p>

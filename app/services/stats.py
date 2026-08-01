@@ -35,6 +35,9 @@ STATUS_ORDER = ("draft", "sent", "accepted", "deposit", "rejected", "done")
 # final price when nothing is recorded yet.
 _REVENUE = "COALESCE(o.paid, o.final_price)"
 
+# The base-cost group (Munkadíj, Rezsi) — same constant the offer form uses.
+BASE_GROUP_NAME = "Alap"
+
 # Local-time created moment, reused across queries.
 _CREATED = "COALESCE(o.entry_date, o.request_date)"
 _LOCAL_CREATED = f"timezone('Europe/Budapest', {_CREATED})"
@@ -73,6 +76,21 @@ class PortionStat:
 
 
 @dataclass(frozen=True)
+class DoneSplit:
+    """Where the money from FINISHED (Kész) work went.
+
+    Scoped to `done` on purpose: only a completed, fully-paid job has earned its
+    Munkadíj and its tip, and it sidesteps the part-payment distortion a deposit
+    would introduce (deposit revenue against full cost).
+    """
+
+    base_rows: list[tuple[str, Decimal]]  # each Alap-group component, by name
+    tip: Decimal  # Σ (paid − final_price) where positive
+    materials: Decimal  # everything outside the Alap group
+    profit: Decimal  # Σ (final_price − calculated_price)
+
+
+@dataclass(frozen=True)
 class Stats:
     year: int | None
     years: list[int]
@@ -85,6 +103,7 @@ class Stats:
     top_themes: list[tuple[str, int]]
     by_portions: list[PortionStat] = field(default_factory=list)
     avg_per_portion: Decimal | None = None  # overall, across all priced offers
+    done_split: DoneSplit | None = None
     source_split: dict[str, int] = field(default_factory=dict)
 
 
@@ -102,6 +121,12 @@ def _year_guard(local_expr: str) -> str:
 
 def _scalar(session: Session, sql: str, **params: object) -> object:
     return session.execute(text(sql), params).scalar()
+
+
+def _money(session: Session, sql: str, **params: object) -> Decimal:
+    """A money aggregate as a Decimal (the queries all COALESCE to 0)."""
+    value = _scalar(session, sql, **params)
+    return Decimal(str(value)) if value is not None else Decimal(0)
 
 
 def available_years(session: Session) -> list[int]:
@@ -274,6 +299,71 @@ def _source_split(session: Session, year: int | None) -> dict[str, int]:
     return out
 
 
+def _done_split(session: Session, year: int | None) -> DoneSplit:
+    """Break FINISHED (Kész) work into where the money went.
+
+    The Alap group is listed per COMPONENT by name rather than hardcoding
+    "Munkadíj"/"Rezsi" — the chef owns those component names, so this survives a
+    rename and picks up a third service component automatically.
+    """
+    base_rows = [
+        (str(r.k), Decimal(r.total))
+        for r in session.execute(
+            text(
+                f"""
+                SELECT c.name AS k, COALESCE(SUM(lc.line_price), 0) AS total
+                FROM v_offer_line_cost lc
+                JOIN offers o     ON o.id = lc.offer_id
+                JOIN components c ON c.id = lc.component_id
+                JOIN groups g     ON g.id = c.group_id
+                WHERE g.name = :base_group AND o.status = 'done'
+                  AND {_year_guard(_LOCAL_CREATED)}
+                GROUP BY c.name ORDER BY total DESC, c.name
+                """  # nosec B608
+            ),
+            {"year": year, "base_group": BASE_GROUP_NAME},
+        ).all()
+    ]
+    materials = _money(
+        session,
+        f"""
+        SELECT COALESCE(SUM(lc.line_price), 0)
+        FROM v_offer_line_cost lc
+        JOIN offers o     ON o.id = lc.offer_id
+        JOIN components c ON c.id = lc.component_id
+        JOIN groups g     ON g.id = c.group_id
+        WHERE g.name <> :base_group AND o.status = 'done'
+          AND {_year_guard(_LOCAL_CREATED)}
+        """,  # nosec B608
+        year=year,
+        base_group=BASE_GROUP_NAME,
+    )
+    # Tip = whatever was paid ABOVE the quoted price; never negative (a shortfall
+    # is not a negative tip, it just means less was collected).
+    tip = _money(
+        session,
+        f"""
+        SELECT COALESCE(SUM(GREATEST(o.paid - o.final_price, 0)), 0)
+        FROM offers o
+        WHERE o.status = 'done' AND o.paid IS NOT NULL AND o.final_price IS NOT NULL
+          AND {_year_guard(_LOCAL_CREATED)}
+        """,  # nosec B608
+        year=year,
+    )
+    profit = _money(
+        session,
+        f"""
+        SELECT COALESCE(SUM(o.final_price - vc.calculated_price), 0)
+        FROM offers o
+        JOIN v_offer_cost vc ON vc.offer_id = o.id
+        WHERE o.status = 'done' AND o.final_price IS NOT NULL
+          AND {_year_guard(_LOCAL_CREATED)}
+        """,  # nosec B608
+        year=year,
+    )
+    return DoneSplit(base_rows=base_rows, tip=tip, materials=materials, profit=profit)
+
+
 def collect(session: Session, year: int | None) -> Stats:
     series, kind = _series(session, year)
     return Stats(
@@ -288,6 +378,7 @@ def collect(session: Session, year: int | None) -> Stats:
         top_themes=_top(session, "theme", year),
         by_portions=_by_portions(session, year),
         avg_per_portion=_avg_per_portion(session, year),
+        done_split=_done_split(session, year),
         source_split=_source_split(session, year),
     )
 

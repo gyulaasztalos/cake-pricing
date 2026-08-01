@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from decimal import Decimal
 
 
 class Settings:
@@ -38,6 +39,13 @@ class Settings:
     mail_from: str = os.getenv("MAIL_FROM", "info@anitatortai.hu")
     # Where the report goes (info@anitatortai.hu).
     order_inbox: str = os.getenv("ORDER_INBOX", "info@anitatortai.hu")
+
+    # --- pricing ---
+    # Default business profit added ON TOP OF the calculated cost base (materials
+    # + Munkadíj + Rezsi) to suggest a price. Advisory only: the chef always types
+    # the final price, and actual profit is measured as final_price - cost base.
+    # Per-offer overridable (offers.profit_pct).
+    default_profit_pct: Decimal = Decimal(os.getenv("DEFAULT_PROFIT_PCT", "10"))
 
 
 settings = Settings()

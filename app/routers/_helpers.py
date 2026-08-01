@@ -9,7 +9,8 @@ from fastapi import HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from app.models import Base
+from app.config import settings
+from app.models import AppSettings, Base
 
 
 def decimal_hu(raw: str | None) -> Decimal | None:
@@ -91,3 +92,23 @@ def get_or_404[M: Base](session: Session, model: type[M], pk: int) -> M:
     if obj is None:
         raise HTTPException(status_code=404, detail=f"{model.__name__} {pk} not found")
     return obj
+
+
+def default_profit_pct(session: Session) -> Decimal:
+    """The chef-configured default business profit % for a NEW offer.
+
+    Read from the app_settings singleton (Beállítások). Falls back to the env
+    default if the row is somehow missing, so the form never breaks.
+    """
+    row = session.get(AppSettings, 1)
+    return row.default_profit_pct if row else settings.default_profit_pct
+
+
+def set_default_profit_pct(session: Session, value: Decimal) -> None:
+    """Persist the default; creates the singleton row if it is absent."""
+    row = session.get(AppSettings, 1)
+    if row is None:
+        row = AppSettings(id=1, default_profit_pct=value)
+        session.add(row)
+    else:
+        row.default_profit_pct = value

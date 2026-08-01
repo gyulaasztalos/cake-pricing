@@ -24,7 +24,9 @@ verified customer requests here as draft offers via a narrow intake API.
   comes from the customer request or the chef, shows as "12 szeletes" in the list
   and calendar, and with a final price yields a Ft/slice note. Recording a
   **Fizetve** (paid) amount auto-sets the status: below the final price → Előlegezve
-  (deposit), at/above → Kész (done). The list filters by multi-select status
+  (deposit), at/above → Kész (done). A **Nyereség %** field sits beside the final
+  price and the two are bound — edit either and the other follows (the % is
+  derived from the price, never stored). The list filters by multi-select status
   (defaulting to the active ones — everything but rejected/done) and year, and is
   ordered by **deadline, nearest first**; a toggle flips it to latest-first (handy
   once the status filter is cleared). Undated offers always sort last.
@@ -41,7 +43,9 @@ verified customer requests here as draft offers via a narrow intake API.
   stock automatically; deliveries/corrections adjust it. Warning-only at zero.
   Each line shows its **stock value** (on-hand × current unit price, 0 when the
   balance is zero or negative), with a total under the list.
-- **Statistics** (`/stats`) — KPIs (win rate, revenue, calculated cost, margin,
+- **Statistics** (`/stats`) — a **Kész-only money split** (each Alap component —
+  Munkadíj, Rezsi+amortizáció — plus borravaló, anyagköltség and business
+  nyereség), KPIs (win rate, revenue, calculated cost, margin,
   average offer, average price per slice, new customers), a breakdown of offers by
   slice count with the average Ft/slice per size, and server-rendered SVG charts;
   all-time (yearly) or a single year (monthly). Aggregate-only, so anonymized

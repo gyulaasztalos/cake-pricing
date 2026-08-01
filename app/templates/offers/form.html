@@ -79,8 +79,24 @@
 
   <div class="cp-offer-footer">
     <div><strong>{{ t('offers.calculated_price') }}:</strong> <span id="calc-total">{{ total|huf }}</span></div>
+    {# Business profit ON TOP OF the cost base (materials + Munkadíj + Rezsi), and
+       the final price it implies. The two are BOUND: editing either recalculates
+       the other (offer-form.js). A negative % is allowed (pricing below cost),
+       hence no min=.
+
+       The % is NEVER stored — it is derived from the price the offer already has,
+       exactly like cost is. So an existing offer always shows its REAL implied
+       margin, and the Beállítások default only ever prefills a not-yet-priced one. #}
+    {% set pct = ((o.final_price / total - 1) * 100) | float | round(1)
+                 if (o and o.final_price is not none and total)
+                 else default_profit_pct %}
+    <label style="margin:0" title="{{ t('offers.profit_pct_hint') }}">{{ t('offers.profit_pct') }}
+      <input type="text" inputmode="decimal" name="profit_pct" id="profit-pct" style="width:6rem"
+             value="{{ pct | amount }}">
+    </label>
     <label style="margin:0">{{ t('offers.final_price') }}
-      <input type="number" step="0.01" name="final_price" id="final-price" value="{{ o.final_price|amount if o and o.final_price is not none else '' }}" style="width:9rem">
+      <input type="text" inputmode="decimal" name="final_price" id="final-price" style="width:9rem"
+             value="{{ (o.final_price | amount) if o and o.final_price is not none else (((total | float) * (1 + (pct | float) / 100)) | round(0, 'common') | int) }}">
       {# Ft/szelet derived from the FINAL price (never Fizetve). Server-rendered so
          it is correct without JS and on first paint; offer-form.js then keeps it
          live while the chef types. `data-tpl` carries the i18n pattern (with the
@@ -93,7 +109,7 @@
     </label>
     <label style="margin:0">{{ t('offers.paid') }}
       {# Recorded payment: below final price → status becomes Előlegezve, at/above → Kész. #}
-      <input type="number" step="0.01" name="paid" value="{{ o.paid|amount if o and o.paid is not none else '' }}" style="width:9rem">
+      <input type="text" inputmode="decimal" name="paid" value="{{ o.paid|amount if o and o.paid is not none else '' }}" style="width:9rem">
     </label>
   </div>
 

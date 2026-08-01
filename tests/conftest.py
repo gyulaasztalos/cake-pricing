@@ -53,6 +53,18 @@ def _reset_db() -> None:
                 "('Burkolat', 40), ('Dekor', 50), ('Doboz', 60)"
             )
         )
+        # app_settings is a seeded SINGLETON, not data — restore it to the
+        # deployment default instead of truncating, or one test's saved default
+        # would leak into the next.
+        from app.config import settings as app_settings
+
+        s.execute(
+            text(
+                "INSERT INTO app_settings (id, default_profit_pct) VALUES (1, :pct) "
+                "ON CONFLICT (id) DO UPDATE SET default_profit_pct = EXCLUDED.default_profit_pct"
+            ),
+            {"pct": app_settings.default_profit_pct},
+        )
         s.commit()
     finally:
         s.close()
