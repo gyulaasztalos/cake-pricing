@@ -1,3 +1,3 @@
 """cake-pricing — custom cake offer/pricing webapp."""
 
-__version__ = "1.20.1"
+__version__ = "1.21.0"

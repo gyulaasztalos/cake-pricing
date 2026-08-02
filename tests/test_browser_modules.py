@@ -530,3 +530,41 @@ def test_extra_addon_preserves_a_real_margin(page: Page, clean_db, seed_componen
     expect(page.locator("#calc-total")).to_have_text("11 000 Ft", timeout=8000)
     expect(pct).to_have_value("10")
     expect(price).to_have_value("12100")
+
+
+def test_anchor_marker_follows_the_fixed_field(page: Page, clean_db, seed_component):
+    """The ⚓ must mark whichever of profit%/price is currently held fixed —
+    a marker that disagrees with the behaviour is worse than none."""
+    seed_component("Munkadíj", "Alap", "db", "service", "1", "10000")
+    seed_component("Gyertya", "Extra", "db", "ingredient", "1", "500")
+
+    page.goto("/offers/new")
+    pct_anchor = page.locator("#anchor-pct")
+    price_anchor = page.locator("#anchor-price")
+
+    # A new offer follows the default %, so the pct is the fixed one.
+    expect(pct_anchor).to_be_visible()
+    expect(price_anchor).to_be_hidden()
+
+    # Typing a price fixes the PRICE instead.
+    page.locator("#final-price").fill("12000")
+    expect(price_anchor).to_be_visible()
+    expect(pct_anchor).to_be_hidden()
+
+    # Typing a % hands it back.
+    page.locator("#profit-pct").fill("15")
+    expect(pct_anchor).to_be_visible()
+    expect(price_anchor).to_be_hidden()
+
+    # An Extra add-on re-anchors to the pct even when the price was last edited.
+    page.locator("#final-price").fill("13000")
+    expect(price_anchor).to_be_visible()
+    extra = page.locator(".cp-group", has=page.locator('text="Extra"')).first
+    extra.locator("button.cp-add-line").click()
+    page.wait_for_timeout(400)
+    page.locator(".cp-group", has=page.locator('text="Extra"')).first.locator(
+        ".cp-line"
+    ).first.locator("select[name=component_id]").select_option(label="Gyertya")
+    page.wait_for_timeout(600)
+    expect(pct_anchor).to_be_visible()
+    expect(price_anchor).to_be_hidden()

@@ -125,6 +125,9 @@ HU: dict[str, str] = {
     "offers.paid": "Fizetve",
     "offers.profit_pct": "Nyereség %",
     "offers.profit_pct_hint": "az üzleti nyereség a költségekre rátéve",
+    "offers.anchored": (
+        "Ez az érték rögzített — a másik ehhez igazodik, ha az összetevők változnak."
+    ),
     "offers.suggested_price": "Javasolt ár",
     "offers.portions": "Szeletek száma",
     "offers.portions_short": "{n} szeletes",

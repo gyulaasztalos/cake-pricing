@@ -132,6 +132,10 @@ hang.
   applied in BOTH directions on purpose so undated offers never head the list;
   `Offer.id.desc()` is the stable tiebreak. `entry_date`/`request_date` still drive
   only the year filter + dropdown.
+- **The ⚓ marker shows which bound field is fixed.** Every anchor change goes
+  through `setAnchor()` in `offer-form.js` — never assign `anchor` directly, or the
+  marker will silently disagree with the behaviour it describes. Hidden until JS
+  activates it, so a no-JS page shows no misleading marker.
 - **The `Extra` group prices differently.** A line edited there (candle, sparkler
   agreed at handover) forces the profit%/price binding to re-anchor on the **pct**,
   so the FINAL PRICE rises by the add-on plus its margin — the chef is never paid

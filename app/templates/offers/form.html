@@ -90,11 +90,14 @@
     {% set pct = ((o.final_price / total - 1) * 100) | float | round(1)
                  if (o and o.final_price is not none and total)
                  else default_profit_pct %}
-    <label style="margin:0" title="{{ t('offers.profit_pct_hint') }}">{{ t('offers.profit_pct') }}
+    {# The ⚓ marks whichever of the bound pair is currently FIXED: when the cost
+       base moves, that one is kept and the other is recomputed. Toggled by
+       offer-form.js, so it is hidden until the script marks one. #}
+    <label style="margin:0" title="{{ t('offers.profit_pct_hint') }}">{{ t('offers.profit_pct') }}<span class="cp-anchor" id="anchor-pct" title="{{ t('offers.anchored') }}">{{ m.icon('anchor') }}</span>
       <input type="text" inputmode="decimal" name="profit_pct" id="profit-pct" style="width:6rem"
              value="{{ pct | amount }}">
     </label>
-    <label style="margin:0">{{ t('offers.final_price') }}
+    <label style="margin:0">{{ t('offers.final_price') }}<span class="cp-anchor" id="anchor-price" title="{{ t('offers.anchored') }}">{{ m.icon('anchor') }}</span>
       <input type="text" inputmode="decimal" name="final_price" id="final-price" style="width:9rem"
              value="{{ (o.final_price | amount) if o and o.final_price is not none else (((total | float) * (1 + (pct | float) / 100)) | round(0, 'common') | int) }}">
       {# Ft/szelet derived from the FINAL price (never Fizetve). Server-rendered so

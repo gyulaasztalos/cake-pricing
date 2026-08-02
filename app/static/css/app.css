@@ -169,6 +169,13 @@ body { background: var(--co-cream); }
 .cp-sort-toggle input:checked ~ .cp-sort-asc { display: none; }
 .cp-sort-toggle input:checked ~ .cp-sort-desc { display: inline-flex; }
 
+/* ---- Anchored-field marker (offer form) ---------------------------------- */
+/* Shows which of the bound profit%/price pair is held fixed. Hidden until
+   offer-form.js activates one, so no-JS never shows a misleading marker. */
+.cp-anchor { display: none; margin-left: .35rem; color: var(--pico-primary); vertical-align: middle; }
+.cp-anchor.is-on { display: inline-flex; }
+.cp-anchor svg { width: 1em; height: 1em; }
+
 /* ---- Készlet: stock-value column + total row ----------------------------- */
 /* Fixed width + right alignment so the per-item values and the total line up. */
 .cp-inv-value { min-width: 7rem; text-align: right; white-space: nowrap; }

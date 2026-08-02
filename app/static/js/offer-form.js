@@ -232,6 +232,16 @@
     if (!pctEl || !priceEl) return;
     let anchor = "pct";
 
+    // Single place that changes the anchor, so the ⚓ marker can never disagree
+    // with the behaviour it is describing.
+    function setAnchor(which) {
+      anchor = which;
+      const on = document.getElementById("anchor-" + which);
+      const off = document.getElementById("anchor-" + (which === "pct" ? "price" : "pct"));
+      if (on) on.classList.add("is-on");
+      if (off) off.classList.remove("is-on");
+    }
+
     const num = (v) => parseFloat(String(v).replace(",", "."));
     const cost = () => Number(window.cpCostBase);
 
@@ -252,11 +262,11 @@
     }
 
     pctEl.addEventListener("input", function () {
-      anchor = "pct";
+      setAnchor("pct");
       priceFromPct();
     });
     priceEl.addEventListener("input", function () {
-      anchor = "price";
+      setAnchor("price");
       pctFromPrice();
     });
     // EXTRA group (candle, sparkler asked for at handover): the customer is buying
@@ -267,7 +277,7 @@
     // `click` covers the stepper and the delete button, whose programmatic
     // .value writes fire no `input` event.
     const extraEdit = (e) => {
-      if (e.target.closest && e.target.closest('[data-pricing-extra]')) anchor = "pct";
+      if (e.target.closest && e.target.closest('[data-pricing-extra]')) setAnchor("pct");
     };
     document.body.addEventListener("input", extraEdit, true);
     document.body.addEventListener("change", extraEdit, true);
@@ -275,10 +285,12 @@
       "click",
       (e) => {
         // Buttons only — a stray click on the section must not re-anchor.
-        if (e.target.closest && e.target.closest('[data-pricing-extra] button')) anchor = "pct";
+        if (e.target.closest && e.target.closest('[data-pricing-extra] button')) setAnchor("pct");
       },
       true,
     );
+
+    setAnchor(anchor);  // paint the initial (pct) marker
 
     // Called by the recalc fragment once it has published a new cost base.
     window.cpResyncPricing = function () {

@@ -28,7 +28,8 @@ verified customer requests here as draft offers via a narrow intake API.
   price and the two are bound — edit either and the other follows (the % is
   derived from the price, never stored). Components in the **Extra** group
   (candle, sparkler asked for at handover) are the exception: adding one raises
-  the final price instead of eating the margin. The list filters by multi-select status
+  the final price instead of eating the margin. An ⚓ marks whichever of the two
+  is currently held fixed. The list filters by multi-select status
   (defaulting to the active ones — everything but rejected/done) and multi-select
   year (defaulting to the current year; none ticked = all years), and is
   ordered by **deadline, nearest first**; a toggle flips it to latest-first (handy
