@@ -24,7 +24,8 @@ verified customer requests here as draft offers via a narrow intake API.
   comes from the customer request or the chef, shows as "12 szeletes" in the list
   and calendar, and with a final price yields a Ft/slice note. Recording a
   **Fizetve** (paid) amount auto-sets the status: below the final price → Előlegezve
-  (deposit), at/above → Kész (done). A **Nyereség %** field sits beside the final
+  (deposit), at/above → Kész (done); it is shown in red wherever it falls short of
+  the final price. A **Nyereség %** field sits beside the final
   price and the two are bound — edit either and the other follows (the % is
   derived from the price, never stored). Components in the **Extra** group
   (candle, sparkler asked for at handover) are the exception: adding one raises

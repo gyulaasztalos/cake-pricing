@@ -111,8 +111,13 @@
       </small>
     </label>
     <label style="margin:0">{{ t('offers.paid') }}
-      {# Recorded payment: below final price → status becomes Előlegezve, at/above → Kész. #}
-      <input type="text" inputmode="decimal" name="paid" value="{{ o.paid|amount if o and o.paid is not none else '' }}" style="width:9rem">
+      {# Recorded payment: below final price → status becomes Előlegezve, at/above → Kész.
+         Shown RED while it falls short of the final price — server-rendered so it is
+         right without JS, and offer-form.js keeps it live as either field is typed. #}
+      <input type="text" inputmode="decimal" name="paid" id="paid" style="width:9rem"
+             title="{{ t('offers.underpaid') }}"
+             class="{{ 'cp-underpaid' if o and o.paid is not none and o.final_price is not none and o.paid < o.final_price }}"
+             value="{{ o.paid|amount if o and o.paid is not none else '' }}">
     </label>
   </div>
 

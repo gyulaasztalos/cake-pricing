@@ -123,6 +123,7 @@ HU: dict[str, str] = {
     "offers.calculated_price": "Számított ár",
     "offers.final_price": "Végleges ár",
     "offers.paid": "Fizetve",
+    "offers.underpaid": "A fizetett összeg kevesebb a végleges árnál!",
     "offers.profit_pct": "Nyereség %",
     "offers.profit_pct_hint": "az üzleti nyereség a költségekre rátéve",
     "offers.anchored": (

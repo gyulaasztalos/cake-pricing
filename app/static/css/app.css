@@ -169,6 +169,10 @@ body { background: var(--co-cream); }
 .cp-sort-toggle input:checked ~ .cp-sort-asc { display: none; }
 .cp-sort-toggle input:checked ~ .cp-sort-desc { display: inline-flex; }
 
+/* Paid-short warning: the recorded payment falls below the final price. */
+.cp-underpaid { color: #991b1b; font-weight: 600; }
+input.cp-underpaid { border-color: #991b1b; }
+
 /* ---- Anchored-field marker (offer form) ---------------------------------- */
 /* Shows which of the bound profit%/price pair is held fixed. Hidden until
    offer-form.js activates one, so no-JS never shows a misleading marker. */

@@ -568,3 +568,32 @@ def test_anchor_marker_follows_the_fixed_field(page: Page, clean_db, seed_compon
     page.wait_for_timeout(600)
     expect(pct_anchor).to_be_visible()
     expect(price_anchor).to_be_hidden()
+
+
+def test_paid_turns_red_while_short_of_the_final_price(page: Page, clean_db, seed_component):
+    """Fizetve is highlighted whenever it falls below the final price, and the
+    highlight tracks BOTH fields — including when the price is rewritten
+    programmatically by the profit%/price binding (which fires no input event)."""
+    seed_component("Munkadíj", "Alap", "db", "service", "1", "10000")
+    page.goto("/offers/new")
+    paid, price, pct = (
+        page.locator("#paid"),
+        page.locator("#final-price"),
+        page.locator("#profit-pct"),
+    )
+    expect(price).to_have_value("11000")  # default 10%
+
+    paid.fill("11000")  # paid in full -> no warning
+    expect(paid).not_to_have_class(re.compile(r"cp-underpaid"))
+
+    paid.fill("9000")  # short -> red
+    expect(paid).to_have_class(re.compile(r"cp-underpaid"))
+
+    paid.fill("12000")  # over-paid (a tip) -> not a warning
+    expect(paid).not_to_have_class(re.compile(r"cp-underpaid"))
+
+    # Raising the price via the % rewrites #final-price programmatically; the
+    # warning must still notice that 12 000 is now short.
+    pct.fill("50")
+    expect(price).to_have_value("15000")
+    expect(paid).to_have_class(re.compile(r"cp-underpaid"))

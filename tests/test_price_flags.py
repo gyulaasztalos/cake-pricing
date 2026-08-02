@@ -116,3 +116,39 @@ def test_the_edit_form_warns_too(clean_db):
     html = client.get(f"/offers/{oid}/edit").text
     assert "is-error" in html and "triangle-alert" in html
     assert "is-warn" in html and "circle-dollar-sign" in html
+
+
+@pytest.mark.parametrize(
+    ("final", "paid", "should_warn"),
+    [
+        ("10000", "9000", True),  # short
+        ("10000", "10000", False),  # exact
+        ("10000", "11000", False),  # tip, not a problem
+        ("10000", None, False),  # nothing recorded yet
+        (None, "9000", False),  # never quoted -> nothing to fall short of
+    ],
+)
+def test_detail_marks_a_short_payment(clean_db, final, paid, should_warn):
+    """The offer detail flags a Fizetve that falls below the final price."""
+    from app.db import SessionLocal
+    from app.models import Customer, Offer
+
+    s = SessionLocal()
+    try:
+        c = Customer(name="Fizetés")
+        s.add(c)
+        s.flush()
+        o = Offer(
+            customer_id=c.id,
+            status="done",
+            final_price=Decimal(final) if final else None,
+            paid=Decimal(paid) if paid else None,
+        )
+        s.add(o)
+        s.commit()
+        oid = o.id
+    finally:
+        s.close()
+
+    html = client.get(f"/offers/detail/{oid}").text
+    assert ("cp-underpaid" in html) is should_warn

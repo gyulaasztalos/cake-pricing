@@ -251,6 +251,7 @@
       if (!Number.isFinite(c) || c <= 0 || !Number.isFinite(p)) return;
       priceEl.value = roundHalfToEven(c * (1 + p / 100));
       window.cpUpdatePerPortion && window.cpUpdatePerPortion();
+      window.cpUpdatePaidWarning && window.cpUpdatePaidWarning();
     }
 
     function pctFromPrice() {
@@ -289,6 +290,21 @@
       },
       true,
     );
+
+    // Fizetve turns red while it is short of the final price. Server-rendered for
+    // the no-JS/first-paint case; kept live here because BOTH inputs move — the
+    // price is also written programmatically by priceFromPct(), which fires no
+    // input event, so that path calls this explicitly.
+    const paidEl = document.getElementById("paid");
+    window.cpUpdatePaidWarning = function () {
+      if (!paidEl) return;
+      const p = num(paidEl.value);
+      const f = num(priceEl.value);
+      const short = Number.isFinite(p) && Number.isFinite(f) && p < f;
+      paidEl.classList.toggle("cp-underpaid", short);
+    };
+    if (paidEl) paidEl.addEventListener("input", window.cpUpdatePaidWarning);
+    priceEl.addEventListener("input", window.cpUpdatePaidWarning);
 
     setAnchor(anchor);  // paint the initial (pct) marker
 

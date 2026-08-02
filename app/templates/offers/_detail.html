@@ -23,6 +23,10 @@
     {% if o.final_price is not none and o.portions %}
       <span class="cp-muted">({{ t('offers.per_portion', price=(o.final_price / o.portions) | huf) }})</span>
     {% endif %}
-    {% if o.paid is not none %} · {{ t('offers.paid') }}: {{ o.paid|huf }}{% endif %}
+    {% if o.paid is not none %} · {{ t('offers.paid') }}:
+      {% if o.final_price is not none and o.paid < o.final_price %}
+        <span class="cp-underpaid" title="{{ t('offers.underpaid') }}">{{ o.paid|huf }}</span>
+      {% else %}{{ o.paid|huf }}{% endif %}
+    {% endif %}
   </p>
 </div>
