@@ -143,6 +143,10 @@ hang.
 - **`tests/conftest._reset_db` must mirror the seeded groups** (baseline + any
   migration that adds one, e.g. 0007's `Extra`) or tests cannot find a group the
   app depends on.
+- **The stats reconciliation is an invariant, not a nicety**: Kész breakdown +
+  Üzleti profit = Bevétel. Any new money row must keep it, and must be checked
+  against ALL payment shapes (tip / shortfall / unpaid / unquoted / neither) —
+  testing only the happy path is how a 533 Ft discrepancy reached production.
 - **Profit % is DERIVED, never stored** — like cost. The offer form shows
   `final_price / calculated_price - 1`; only `app_settings.default_profit_pct`
   (Beállítások, a seeded singleton) is persisted, and it *only* prefills a

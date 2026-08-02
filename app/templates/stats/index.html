@@ -91,6 +91,8 @@
               <tr><td>{{ name }}</td><td>{{ total | huf }}</td></tr>
             {% endfor %}
             <tr><td>{{ t('stats.tip') }}</td><td>{{ d.tip | huf }}</td></tr>
+            {# Negated on purpose: the column must add up to Összesen by eye. #}
+            <tr><td>{{ t('stats.discount') }}</td><td>{{ (-d.discount) | huf }}</td></tr>
             <tr><td>{{ t('stats.materials') }}</td><td>{{ d.materials | huf }}</td></tr>
             {# Repeated from the Üzleti profit block on purpose: without it the
                rows do not add up to anything recognisable. #}

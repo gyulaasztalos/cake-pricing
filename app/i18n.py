@@ -202,6 +202,7 @@ HU: dict[str, str] = {
     "stats.kpi.winrate_hint": "elnyert / elküldött ajánlatok",
     "stats.kpi.revenue": "Bevétel",
     "stats.tip": "Borravaló",
+    "stats.discount": "Kedvezmény",
     "stats.materials": "Anyagköltség",
     "stats.base_split": "Kész munkák bontása",
     "stats.total": "Összesen",

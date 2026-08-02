@@ -171,8 +171,15 @@ answers "did the money actually come in?" and drives **Bevétel**, its average, 
 the revenue chart. Keeping revenue on `WON` counted undelivered work and broke the
 identity below.
 
-> `done_split` (Alap components + borravaló + anyagköltség) **+ `biz_profit.total`
-> = `kpis.revenue`**. `Stats.done_total` computes exactly that and is rendered as
+> **`base_rows + materials + biz_profit.total + tip − discount = kpis.revenue`**,
+> and it must hold for EVERY payment shape, not just the happy one. `tip` is
+> floored at zero, so `discount` (the mirror: quoted more than was collected)
+> carries the other direction — without it the total overshot Bevétel by the
+> shortfall. Profit falls back to `COALESCE(final_price, paid)` so an offer that
+> was paid but never quoted still balances, and the cost queries skip offers with
+> neither value, which would otherwise add cost against no revenue. Parametrised
+> over all five shapes by
+> `test_the_breakdown_reconciles_for_every_payment_shape`. `Stats.done_total` computes exactly that and is rendered as
 > the bold **Összesen** row, so the identity is visible on the page rather than
 > implied — which is why the profit row is deliberately repeated inside the
 > breakdown even though it also has its own block. Compute the bottom line in the

@@ -88,6 +88,7 @@ class DoneSplit:
 
     base_rows: list[tuple[str, Decimal]]  # each Alap-group component, by name
     tip: Decimal  # Σ (paid − final_price) where positive
+    discount: Decimal  # Σ (final_price − paid) where positive — collected LESS
     materials: Decimal  # everything outside the Alap group
 
 
@@ -137,7 +138,8 @@ class Stats:
             return Decimal(0)
         base = sum((v for _, v in self.done_split.base_rows), Decimal(0))
         profit = self.biz_profit.total if self.biz_profit else Decimal(0)
-        return base + self.done_split.tip + self.done_split.materials + profit
+        d = self.done_split
+        return base + d.materials + profit + d.tip - d.discount
 
 
 def _year_guard(local_expr: str) -> str:
@@ -351,6 +353,7 @@ def _done_split(session: Session, year: int | None) -> DoneSplit:
                 JOIN components c ON c.id = lc.component_id
                 JOIN groups g     ON g.id = c.group_id
                 WHERE g.name = :base_group AND o.status = 'done'
+                  AND COALESCE(o.paid, o.final_price) IS NOT NULL
                   AND {_year_guard(_LOCAL_CREATED)}
                 GROUP BY c.name ORDER BY total DESC, c.name
                 """  # nosec B608
@@ -367,6 +370,7 @@ def _done_split(session: Session, year: int | None) -> DoneSplit:
         JOIN components c ON c.id = lc.component_id
         JOIN groups g     ON g.id = c.group_id
         WHERE g.name <> :base_group AND o.status = 'done'
+          AND COALESCE(o.paid, o.final_price) IS NOT NULL
           AND {_year_guard(_LOCAL_CREATED)}
         """,  # nosec B608
         year=year,
@@ -384,7 +388,21 @@ def _done_split(session: Session, year: int | None) -> DoneSplit:
         """,  # nosec B608
         year=year,
     )
-    return DoneSplit(base_rows=base_rows, tip=tip, materials=materials)
+    # …and its mirror: the shortfall when LESS was collected than quoted (the bill
+    # rounded down, a goodwill discount). Kept as its own non-negative figure
+    # rather than a negative tip, but it must be SUBTRACTED for the block to
+    # reconcile — omitting it is what made the total overshoot Bevétel.
+    discount = _money(
+        session,
+        f"""
+        SELECT COALESCE(SUM(GREATEST(o.final_price - o.paid, 0)), 0)
+        FROM offers o
+        WHERE o.status = 'done' AND o.paid IS NOT NULL AND o.final_price IS NOT NULL
+          AND {_year_guard(_LOCAL_CREATED)}
+        """,  # nosec B608
+        year=year,
+    )
+    return DoneSplit(base_rows=base_rows, tip=tip, discount=discount, materials=materials)
 
 
 def _biz_profit(session: Session, year: int | None) -> BizProfit:
@@ -398,15 +416,15 @@ def _biz_profit(session: Session, year: int | None) -> BizProfit:
             f"""
             SELECT
               COUNT(*) AS cnt,
-              COALESCE(SUM(o.final_price - vc.calculated_price), 0) AS total,
-              COALESCE(AVG(o.final_price - vc.calculated_price), 0) AS avg,
+              COALESCE(SUM(COALESCE(o.final_price, o.paid) - vc.calculated_price), 0) AS total,
+              COALESCE(AVG(COALESCE(o.final_price, o.paid) - vc.calculated_price), 0) AS avg,
               COALESCE(
-                AVG(o.final_price / vc.calculated_price - 1)
+                AVG(COALESCE(o.final_price, o.paid) / vc.calculated_price - 1)
                   FILTER (WHERE vc.calculated_price > 0), 0
               ) AS avg_pct
             FROM offers o
             JOIN v_offer_cost vc ON vc.offer_id = o.id
-            WHERE o.status = 'done' AND o.final_price IS NOT NULL
+            WHERE o.status = 'done' AND COALESCE(o.final_price, o.paid) IS NOT NULL
               AND {_year_guard(_LOCAL_CREATED)}
             """  # nosec B608
         ),

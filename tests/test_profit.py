@@ -193,6 +193,86 @@ def test_done_split_reports_alap_components_tip_and_profit(clean_db, seed_compon
     assert bp.avg_pct == pytest.approx(0.125)  # 9000/8000 − 1
 
 
+@pytest.mark.parametrize(
+    ("name", "final", "paid"),
+    [
+        ("tip: paid above the quote", "1200", "1300"),
+        ("shortfall: bill rounded down", "1200", "1100"),  # this one used to break
+        ("no payment recorded yet", "1200", None),
+        ("paid but never quoted", None, "1100"),
+        ("neither recorded", None, None),
+    ],
+)
+def test_the_breakdown_reconciles_for_every_payment_shape(
+    clean_db, seed_component, name, final, paid
+):
+    """Kész breakdown + profit must equal Bevétel for EVERY offer shape.
+
+    The earlier version only ever tested a tip. A shortfall (paid < final) left
+    the total overshooting revenue by the difference — a real 533 Ft discrepancy
+    in production — because the tip is floored at zero and nothing carried the
+    other direction. `final NULL` and `both NULL` were broken too.
+    """
+    from app.db import SessionLocal
+    from app.models import Offer, OfferComponent
+    from app.services import stats as stats_svc
+
+    labour = seed_component("Munkadíj", "Alap", "db", "service", "1", "1000")
+    s = SessionLocal()
+    try:
+        o = Offer(
+            customer_id=_customer(),
+            status="done",
+            final_price=Decimal(final) if final is not None else None,
+            paid=Decimal(paid) if paid is not None else None,
+        )
+        s.add(o)
+        s.flush()
+        s.add(OfferComponent(offer_id=o.id, component_id=labour, amount=Decimal("1")))
+        s.commit()
+    finally:
+        s.close()
+
+    s2 = SessionLocal()
+    try:
+        st = stats_svc.collect(s2, None)
+    finally:
+        s2.close()
+    assert st.done_total == st.kpis.revenue, f"{name}: breakdown != Bevétel"
+
+
+def test_a_shortfall_shows_as_a_discount_row(clean_db, seed_component):
+    """The shortfall must be visible, not silently swallowed."""
+    from app.db import SessionLocal
+    from app.models import Offer, OfferComponent
+    from app.services import stats as stats_svc
+
+    labour = seed_component("Munkadíj", "Alap", "db", "service", "1", "1000")
+    s = SessionLocal()
+    try:
+        o = Offer(
+            customer_id=_customer(),
+            status="done",
+            final_price=Decimal("1200"),
+            paid=Decimal("1100"),
+        )
+        s.add(o)
+        s.flush()
+        s.add(OfferComponent(offer_id=o.id, component_id=labour, amount=Decimal("1")))
+        s.commit()
+    finally:
+        s.close()
+
+    s2 = SessionLocal()
+    try:
+        d = stats_svc.collect(s2, None).done_split
+    finally:
+        s2.close()
+    assert d.discount == Decimal("100")
+    assert d.tip == Decimal("0")  # still not a negative tip
+    assert "-100" in client.get("/stats").text.replace("\u2212", "-").replace("\xa0", " ")
+
+
 def test_underpayment_is_not_a_negative_tip(clean_db, seed_component):
     from app.db import SessionLocal
     from app.models import Offer
