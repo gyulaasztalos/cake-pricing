@@ -338,6 +338,8 @@ form.cp-topbar > select[name="year"] { width: auto; }
 .cp-breakdown { width: 100%; }
 .cp-breakdown td { padding: .3rem .25rem; border-bottom: 1px solid var(--pico-muted-border-color); }
 .cp-breakdown td:last-child { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Sum row: double rule above, no rule below — reads as a bottom line. */
+.cp-breakdown__total td { border-top: 2px solid var(--pico-muted-border-color); border-bottom: none; }
 .cp-legend { display: flex; gap: 1rem; font-size: .8rem; color: var(--pico-muted-color); margin: .25rem 0 0; }
 .cp-legend .cp-swatch { display: inline-block; width: .7rem; height: .7rem; border-radius: 2px; vertical-align: middle; margin-right: .3rem; }
 .cp-swatch--base { background: var(--co-rose); }

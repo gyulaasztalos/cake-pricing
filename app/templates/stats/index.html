@@ -92,6 +92,13 @@
             {% endfor %}
             <tr><td>{{ t('stats.tip') }}</td><td>{{ d.tip | huf }}</td></tr>
             <tr><td>{{ t('stats.materials') }}</td><td>{{ d.materials | huf }}</td></tr>
+            {# Repeated from the Üzleti profit block on purpose: without it the
+               rows do not add up to anything recognisable. #}
+            <tr><td>{{ t('stats.biz_profit') }}</td>
+                <td>{{ (s.biz_profit.total if s.biz_profit else 0) | huf }}</td></tr>
+            {# The point of the block: this equals Bevétel above. #}
+            <tr class="cp-breakdown__total"><td><strong>{{ t('stats.total') }}</strong></td>
+                <td><strong>{{ s.done_total | huf }}</strong></td></tr>
           </tbody></table>
         {% else %}<p class="cp-muted">{{ t('stats.empty') }}</p>{% endif %}
       </article>

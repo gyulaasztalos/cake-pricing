@@ -123,6 +123,22 @@ class Stats:
     biz_profit: BizProfit | None = None
     source_split: dict[str, int] = field(default_factory=dict)
 
+    @property
+    def done_total(self) -> Decimal:
+        """Bottom line of the Kész breakdown: Alap components + borravaló +
+        anyagköltség + üzleti profit.
+
+        Equals `kpis.revenue` by construction — every forint a finished offer
+        brought in is either a cost line, the tip, or profit. Shown as the
+        "Összesen" row so the identity is visible, and asserted by
+        `test_the_done_breakdown_reconciles_to_revenue`.
+        """
+        if self.done_split is None:
+            return Decimal(0)
+        base = sum((v for _, v in self.done_split.base_rows), Decimal(0))
+        profit = self.biz_profit.total if self.biz_profit else Decimal(0)
+        return base + self.done_split.tip + self.done_split.materials + profit
+
 
 def _year_guard(local_expr: str) -> str:
     """SQL predicate scoping rows to `:year`, or all-time when it is NULL.

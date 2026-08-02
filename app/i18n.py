@@ -204,6 +204,7 @@ HU: dict[str, str] = {
     "stats.tip": "Borravaló",
     "stats.materials": "Anyagköltség",
     "stats.base_split": "Kész munkák bontása",
+    "stats.total": "Összesen",
     "stats.biz_profit": "Üzleti profit",
     "stats.biz_profit_hint": (
         "kész munkák · eladási ár − számított költség (a fizetett összegtől függetlenül)"

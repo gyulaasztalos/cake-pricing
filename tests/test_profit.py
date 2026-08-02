@@ -260,5 +260,42 @@ def test_the_done_breakdown_reconciles_to_revenue(clean_db, seed_component):
     assert k.revenue == Decimal("10200")  # the accepted 99 999 is excluded
     breakdown = sum(v for _, v in d.base_rows) + d.tip + d.materials
     assert breakdown + bp.total == k.revenue
+    # The bottom line the page shows must BE that identity, not a separate sum.
+    assert st.done_total == k.revenue
     # …and the win rate still counts the accepted one: winning != earning.
     assert k.won == 2
+
+
+def test_the_stats_page_shows_the_identity(clean_db, seed_component):
+    """The rendered Összesen row must equal the Bevétel KPI — the whole point of
+    repeating the profit row inside the breakdown."""
+    import re
+
+    from app.db import SessionLocal
+    from app.models import Offer, OfferComponent
+
+    labour = seed_component("Munkadíj", "Alap", "db", "service", "1", "5000")
+    flour = seed_component("Liszt", "Piskóta", "g", "ingredient", "1000", "2000")
+    s = SessionLocal()
+    try:
+        o = Offer(
+            customer_id=_customer(),
+            status="done",
+            final_price=Decimal("10000"),
+            paid=Decimal("10200"),
+        )
+        s.add(o)
+        s.flush()
+        for comp, amt in ((labour, "1"), (flour, "1000")):
+            s.add(OfferComponent(offer_id=o.id, component_id=comp, amount=Decimal(amt)))
+        s.commit()
+    finally:
+        s.close()
+
+    html = client.get("/stats").text
+    block = re.search(r"Kész munkák bontása.*?</table>", html, re.S).group(0)
+    assert "Üzleti profit" in block, "the profit row is missing from the breakdown"
+    total = re.search(r"Összesen</strong></td>\s*<td><strong>([^<]+)</strong>", block)
+    kpi = re.search(r'Bevétel</p>\s*<p class="cp-kpi__value">([^<]+)</p>', html)
+    assert total and kpi, "could not find the Összesen row or the Bevétel KPI"
+    assert total.group(1).strip() == kpi.group(1).strip()

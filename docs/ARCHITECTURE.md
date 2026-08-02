@@ -172,8 +172,13 @@ the revenue chart. Keeping revenue on `WON` counted undelivered work and broke t
 identity below.
 
 > `done_split` (Alap components + borravaló + anyagköltség) **+ `biz_profit.total`
-> = `kpis.revenue`**. Pinned by `test_the_done_breakdown_reconciles_to_revenue`;
-> if you change either side, keep that identity.
+> = `kpis.revenue`**. `Stats.done_total` computes exactly that and is rendered as
+> the bold **Összesen** row, so the identity is visible on the page rather than
+> implied — which is why the profit row is deliberately repeated inside the
+> breakdown even though it also has its own block. Compute the bottom line in the
+> service, never in the template, so the number shown and the number asserted come
+> from one code path. Pinned by `test_the_done_breakdown_reconciles_to_revenue`
+> and `test_the_stats_page_shows_the_identity`.
 
 **Üzleti profit** (`biz_profit`) and the **Kész money split** (`done_split`) are
 both scoped to `done`: only a finished job has earned its Munkadíj and its tip,
