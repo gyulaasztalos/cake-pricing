@@ -385,3 +385,72 @@ def test_offer_footer_stays_one_row_on_desktop(page: Page, clean_db):
     fields = page.locator(".cp-offer-footer > *")
     rows = {round(fields.nth(i).bounding_box()["y"]) for i in range(fields.count())}
     assert len(rows) == 1, f"desktop footer wrapped onto {len(rows)} rows"
+
+
+MOBILE_PAGES = [
+    "/offers",
+    "/offers/new",
+    "/schedule",
+    "/customers",
+    "/customers/new",
+    "/components",
+    "/components/new",
+    "/recipes",
+    "/inventory",
+    "/inventory/receive",
+    "/groups",
+    "/groups/new",
+    "/stats",
+    "/settings",
+]
+
+
+@pytest.mark.parametrize("path", MOBILE_PAGES)
+def test_no_layout_escapes_the_phone_viewport(page: Page, clean_db, seed_component, path):
+    """Site-wide guard: nothing may sit outside a 390px viewport.
+
+    Element boxes are checked, not just document.scrollWidth — overflow to the
+    LEFT does not create a scrollbar, so it is invisible AND unreachable (exactly
+    how the offer footer and the year filter broke). The sidebar is excluded: on
+    mobile it is an off-canvas drawer, off-screen by design.
+    """
+    seed_component("Liszt", "Piskóta", "g", "ingredient", "1000", "200")
+    page.set_viewport_size({"width": 390, "height": 800})
+    page.goto(path)
+    page.wait_for_timeout(250)
+    offenders = page.evaluate("""() => {
+      const vw = innerWidth, out = [];
+      document.querySelectorAll('body *').forEach(el => {
+        const r = el.getBoundingClientRect();
+        if (r.width < 2 || r.height < 2) return;
+        if (getComputedStyle(el).visibility === 'hidden') return;
+        if (el.closest('.cp-sidebar')) return;          // off-canvas by design
+        if (r.left < -1 || r.right > vw + 1) {
+          out.push(el.tagName.toLowerCase() + '.' + (el.className || '').toString().slice(0, 30)
+                   + ' [' + Math.round(r.left) + '..' + Math.round(r.right) + ']');
+        }
+      });
+      return out;
+    }""")
+    assert not offenders, f"{path} overflows 390px: {offenders[:5]}"
+
+
+@pytest.mark.parametrize("width", [390, 1280])
+def test_filter_dropdown_panels_stay_on_screen(page: Page, clean_db, width):
+    """An OPEN dropdown must fit too — the year panel used to run 78px past the
+    right edge on desktop, and flipping its anchor pushed it off the left on
+    mobile. Mobile now flows the panel inline; desktop anchors it right."""
+    page.set_viewport_size({"width": width, "height": 900})
+    page.goto("/offers")
+    filters = page.locator(".cp-filter")
+    assert filters.count() >= 2  # status + year
+    for i in range(filters.count()):
+        f = filters.nth(i)
+        name = f.get_attribute("data-filter")
+        f.locator("summary").click()
+        page.wait_for_timeout(150)
+        box = f.locator(".cp-filter__menu").bounding_box()
+        assert box["x"] >= -1, f"[{name}] panel off the left at {box['x']} ({width}px)"
+        assert box["x"] + box["width"] <= width + 1, f"[{name}] panel off the right ({width}px)"
+        f.locator("summary").click()
+        page.wait_for_timeout(100)

@@ -114,6 +114,19 @@ hang.
   earliest row because none covered `entry_date`) from `price_missing` (red `⚠` —
   no price rows at all, line is 0 Ft). Different ICON as well as colour, and both
   carry a `title`; never go back to a bare untranslated label.
+- **Mobile layout is test-enforced.** `test_no_layout_escapes_the_phone_viewport`
+  sweeps every page at 390px and asserts no element box falls outside it (the
+  sidebar is excluded — off-canvas by design). Check ELEMENT BOXES, not just
+  `document.scrollWidth`: overflow to the LEFT creates no scrollbar, so it is both
+  invisible and unreachable — that is how the offer footer and the year filter
+  broke. When adding a flex row, ask whether it wraps on a phone; scope the wrap
+  to the media query, since `nowrap` lets desktop items SHRINK into one row while
+  `wrap` makes them keep full width and break.
+- **Filter dropdown panels**: right-anchored on desktop (the controls sit at the
+  right end of the bar, so `left: 0` ran the year panel off-screen) and
+  `position: static` on mobile, where no anchor is safe — flowing inline is the
+  only thing that cannot escape. Both directions are pinned by
+  `test_filter_dropdown_panels_stay_on_screen`.
 - **The offers list sorts by `due_date`, not creation** — ascending (nearest
   deadline first) by default, reversed by the `desc` checkbox. `nullslast()` is
   applied in BOTH directions on purpose so undated offers never head the list;

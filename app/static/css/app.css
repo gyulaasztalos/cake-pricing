@@ -102,6 +102,12 @@ body { background: var(--co-cream); }
      left-align them here only, so the desktop row is untouched. */
   .cp-offer-footer { flex-wrap: wrap; justify-content: flex-start; gap: .75rem 1rem; }
 
+  /* The offers filter bar (search + status + sort toggle + year) cannot fit on
+     one phone line — the last control spilled ~78px past the right edge. Wrap it,
+     and give the search box its own full-width row so the three compact controls
+     line up together underneath. */
+  form.cp-topbar { flex-wrap: wrap; justify-content: flex-start; }
+  form.cp-topbar > input[type="search"] { flex: 1 1 100%; }
   /* Narrow screens: the customer name would otherwise wrap character-by-character
      and blow up row height. Let the row wrap into lines — name on line 1, the
      rest (theme/flavor/date/price/actions) on line 2. */
@@ -191,12 +197,24 @@ body { background: var(--co-cream); }
   background: var(--pico-primary); color: var(--pico-primary-inverse);
 }
 .cp-filter__menu {
-  position: absolute; z-index: 20; top: calc(100% + .25rem); left: 0; min-width: max(100%, 12rem);
+  /* Right-anchored: these controls sit at the RIGHT end of the filter bar (the
+     search box grows and pushes them there), so opening leftward keeps the panel
+     on screen — `left: 0` ran the year panel ~78px past the viewport edge. */
+  position: absolute; z-index: 20; top: calc(100% + .25rem); right: 0; min-width: max(100%, 12rem);
   display: flex; flex-direction: column; gap: .1rem; padding: .5rem;
   background: var(--pico-card-background-color); border: 1px solid var(--pico-form-element-border-color);
   border-radius: var(--pico-border-radius); box-shadow: var(--pico-card-box-shadow);
 }
 .cp-filter__menu label { white-space: nowrap; margin: 0; padding: .15rem .25rem; }
+/* Mobile: an absolutely-positioned panel escapes the viewport whichever edge it
+   is anchored to — `left:0` overflows right for a control on the right, `right:0`
+   overflows left for one on the left. Let it flow inline instead: the open filter
+   takes the whole row and pushes the list down, so it can never escape. MUST come
+   after the base rule above — same specificity, so source order decides. */
+@media (max-width: 768px) {
+  .cp-filter[open] { flex: 1 1 100%; }
+  .cp-filter__menu { position: static; min-width: 0; margin-top: .25rem; }
+}
 
 /* Filter-bar layout: the search field takes the free width; enumerated filters
    (multiselect, the year select) keep their natural, content width. */
