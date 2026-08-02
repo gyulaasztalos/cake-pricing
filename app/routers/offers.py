@@ -24,6 +24,7 @@ from app.routers._helpers import (
     see_other_back,
 )
 from app.services import offers as offer_svc
+from app.services.calendar import local_today
 from app.templating import templates
 
 router = APIRouter()
@@ -115,7 +116,7 @@ def list_offers(
     request: Request,
     q: str = "",
     status: list[str] = Query(default=[]),
-    year: str = "",
+    year: list[str] = Query(default=[]),
     desc: bool = False,
     f: str = "",
     session: Session = Depends(get_session),
@@ -125,7 +126,6 @@ def list_offers(
     # wins, and an explicit empty selection means "no status filter" (show all)
     # rather than an empty result.
     selected_status = [s for s in status if s in STATUSES] if f else list(DEFAULT_STATUS_FILTER)
-    yr = int(year) if year.strip().isdigit() else None
     # Creation date: entry_date for internal offers, request_date for still-
     # unpriced external drafts. Drives both the newest-first order and the year
     # filter/dropdown (so external drafts are covered before they are priced).
@@ -133,6 +133,23 @@ def list_offers(
     # Year in the chef's timezone, not the container's UTC — otherwise an offer
     # created just after Budapest New Year is filed under the previous year.
     created_year = extract("year", func.timezone("Europe/Budapest", created))
+    # The years that actually have offers, and the subset the chef ticked. Compared
+    # as strings so a garbage value is ignored rather than raising.
+    all_years = [
+        int(y)
+        for y in session.scalars(
+            select(created_year).where(created_year.is_not(None)).distinct().order_by(created_year)
+        )
+    ]
+    if f:
+        submitted_years = set(year)
+        selected_years = [y for y in all_years if str(y) in submitted_years]
+    else:
+        # First load defaults to the CURRENT year (Budapest, not container UTC) —
+        # the chef's working set. Falls back to "all years" if there is nothing
+        # this year yet, so a fresh January never shows an empty list.
+        this_year = local_today().year
+        selected_years = [this_year] if this_year in all_years else []
     # Ordered by DEADLINE, not creation: the chef works to due dates. Ascending by
     # default so the nearest deadline is on top; `desc` flips it, which is what you
     # want once the status filter is cleared and the list is mostly finished work.
@@ -154,21 +171,16 @@ def list_offers(
         )
     if selected_status:
         stmt = stmt.where(Offer.status.in_(selected_status))
-    if yr:
-        stmt = stmt.where(created_year == yr)
+    if selected_years:
+        stmt = stmt.where(created_year.in_(selected_years))
     offers = list(session.scalars(stmt))
-    years = list(
-        session.scalars(
-            select(created_year).where(created_year.is_not(None)).distinct().order_by(created_year)
-        )
-    )
     ctx = {
         "offers": offers,
         "q": q,
         "status_options": [(s, t(f"offers.status.{s}")) for s in STATUSES],
         "selected_status": set(selected_status),
-        "year": yr,
-        "years": [int(y) for y in years],
+        "year_options": [(y, y) for y in all_years],
+        "selected_years": set(selected_years),
         "desc": desc,
         "active_nav": "offers",
     }

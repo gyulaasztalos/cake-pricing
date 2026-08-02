@@ -104,6 +104,16 @@ hang.
   to the *active* statuses on first load via a hidden `f=1` marker that tells
   first-load from an explicit empty selection — keep that marker when editing the
   offers filter form.
+- **Both offers-list dropdowns use `macros.multiselect`** — status AND year. A
+  native `<select>` popup cannot be styled, so mixing the two looked inconsistent.
+  Each renders `data-filter="<name>"` for CSS/tests. Same `f=1` marker semantics:
+  first load applies a default (active statuses / the current year), an explicit
+  submission wins, and nothing ticked means "no filter", never an empty list.
+- **Price-confidence badges** (`offers/_price_flags.html`, shared by the detail
+  view and the edit form) distinguish `used_fallback` (amber `$` — priced from the
+  earliest row because none covered `entry_date`) from `price_missing` (red `⚠` —
+  no price rows at all, line is 0 Ft). Different ICON as well as colour, and both
+  carry a `title`; never go back to a bare untranslated label.
 - **The offers list sorts by `due_date`, not creation** — ascending (nearest
   deadline first) by default, reversed by the `desc` checkbox. `nullslast()` is
   applied in BOTH directions on purpose so undated offers never head the list;

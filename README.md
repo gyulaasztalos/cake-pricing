@@ -27,9 +27,13 @@ verified customer requests here as draft offers via a narrow intake API.
   (deposit), at/above → Kész (done). A **Nyereség %** field sits beside the final
   price and the two are bound — edit either and the other follows (the % is
   derived from the price, never stored). The list filters by multi-select status
-  (defaulting to the active ones — everything but rejected/done) and year, and is
+  (defaulting to the active ones — everything but rejected/done) and multi-select
+  year (defaulting to the current year; none ticked = all years), and is
   ordered by **deadline, nearest first**; a toggle flips it to latest-first (handy
   once the status filter is cleared). Undated offers always sort last.
+  Offer lines flag their price confidence: an amber **$** when no price window
+  covered the offer's pricing date (the earliest known price was used) and a red
+  **⚠** when the component has no price at all, so the line is a bare 0 Ft.
 - **Components & temporal prices** — each component (ingredient / service /
   stock_item) has an append-only price history with non-overlapping validity
   windows. An offer is always priced with the price **effective on its pricing

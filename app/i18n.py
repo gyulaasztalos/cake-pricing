@@ -133,6 +133,10 @@ HU: dict[str, str] = {
     "offers.new_component_option": "[Új összetevő…]",
     "offers.new_customer_option": "[Új ügyfél…]",
     "offers.stock_warning": "készlet",
+    "offers.price_fallback": (
+        "Erre az ajánlatra nem volt érvényes ár — a legkorábbi ismert árral számolva."
+    ),
+    "offers.price_none": ("Ehhez az összetevőhöz nincs rögzített ár — a tétel 0 Ft-tal szerepel!"),
     # recipes (saved line sets — "Receptek")
     "recipes.title": "Receptek",
     "recipes.new": "Új recept",

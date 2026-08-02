@@ -114,6 +114,7 @@ body { background: var(--co-cream); }
 .cp-badge { font-size: .75rem; padding: .1rem .5rem; border-radius: 1rem; background: var(--pico-secondary-background); }
 .cp-badge.is-warn { background: #ffe08a; color: #663c00; }
 .cp-badge.is-ok { background: #c6f0d0; color: #14532d; }
+.cp-badge.is-error { background: #fbd2d2; color: #991b1b; }
 /* Offer-status colours — one palette reused by the offers list, the calendar,
    and the status filter dropdown (pastel chip + dark text, like is-warn/is-ok). */
 .cp-badge.cp-status-draft    { background: #e4e7ec; color: #3f4754; }

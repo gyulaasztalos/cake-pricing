@@ -24,7 +24,7 @@
    selected values (compared as strings). The enclosing form's HTMX trigger must
    include `change from:input[type=checkbox]` so ticking a box re-runs the query. #}
 {% macro multiselect(name, label, options, selected, badge_prefix="") %}
-<details class="cp-filter">
+<details class="cp-filter" data-filter="{{ name }}">
   <summary>{{ label }}{% if selected %} <span class="cp-filter__count">{{ selected|length }}</span>{% endif %}</summary>
   <div class="cp-filter__menu">
     {% for value, text in options %}

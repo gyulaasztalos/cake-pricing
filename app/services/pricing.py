@@ -48,7 +48,8 @@ class PricedLine:
     component_id: int
     amount: Decimal
     line_price: Decimal
-    used_fallback_price: bool
+    used_fallback_price: bool  # priced from the EARLIEST row, not a covering one
+    price_missing: bool = False  # no price rows at all -> the line is a bare 0
 
 
 def prices_for(session: Session, component_ids: Iterable[int]) -> dict[int, list[ComponentPrice]]:
@@ -81,7 +82,9 @@ def price_from_rows(
     """Price one line from already-fetched price rows (no DB access)."""
     row = pick_effective(rows, as_of)
     if row is None:
-        return PricedLine(component_id, amount, ZERO, used_fallback_price=False)
+        # The component has NO price history, so the line silently contributes 0.
+        # Flag it: a wrong number is worse unmarked than marked.
+        return PricedLine(component_id, amount, ZERO, used_fallback_price=False, price_missing=True)
     covers = row.effective_date <= as_of and (
         row.expiration_date is None or as_of < row.expiration_date
     )

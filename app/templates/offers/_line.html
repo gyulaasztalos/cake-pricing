@@ -26,6 +26,9 @@
     <button type="button" onclick="cpStep(this,-1)" aria-label="-">▼</button>
   </span>
   <span class="cp-line-cost">{{ cost|huf if cost is not none else '' }}</span>
+  {# Same price-confidence badges as the detail view (`line` is unset on a
+     freshly added, not-yet-priced row). #}
+  {%- if line is defined and line %}{% set ln = line %}{% include "offers/_price_flags.html" %}{% endif %}
   {% if stock is not none %}<span class="cp-badge {{ 'is-warn' if stock <= 0 }}">{{ t('offers.stock_warning') }}: {{ stock|amount }}</span>{% endif %}
   <button type="button" class="outline secondary" title="{{ t('action.delete') }}"
           onclick="this.closest('.cp-line').remove(); cpRecalc();">

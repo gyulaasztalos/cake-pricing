@@ -13,6 +13,7 @@
         {% set sel = ln.component_id %}{% set amt = ln.amount %}{% set unit = ln.unit %}
         {% set selname = ln.name %}
         {% set cost = ln.line_price %}{% set stock = ln.on_hand %}{% set group_id = gvm.group.id %}
+        {% set line = ln %}
         {% set comps = comps_by_group.get(gvm.group.id, []) %}
         {% include "offers/_line.html" %}
       {% endfor %}

@@ -307,9 +307,9 @@ def test_filter_bar_controls_are_aligned(page: Page, clean_db):
         name: page.locator(sel).bounding_box()
         for name, sel in {
             "search": "form.cp-topbar input[name=q]",
-            "status": "form.cp-topbar .cp-filter > summary",
+            "status": "form.cp-topbar [data-filter=status] > summary",
             "sort": "form.cp-topbar .cp-sort-toggle",
-            "year": "form.cp-topbar select[name=year]",
+            "year": "form.cp-topbar [data-filter=year] > summary",
         }.items()
     }
     centres = [b["y"] + b["height"] / 2 for b in boxes.values()]

@@ -45,9 +45,13 @@ def _seed() -> None:
 
 
 def _themes(**params) -> list[str]:
+    """Call the endpoint directly, supplying the list defaults FastAPI would inject
+    (a bare `Query(default=[])` is the Query object itself outside a request)."""
     from app.db import SessionLocal
     from app.routers.offers import list_offers
 
+    params.setdefault("status", [])
+    params.setdefault("year", [])
     s = SessionLocal()
     try:
         resp = list_offers(request=_FakeRequest(), session=s, **params)

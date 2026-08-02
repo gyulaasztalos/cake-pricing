@@ -24,6 +24,7 @@ class LineVM:
     amount: Decimal
     line_price: Decimal
     used_fallback: bool
+    price_missing: bool
     is_stock: bool
     on_hand: Decimal | None
 
@@ -75,6 +76,7 @@ def build_group_vms(
                 amount=amount,
                 line_price=priced.line_price,
                 used_fallback=priced.used_fallback_price,
+                price_missing=priced.price_missing,
                 is_stock=is_stock,
                 on_hand=on_hand.get(cid) if is_stock else None,
             )

@@ -23,10 +23,7 @@
     <span class="cp-sort-asc">{{ m.icon('arrow-up-narrow-wide') }}</span>
     <span class="cp-sort-desc">{{ m.icon('arrow-down-wide-narrow') }}</span>
   </label>
-  <select name="year">
-    <option value="">{{ t('offers.year') }} —</option>
-    {% for y in years %}<option value="{{ y }}" {{ 'selected' if year == y }}>{{ y }}</option>{% endfor %}
-  </select>
+  {{ m.multiselect('year', t('offers.year'), year_options, selected_years) }}
 </form>
 <div id="cp-rows">{% include "offers/_rows.html" %}</div>
 {% endblock %}

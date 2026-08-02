@@ -1,0 +1,10 @@
+{% import "_macros.html" as m %}
+{# Price-confidence badges for one line (`ln`). Distinguished by SHAPE as well as
+   colour so they don't rely on colour alone, and both carry a title tooltip —
+   the old bare "ár?" text was cryptic and bypassed t().
+     $ (amber)  approximate: no price window covered the offer's pricing date,
+                so the earliest known price was used.
+     ⚠ (red)    missing: the component has NO price at all, so the line is 0 Ft. #}
+{%- if ln.price_missing %} <span class="cp-badge is-error" title="{{ t('offers.price_none') }}">{{ m.icon('triangle-alert') }}</span>
+{%- elif ln.used_fallback %} <span class="cp-badge is-warn" title="{{ t('offers.price_fallback') }}">{{ m.icon('circle-dollar-sign') }}</span>
+{%- endif %}

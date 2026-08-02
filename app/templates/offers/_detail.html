@@ -11,7 +11,7 @@
       <span class="cp-muted">— {{ gvm.subtotal|huf }}</span>
       <ul>
         {% for ln in gvm.lines %}
-        <li>{{ ln.name }} {{ ln.amount|amount }} {{ ln.unit }} → {{ ln.line_price|huf }}{% if ln.used_fallback %} <span class="cp-badge is-warn">ár?</span>{% endif %}</li>
+        <li>{{ ln.name }} {{ ln.amount|amount }} {{ ln.unit }} → {{ ln.line_price|huf }}{% include "offers/_price_flags.html" %}</li>
         {% endfor %}
       </ul>
     </div>
