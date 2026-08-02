@@ -95,6 +95,13 @@ body { background: var(--co-cream); }
   .cp-hamburger { display: inline-flex; }
   .cp-main { padding: 1rem; }
 
+  /* The pricing footer holds four fields. Desktop keeps them on one row (nowrap
+     lets them shrink), but on a phone there is no room: without wrapping,
+     `justify-content: flex-end` pushes the first ones off the LEFT edge, where
+     they are unreachable — that overflow direction does not scroll. Wrap and
+     left-align them here only, so the desktop row is untouched. */
+  .cp-offer-footer { flex-wrap: wrap; justify-content: flex-start; gap: .75rem 1rem; }
+
   /* Narrow screens: the customer name would otherwise wrap character-by-character
      and blow up row height. Let the row wrap into lines — name on line 1, the
      rest (theme/flavor/date/price/actions) on line 2. */

@@ -355,3 +355,33 @@ def test_profit_pct_and_final_price_are_bound(page: Page, clean_db, seed_compone
     expect(page.locator("#calc-total")).to_have_text("12 000 Ft", timeout=8000)
     expect(price).to_have_value("13800")
     expect(pct).to_have_value("15")
+
+
+def test_offer_footer_fits_on_a_phone(page: Page, clean_db):
+    """The pricing footer must wrap on mobile.
+
+    Regression: it was `display:flex` with no wrap, so `justify-content:flex-end`
+    pushed Számított ár and Nyereség % off the LEFT edge (x ≈ -182px) — invisible
+    AND unreachable, because overflow in that direction does not scroll.
+    """
+    page.set_viewport_size({"width": 390, "height": 800})
+    page.goto("/offers/new")
+    fields = page.locator(".cp-offer-footer > *")
+    assert fields.count() == 4
+    rows = set()
+    for i in range(fields.count()):
+        box = fields.nth(i).bounding_box()
+        assert box["x"] >= -1, f"field {i} starts off-screen at x={box['x']}"
+        assert box["x"] + box["width"] <= 391, f"field {i} overflows right"
+        rows.add(round(box["y"]))
+    assert len(rows) > 1, "expected the footer to wrap onto multiple rows on mobile"
+
+
+def test_offer_footer_stays_one_row_on_desktop(page: Page, clean_db):
+    """The mobile fix must not push the desktop footer onto extra rows —
+    nowrap lets the fields shrink into a single tidy row there."""
+    page.set_viewport_size({"width": 1280, "height": 900})
+    page.goto("/offers/new")
+    fields = page.locator(".cp-offer-footer > *")
+    rows = {round(fields.nth(i).bounding_box()["y"]) for i in range(fields.count())}
+    assert len(rows) == 1, f"desktop footer wrapped onto {len(rows)} rows"
