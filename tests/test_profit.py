@@ -197,11 +197,11 @@ def test_done_split_reports_alap_components_tip_and_profit(clean_db, seed_compon
     ("name", "final", "paid"),
     [
         ("tip: paid above the quote", "1200", "1300"),
-        ("shortfall: bill rounded down", "1200", "1100"),  # this one used to break
+        ("shortfall: cash never arrived", "1200", "1100"),  # this one used to break
         # Quoted BELOW cost (cost is 1000): profit goes negative and must stay
         # negative — clamping it at zero would reopen the reconciliation gap.
         ("discounted below cost", "900", "900"),
-        ("below cost AND underpaid", "900", "850"),
+        ("below cost AND short-paid", "900", "850"),
         ("no payment recorded yet", "1200", None),
         ("paid but never quoted", None, "1100"),
         ("neither recorded", None, None),
@@ -245,12 +245,12 @@ def test_the_breakdown_reconciles_for_every_payment_shape(
     assert st.done_total == st.kpis.revenue, f"{name}: breakdown != Bevétel"
 
 
-def test_pricing_below_cost_is_negative_profit_not_a_kedvezmeny(clean_db, seed_component):
-    """Üzleti profit and Kedvezmény measure DIFFERENT gaps, so a below-cost quote
-    must not also show up as a discount (that would double-count it).
+def test_pricing_below_cost_is_negative_profit_not_a_shortfall(clean_db, seed_component):
+    """Üzleti profit and Hiány measure DIFFERENT gaps, so a below-cost quote
+    must not also show up as a shortfall (that would double-count it).
 
-      Üzleti profit = quote − cost   (a pricing decision)
-      Kedvezmény    = quote − paid   (less cash collected than quoted)
+      Üzleti profit = quote − cost   (a pricing decision — a real discount)
+      Hiány         = quote − paid   (cash that never arrived; should be 0)
     """
     from app.db import SessionLocal
     from app.models import Offer, OfferComponent
@@ -279,12 +279,17 @@ def test_pricing_below_cost_is_negative_profit_not_a_kedvezmeny(clean_db, seed_c
     finally:
         s2.close()
     assert st.biz_profit.total == Decimal("-500")  # negative, NOT clamped to 0
-    assert st.done_split.discount == Decimal("0")  # nothing was under-collected
+    assert st.done_split.shortfall == Decimal("0")  # nothing went uncollected
     assert st.done_total == st.kpis.revenue == Decimal("9500")
 
 
-def test_a_shortfall_shows_as_a_discount_row(clean_db, seed_component):
-    """The shortfall must be visible, not silently swallowed."""
+def test_a_shortfall_shows_as_its_own_row(clean_db, seed_component):
+    """A collection shortfall must be visible, not silently swallowed.
+
+    Called Hiány, not Kedvezmény: an intentional price cut is (negative) Üzleti
+    profit — quote vs COST. This row is quote vs CASH, i.e. money that never
+    arrived, and should normally be zero.
+    """
     from app.db import SessionLocal
     from app.models import Offer, OfferComponent
     from app.services import stats as stats_svc
@@ -310,7 +315,7 @@ def test_a_shortfall_shows_as_a_discount_row(clean_db, seed_component):
         d = stats_svc.collect(s2, None).done_split
     finally:
         s2.close()
-    assert d.discount == Decimal("100")
+    assert d.shortfall == Decimal("100")
     assert d.tip == Decimal("0")  # still not a negative tip
     assert "-100" in client.get("/stats").text.replace("\u2212", "-").replace("\xa0", " ")
 

@@ -147,6 +147,11 @@ hang.
 - **`tests/conftest._reset_db` must mirror the seeded groups** (baseline + any
   migration that adds one, e.g. 0007's `Extra`) or tests cannot find a group the
   app depends on.
+- **Hiány is not a discount.** `done_split.shortfall` is quote − CASH: money that
+  should have arrived and did not, so it should normally be **zero** (a non-zero
+  value means something went wrong upstream). An intentional price cut is a
+  quote − COST decision and shows up as *negative* `biz_profit` — which must never
+  be clamped to zero, or the reconciliation breaks.
 - **The stats reconciliation is an invariant, not a nicety**: Kész breakdown +
   Üzleti profit = Bevétel. Any new money row must keep it, and must be checked
   against ALL payment shapes (tip / shortfall / unpaid / unquoted / neither) —

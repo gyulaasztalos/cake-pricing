@@ -171,9 +171,9 @@ answers "did the money actually come in?" and drives **Bevétel**, its average, 
 the revenue chart. Keeping revenue on `WON` counted undelivered work and broke the
 identity below.
 
-> **`base_rows + materials + biz_profit.total + tip − discount = kpis.revenue`**,
+> **`base_rows + materials + biz_profit.total + tip − shortfall = kpis.revenue`**,
 > and it must hold for EVERY payment shape, not just the happy one. `tip` is
-> floored at zero, so `discount` (the mirror: quoted more than was collected)
+> floored at zero, so `shortfall` (Hiány — quoted more than was ever collected)
 > carries the other direction — without it the total overshot Bevétel by the
 > shortfall. Profit falls back to `COALESCE(final_price, paid)` so an offer that
 > was paid but never quoted still balances, and the cost queries skip offers with

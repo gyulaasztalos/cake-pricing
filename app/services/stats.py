@@ -88,7 +88,7 @@ class DoneSplit:
 
     base_rows: list[tuple[str, Decimal]]  # each Alap-group component, by name
     tip: Decimal  # Σ (paid − final_price) where positive
-    discount: Decimal  # Σ (final_price − paid) where positive — collected LESS
+    shortfall: Decimal  # Σ (final_price − paid) where positive — money never collected
     materials: Decimal  # everything outside the Alap group
 
 
@@ -139,7 +139,7 @@ class Stats:
         base = sum((v for _, v in self.done_split.base_rows), Decimal(0))
         profit = self.biz_profit.total if self.biz_profit else Decimal(0)
         d = self.done_split
-        return base + d.materials + profit + d.tip - d.discount
+        return base + d.materials + profit + d.tip - d.shortfall
 
 
 def _year_guard(local_expr: str) -> str:
@@ -388,11 +388,12 @@ def _done_split(session: Session, year: int | None) -> DoneSplit:
         """,  # nosec B608
         year=year,
     )
-    # …and its mirror: the shortfall when LESS was collected than quoted (the bill
-    # rounded down, a goodwill discount). Kept as its own non-negative figure
-    # rather than a negative tip, but it must be SUBTRACTED for the block to
-    # reconcile — omitting it is what made the total overshoot Bevétel.
-    discount = _money(
+    # …and its mirror: quoted more than was ever collected. NOT a discount — an
+    # intentional price cut shows up as (negative) Üzleti profit, because that is a
+    # quote-vs-COST decision. This is quote-vs-CASH: money that should have arrived
+    # and did not, so it should normally be zero. Non-negative like the tip, but
+    # SUBTRACTED, or the block overshoots Bevétel.
+    shortfall = _money(
         session,
         f"""
         SELECT COALESCE(SUM(GREATEST(o.final_price - o.paid, 0)), 0)
@@ -402,7 +403,7 @@ def _done_split(session: Session, year: int | None) -> DoneSplit:
         """,  # nosec B608
         year=year,
     )
-    return DoneSplit(base_rows=base_rows, tip=tip, discount=discount, materials=materials)
+    return DoneSplit(base_rows=base_rows, tip=tip, shortfall=shortfall, materials=materials)
 
 
 def _biz_profit(session: Session, year: int | None) -> BizProfit:
