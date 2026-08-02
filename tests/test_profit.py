@@ -198,6 +198,10 @@ def test_done_split_reports_alap_components_tip_and_profit(clean_db, seed_compon
     [
         ("tip: paid above the quote", "1200", "1300"),
         ("shortfall: bill rounded down", "1200", "1100"),  # this one used to break
+        # Quoted BELOW cost (cost is 1000): profit goes negative and must stay
+        # negative — clamping it at zero would reopen the reconciliation gap.
+        ("discounted below cost", "900", "900"),
+        ("below cost AND underpaid", "900", "850"),
         ("no payment recorded yet", "1200", None),
         ("paid but never quoted", None, "1100"),
         ("neither recorded", None, None),
@@ -239,6 +243,44 @@ def test_the_breakdown_reconciles_for_every_payment_shape(
     finally:
         s2.close()
     assert st.done_total == st.kpis.revenue, f"{name}: breakdown != Bevétel"
+
+
+def test_pricing_below_cost_is_negative_profit_not_a_kedvezmeny(clean_db, seed_component):
+    """Üzleti profit and Kedvezmény measure DIFFERENT gaps, so a below-cost quote
+    must not also show up as a discount (that would double-count it).
+
+      Üzleti profit = quote − cost   (a pricing decision)
+      Kedvezmény    = quote − paid   (less cash collected than quoted)
+    """
+    from app.db import SessionLocal
+    from app.models import Offer, OfferComponent
+    from app.services import stats as stats_svc
+
+    labour = seed_component("Munkadíj", "Alap", "db", "service", "1", "10000")
+    s = SessionLocal()
+    try:
+        # Quoted 9 500 against a 10 000 cost, and the customer paid exactly that.
+        o = Offer(
+            customer_id=_customer(),
+            status="done",
+            final_price=Decimal("9500"),
+            paid=Decimal("9500"),
+        )
+        s.add(o)
+        s.flush()
+        s.add(OfferComponent(offer_id=o.id, component_id=labour, amount=Decimal("1")))
+        s.commit()
+    finally:
+        s.close()
+
+    s2 = SessionLocal()
+    try:
+        st = stats_svc.collect(s2, None)
+    finally:
+        s2.close()
+    assert st.biz_profit.total == Decimal("-500")  # negative, NOT clamped to 0
+    assert st.done_split.discount == Decimal("0")  # nothing was under-collected
+    assert st.done_total == st.kpis.revenue == Decimal("9500")
 
 
 def test_a_shortfall_shows_as_a_discount_row(clean_db, seed_component):
