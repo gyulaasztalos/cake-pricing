@@ -259,6 +259,27 @@
       anchor = "price";
       pctFromPrice();
     });
+    // EXTRA group (candle, sparkler asked for at handover): the customer is buying
+    // something more, so the FINAL PRICE must go up — the chef should not be paid
+    // less for saying yes. Editing such a line therefore re-anchors on the pct,
+    // which keeps the margin and lets the price follow the added cost, whatever
+    // was edited last. Capture phase so it lands before the recalc is queued;
+    // `click` covers the stepper and the delete button, whose programmatic
+    // .value writes fire no `input` event.
+    const extraEdit = (e) => {
+      if (e.target.closest && e.target.closest('[data-pricing-extra]')) anchor = "pct";
+    };
+    document.body.addEventListener("input", extraEdit, true);
+    document.body.addEventListener("change", extraEdit, true);
+    document.body.addEventListener(
+      "click",
+      (e) => {
+        // Buttons only — a stray click on the section must not re-anchor.
+        if (e.target.closest && e.target.closest('[data-pricing-extra] button')) anchor = "pct";
+      },
+      true,
+    );
+
     // Called by the recalc fragment once it has published a new cost base.
     window.cpResyncPricing = function () {
       if (anchor === "price") pctFromPrice();

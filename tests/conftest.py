@@ -48,9 +48,11 @@ def _reset_db() -> None:
         )
         s.execute(
             text(
+                # Must mirror the seeded groups (baseline + migration 0007's
+                # 'Extra'), or a test cannot find a group the app relies on.
                 "INSERT INTO groups (name, sort_order) VALUES "
                 "('Alap', 10), ('Piskóta', 20), ('Töltelék', 30), "
-                "('Burkolat', 40), ('Dekor', 50), ('Doboz', 60)"
+                "('Burkolat', 40), ('Dekor', 50), ('Extra', 55), ('Doboz', 60)"
             )
         )
         # app_settings is a seeded SINGLETON, not data — restore it to the

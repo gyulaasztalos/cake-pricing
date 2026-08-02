@@ -454,3 +454,79 @@ def test_filter_dropdown_panels_stay_on_screen(page: Page, clean_db, width):
         assert box["x"] + box["width"] <= width + 1, f"[{name}] panel off the right ({width}px)"
         f.locator("summary").click()
         page.wait_for_timeout(100)
+
+
+def test_extra_group_addon_raises_the_price_not_the_margin(page: Page, clean_db, seed_component):
+    """A candle asked for at handover must RAISE the final price.
+
+    The chef typed the price herself (so the "last edited wins" anchor is the
+    price, and a normal line edit would recompute the % downward). An EXTRA-group
+    line overrides that: the % is held and the price follows, so saying yes to a
+    late add-on never quietly costs her the margin.
+    """
+    seed_component("Munkadíj", "Alap", "db", "service", "1", "10000")
+    seed_component("Gyertya", "Extra", "db", "ingredient", "1", "500")
+    seed_component("Liszt", "Piskóta", "g", "ingredient", "1000", "2000")
+
+    page.goto("/offers/new")
+    pct, price = page.locator("#profit-pct"), page.locator("#final-price")
+    expect(page.locator("#calc-total")).to_have_text("10 000 Ft")
+
+    # She sets the price by hand -> the % follows, and the anchor is now "price".
+    price.fill("12000")
+    expect(pct).to_have_value("20")
+
+    # A NORMAL line (Piskóta) keeps her price and lets the % absorb the cost.
+    piskota = page.locator(".cp-group", has=page.locator('text="Piskóta"')).first
+    piskota.locator("button.cp-add-line").click()
+    page.wait_for_timeout(400)
+    piskota = page.locator(".cp-group", has=page.locator('text="Piskóta"')).first
+    piskota.locator(".cp-line").first.locator("select[name=component_id]").select_option(
+        label="Liszt"
+    )
+    page.wait_for_timeout(800)
+    # A new line defaults to amount 1; Liszt is priced per 1000 g, so ask for 1000.
+    amount = (
+        page.locator(".cp-group", has=page.locator('text="Piskóta"'))
+        .first.locator(".cp-line")
+        .first.locator("input[name=amount]")
+    )
+    amount.fill("1000")
+    amount.dispatch_event("change")
+    expect(page.locator("#calc-total")).to_have_text("12 000 Ft", timeout=8000)
+    expect(price).to_have_value("12000")  # her price is untouched…
+    expect(pct).to_have_value("0")  # …and the margin absorbed the 2 000
+
+    # The EXTRA line behaves the OPPOSITE way: price up, margin held.
+    extra = page.locator(".cp-group", has=page.locator('text="Extra"')).first
+    extra.locator("button.cp-add-line").click()
+    page.wait_for_timeout(400)
+    extra = page.locator(".cp-group", has=page.locator('text="Extra"')).first
+    extra.locator(".cp-line").first.locator("select[name=component_id]").select_option(
+        label="Gyertya"
+    )
+    expect(page.locator("#calc-total")).to_have_text("12 500 Ft", timeout=8000)
+    expect(pct).to_have_value("0")  # margin held (0% here, but held)…
+    expect(price).to_have_value("12500")  # …and the price absorbed the candle
+
+
+def test_extra_addon_preserves_a_real_margin(page: Page, clean_db, seed_component):
+    """With a non-zero margin the add-on is marked up like everything else."""
+    seed_component("Munkadíj", "Alap", "db", "service", "1", "10000")
+    seed_component("Csillagszóró", "Extra", "db", "ingredient", "1", "1000")
+
+    page.goto("/offers/new")
+    pct, price = page.locator("#profit-pct"), page.locator("#final-price")
+    expect(price).to_have_value("11000")  # default 10% on a 10 000 cost base
+
+    extra = page.locator(".cp-group", has=page.locator('text="Extra"')).first
+    extra.locator("button.cp-add-line").click()
+    page.wait_for_timeout(400)
+    extra = page.locator(".cp-group", has=page.locator('text="Extra"')).first
+    extra.locator(".cp-line").first.locator("select[name=component_id]").select_option(
+        label="Csillagszóró"
+    )
+    # cost 11 000 -> still 10% -> 12 100, i.e. the 1 000 add-on carries its margin.
+    expect(page.locator("#calc-total")).to_have_text("11 000 Ft", timeout=8000)
+    expect(pct).to_have_value("10")
+    expect(price).to_have_value("12100")

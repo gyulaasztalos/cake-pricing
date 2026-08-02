@@ -50,6 +50,11 @@ def _auto_status(paid: Decimal | None, final_price: Decimal | None, current: str
 # never saved into a Recept (recipe). Identified by its seeded name (§3.1/§3.2).
 BASE_GROUP_NAME = "Alap"
 
+# Last-minute add-ons (candle, sparkler) asked for at handover. Pricing treats
+# this group specially: adding one RAISES the final price instead of eating the
+# margin, so the chef is never silently paid less for saying yes (§Extra).
+EXTRA_GROUP_NAME = "Extra"
+
 
 def _comps_by_group(session: Session) -> dict[int, list[Component]]:
     grouped: dict[int, list[Component]] = {}
@@ -81,6 +86,9 @@ def _sections_ctx(session: Session, group_vms, total) -> dict:
     return {
         "group_vms": group_vms,
         "total": total,
+        # The template flags this group so offer-form.js can spot an add-on edit
+        # without hardcoding the name client-side.
+        "extra_group_name": EXTRA_GROUP_NAME,
         "comps_by_group": cbg,
         "comps_json": _comps_json(cbg),
         "mass_volume_step": settings.mass_volume_step,

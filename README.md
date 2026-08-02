@@ -26,7 +26,9 @@ verified customer requests here as draft offers via a narrow intake API.
   **Fizetve** (paid) amount auto-sets the status: below the final price → Előlegezve
   (deposit), at/above → Kész (done). A **Nyereség %** field sits beside the final
   price and the two are bound — edit either and the other follows (the % is
-  derived from the price, never stored). The list filters by multi-select status
+  derived from the price, never stored). Components in the **Extra** group
+  (candle, sparkler asked for at handover) are the exception: adding one raises
+  the final price instead of eating the margin. The list filters by multi-select status
   (defaulting to the active ones — everything but rejected/done) and multi-select
   year (defaulting to the current year; none ticked = all years), and is
   ordered by **deadline, nearest first**; a toggle flips it to latest-first (handy

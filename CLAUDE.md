@@ -132,6 +132,17 @@ hang.
   applied in BOTH directions on purpose so undated offers never head the list;
   `Offer.id.desc()` is the stable tiebreak. `entry_date`/`request_date` still drive
   only the year filter + dropdown.
+- **The `Extra` group prices differently.** A line edited there (candle, sparkler
+  agreed at handover) forces the profit%/price binding to re-anchor on the **pct**,
+  so the FINAL PRICE rises by the add-on plus its margin — the chef is never paid
+  less for saying yes. Every other group keeps the "last edited wins" rule. The
+  server marks the group with `data-pricing-extra` (name in
+  `offers.EXTRA_GROUP_NAME`) so `offer-form.js` never hardcodes it; the listeners
+  are capture-phase and include `click`, because the stepper and delete buttons
+  write `.value` programmatically and fire no `input` event.
+- **`tests/conftest._reset_db` must mirror the seeded groups** (baseline + any
+  migration that adds one, e.g. 0007's `Extra`) or tests cannot find a group the
+  app depends on.
 - **Profit % is DERIVED, never stored** — like cost. The offer form shows
   `final_price / calculated_price - 1`; only `app_settings.default_profit_pct`
   (Beállítások, a seeded singleton) is persisted, and it *only* prefills a

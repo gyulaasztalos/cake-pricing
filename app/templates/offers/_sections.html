@@ -2,7 +2,10 @@
 {# Grouped line sections. Re-rendered wholesale by /offers/recalc and apply-recipe.
    Every group is shown (empty groups visible — UI decision), each with its own add button. #}
 {% for gvm in group_vms %}
-<div class="cp-group" data-group-id="{{ gvm.group.id }}">
+{# data-pricing-extra marks the add-on group: editing a line inside it must push
+   the FINAL PRICE up rather than shrink the profit % (offer-form.js). #}
+<div class="cp-group" data-group-id="{{ gvm.group.id }}"
+     {{ 'data-pricing-extra="1"' | safe if gvm.group.name == extra_group_name }}>
   <div class="cp-group__head">
     <strong>{{ gvm.group.name }}</strong>
     <span class="cp-muted">{{ t('offers.subtotal') }}: {{ gvm.subtotal|huf }}</span>
