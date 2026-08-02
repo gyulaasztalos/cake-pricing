@@ -200,10 +200,10 @@ HU: dict[str, str] = {
     "stats.kpi.won": "Elnyert (elfogadva + kész)",
     "stats.kpi.winrate": "Nyerési arány",
     "stats.kpi.winrate_hint": "elnyert / elküldött ajánlatok",
-    "stats.kpi.revenue": "Bevétel (elnyert)",
+    "stats.kpi.revenue": "Bevétel",
     "stats.tip": "Borravaló",
     "stats.materials": "Anyagköltség",
-    "stats.base_split": "Alap csoport bontása (kész munkák)",
+    "stats.base_split": "Kész munkák bontása",
     "stats.biz_profit": "Üzleti profit",
     "stats.biz_profit_hint": (
         "kész munkák · eladási ár − számított költség (a fizetett összegtől függetlenül)"

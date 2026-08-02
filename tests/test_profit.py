@@ -217,3 +217,48 @@ def test_underpayment_is_not_a_negative_tip(clean_db, seed_component):
         assert stats_svc.collect(s2, None).done_split.tip == Decimal("0")
     finally:
         s2.close()
+
+
+def test_the_done_breakdown_reconciles_to_revenue(clean_db, seed_component):
+    """Kész munkák bontása + Üzleti profit must add up to Bevétel exactly.
+
+    Bevétel counts FINISHED work only — an accepted-but-undelivered offer used to
+    inflate it, which is what broke the reconciliation.
+    """
+    from app.db import SessionLocal
+    from app.models import Offer, OfferComponent
+    from app.services import stats as stats_svc
+
+    labour = seed_component("Munkadíj", "Alap", "db", "service", "1", "5000")
+    overhead = seed_component("Rezsi", "Alap", "db", "service", "1", "1000")
+    flour = seed_component("Liszt", "Piskóta", "g", "ingredient", "1000", "2000")
+    cid = _customer()
+
+    s = SessionLocal()
+    try:
+        # cost 8 000, quoted 10 000 (profit 2 000), paid 10 200 (tip 200).
+        o = Offer(
+            customer_id=cid, status="done", final_price=Decimal("10000"), paid=Decimal("10200")
+        )
+        s.add(o)
+        s.flush()
+        for comp, amt in ((labour, "1"), (overhead, "1"), (flour, "1000")):
+            s.add(OfferComponent(offer_id=o.id, component_id=comp, amount=Decimal(amt)))
+        # Won but NOT finished — must stay out of Bevétel.
+        s.add(Offer(customer_id=cid, status="accepted", final_price=Decimal("99999")))
+        s.commit()
+    finally:
+        s.close()
+
+    s2 = SessionLocal()
+    try:
+        st = stats_svc.collect(s2, None)
+    finally:
+        s2.close()
+
+    d, bp, k = st.done_split, st.biz_profit, st.kpis
+    assert k.revenue == Decimal("10200")  # the accepted 99 999 is excluded
+    breakdown = sum(v for _, v in d.base_rows) + d.tip + d.materials
+    assert breakdown + bp.total == k.revenue
+    # …and the win rate still counts the accepted one: winning != earning.
+    assert k.won == 2

@@ -28,6 +28,11 @@ from sqlalchemy.orm import Session
 # (Előlegezve) is included so an accepted offer that receives a deposit does not
 # fall out of revenue.
 WON = ("accepted", "deposit", "done")
+# Money is only counted for FINISHED work. An accepted or part-paid (deposit)
+# offer is WON but not yet earned, and counting it would also set partial revenue
+# against a full cost. Kept separate from WON, which still answers "did I win the
+# offer?" for the win rate.
+EARNED = ("done",)
 # Statuses that left the draft stage (were actually sent to a customer).
 SENT_OUT = ("sent", "accepted", "deposit", "rejected", "done")
 STATUS_ORDER = ("draft", "sent", "accepted", "deposit", "rejected", "done")
@@ -50,8 +55,8 @@ class Kpis:
     sent_out: int
     drafts: int
     win_rate: float  # won / sent_out, 0..1
-    revenue: Decimal  # SUM(paid, falling back to final_price) of won offers
-    avg_offer: Decimal  # revenue / won
+    revenue: Decimal  # SUM(paid, falling back to final_price) of FINISHED offers
+    avg_offer: Decimal  # revenue / number of finished offers
     new_customers: int
 
 
@@ -160,15 +165,22 @@ def _kpis(session: Session, year: int | None) -> Kpis:
               COUNT(*) FILTER (WHERE o.status IN :won) AS won,
               COUNT(*) FILTER (WHERE o.status IN :sent_out) AS sent_out,
               COUNT(*) FILTER (WHERE o.status = 'draft') AS drafts,
-              COALESCE(SUM({_REVENUE}) FILTER (WHERE o.status IN :won), 0) AS revenue
+              COUNT(*) FILTER (WHERE o.status IN :earned) AS earned,
+              COALESCE(SUM({_REVENUE}) FILTER (WHERE o.status IN :earned), 0) AS revenue
             FROM offers o
             WHERE {_year_guard(_LOCAL_CREATED)}
             """  # nosec B608
         ).bindparams(
             bindparam("won", expanding=True),
             bindparam("sent_out", expanding=True),
+            bindparam("earned", expanding=True),
         ),
-        {"year": year, "won": list(WON), "sent_out": list(SENT_OUT)},
+        {
+            "year": year,
+            "won": list(WON),
+            "sent_out": list(SENT_OUT),
+            "earned": list(EARNED),
+        },
     ).one()
 
     cust_local = "timezone('Europe/Budapest', c.entry_date)"
@@ -189,7 +201,8 @@ def _kpis(session: Session, year: int | None) -> Kpis:
         drafts=int(row.drafts),
         win_rate=(won / sent_out) if sent_out else 0.0,
         revenue=revenue,
-        avg_offer=(revenue / won) if won else Decimal(0),
+        # Averaged over the SAME offers the revenue came from, not over `won`.
+        avg_offer=(revenue / int(row.earned)) if int(row.earned) else Decimal(0),
         new_customers=new_customers,
     )
 
@@ -209,13 +222,13 @@ def _series(session: Session, year: int | None) -> tuple[list[SeriesPoint], str]
             SELECT {bucket} AS b,
                    COUNT(*) AS offers,
                    COUNT(*) FILTER (WHERE o.status IN :won) AS won,
-                   COALESCE(SUM({_REVENUE}) FILTER (WHERE o.status IN :won), 0) AS revenue
+                   COALESCE(SUM({_REVENUE}) FILTER (WHERE o.status IN :earned), 0) AS revenue
             FROM offers o
             {where}
             GROUP BY b ORDER BY b
             """  # nosec B608
-        ).bindparams(bindparam("won", expanding=True)),
-        {"year": year, "won": list(WON)},
+        ).bindparams(bindparam("won", expanding=True), bindparam("earned", expanding=True)),
+        {"year": year, "won": list(WON), "earned": list(EARNED)},
     ).all()
     by_bucket = {
         int(r.b): SeriesPoint(str(int(r.b)), int(r.offers), int(r.won), Decimal(r.revenue))

@@ -165,6 +165,16 @@ Charts are **server-rendered SVG** (no JS/deps); every dynamic label is escaped.
 Only aggregates are shown, so anonymized customers keep contributing to totals
 without being identifiable.
 
+`WON` and `EARNED` are deliberately different sets. `WON` (accepted + deposit +
+done) answers "did I win the offer?" and drives the win rate; `EARNED` (done only)
+answers "did the money actually come in?" and drives **Bevétel**, its average, and
+the revenue chart. Keeping revenue on `WON` counted undelivered work and broke the
+identity below.
+
+> `done_split` (Alap components + borravaló + anyagköltség) **+ `biz_profit.total`
+> = `kpis.revenue`**. Pinned by `test_the_done_breakdown_reconciles_to_revenue`;
+> if you change either side, keep that identity.
+
 **Üzleti profit** (`biz_profit`) and the **Kész money split** (`done_split`) are
 both scoped to `done`: only a finished job has earned its Munkadíj and its tip,
 and restricting to it avoids the part-payment distortion a `deposit` offer would

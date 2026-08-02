@@ -138,8 +138,13 @@ def test_collect_kpis_and_scoping(clean_db, seed_component, session):
     assert k.total == 6
     assert k.won == 3
     assert k.sent_out == 5  # sent + accepted*2 + rejected + done
+    # Winning and EARNING are different questions: the win rate still counts every
+    # won offer (accepted + deposit + done)…
     assert k.win_rate == pytest.approx(3 / 5)
-    assert k.revenue == Decimal("30000")  # 3 won × 10000
+    # …but revenue is money from FINISHED work only, so the two accepted-but-not-
+    # delivered offers are excluded (they used to inflate it to 30 000).
+    assert k.revenue == Decimal("10000")  # the single done offer
+    assert k.avg_offer == Decimal("10000")  # averaged over done offers, not won
     assert k.drafts == 1
     # Üzleti profit for 2025: one done offer, 10000 − 500 cost.
     bp = y2025.biz_profit
