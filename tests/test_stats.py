@@ -162,3 +162,90 @@ def test_collect_kpis_and_scoping(clean_db, seed_component, session):
     assert status_map["accepted"] == 2 and status_map["draft"] == 1
     assert ("Csoki", 3) in y2025.top_flavors
     assert y2025.source_split["internal"] == 6
+
+
+def test_portion_table_is_listed_smallest_cake_first(clean_db):
+    """Sorted by slice count — but the rows are still the most COMMON sizes.
+
+    The limit picks by frequency before this sort runs, so a rare tiny cake must
+    not displace a common large one; it may only appear earlier in the list.
+    """
+    from app.db import SessionLocal
+    from app.models import Customer, Offer
+    from app.services import stats as stats_svc
+
+    s = SessionLocal()
+    try:
+        c = Customer(name="Szelet")
+        s.add(c)
+        s.flush()
+        # 16 slices is the most common, 24 next, 6 is a single one-off.
+        for portions, times in ((16, 5), (24, 3), (6, 1)):
+            for _ in range(times):
+                s.add(
+                    Offer(
+                        customer_id=c.id,
+                        status="done",
+                        portions=portions,
+                        final_price=Decimal(portions) * 1000,
+                    )
+                )
+        s.commit()
+    finally:
+        s.close()
+
+    s2 = SessionLocal()
+    try:
+        rows = stats_svc.collect(s2, None).by_portions
+    finally:
+        s2.close()
+
+    assert [r.portions for r in rows] == [6, 16, 24]  # ascending, not 16/24/6
+    assert [r.offers for r in rows] == [1, 5, 3]  # counts still attached correctly
+
+
+def test_portion_table_keeps_the_most_common_sizes_when_it_overflows(clean_db):
+    """With more sizes than the limit, the rare small ones must NOT crowd out the
+    common large ones — the cut is by frequency, only the display order is by size."""
+    from app.db import SessionLocal
+    from app.models import Customer, Offer
+    from app.services import stats as stats_svc
+
+    s = SessionLocal()
+    try:
+        c = Customer(name="Szelet")
+        s.add(c)
+        s.flush()
+        # Ten distinct sizes (limit is 8). The two smallest are one-offs; the big
+        # ones are frequent, so the big ones must survive the cut.
+        for portions in (2, 4):
+            s.add(
+                Offer(
+                    customer_id=c.id,
+                    status="done",
+                    portions=portions,
+                    final_price=Decimal(portions) * 1000,
+                )
+            )
+        for portions in (10, 12, 14, 16, 18, 20, 22, 24):
+            for _ in range(4):
+                s.add(
+                    Offer(
+                        customer_id=c.id,
+                        status="done",
+                        portions=portions,
+                        final_price=Decimal(portions) * 1000,
+                    )
+                )
+        s.commit()
+    finally:
+        s.close()
+
+    s2 = SessionLocal()
+    try:
+        got = [r.portions for r in stats_svc.collect(s2, None).by_portions]
+    finally:
+        s2.close()
+
+    assert got == [10, 12, 14, 16, 18, 20, 22, 24]  # ascending, one-offs dropped
+    assert 2 not in got and 4 not in got

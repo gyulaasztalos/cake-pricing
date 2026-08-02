@@ -289,18 +289,25 @@ def _by_portions(session: Session, year: int | None, limit: int = 8) -> list[Por
 
     Only offers that have BOTH a slice count and a final price can yield a
     per-slice figure, so the average is taken over those; the offer count uses the
-    same population to keep the two columns consistent. Ordered by frequency
-    (most common cake size first) like the top-flavors/themes tables.
+    same population to keep the two columns consistent.
+
+    Listed smallest cake first, so the per-slice column reads as a price curve.
+    The rows are still PICKED by frequency, though: the limit has to keep the most
+    common sizes, or a single 4-slice one-off would push out the 12s and 16s the
+    table exists to show. Hence the inner query orders by count and the outer one
+    re-sorts that top-N by size.
     """
     rows = session.execute(
         text(
-            f"SELECT o.portions AS p, COUNT(*) AS c, "  # nosec B608
-            f"       AVG(o.final_price / o.portions) AS avg_pp "
-            f"FROM offers o "
-            f"WHERE o.portions IS NOT NULL AND o.portions > 0 "
-            f"  AND o.final_price IS NOT NULL "
-            f"  AND {_year_guard(_LOCAL_CREATED)} "
-            f"GROUP BY o.portions ORDER BY c DESC, p ASC LIMIT :lim"
+            f"SELECT p, c, avg_pp FROM ("  # nosec B608
+            f"  SELECT o.portions AS p, COUNT(*) AS c, "
+            f"         AVG(o.final_price / o.portions) AS avg_pp "
+            f"  FROM offers o "
+            f"  WHERE o.portions IS NOT NULL AND o.portions > 0 "
+            f"    AND o.final_price IS NOT NULL "
+            f"    AND {_year_guard(_LOCAL_CREATED)} "
+            f"  GROUP BY o.portions ORDER BY c DESC, p ASC LIMIT :lim"
+            f") t ORDER BY p ASC"
         ),
         {"year": year, "lim": limit},
     ).all()
