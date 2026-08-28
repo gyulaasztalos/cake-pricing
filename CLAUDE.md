@@ -156,6 +156,13 @@ hang.
   Üzleti profit = Bevétel. Any new money row must keep it, and must be checked
   against ALL payment shapes (tip / shortfall / unpaid / unquoted / neither) —
   testing only the happy path is how a 533 Ft discrepancy reached production.
+- **The árfigyelő feed is not trustworthy row-by-row.** A product appears once per
+  chain and a chain occasionally publishes nonsense (Koronás cukor 1 kg listed at
+  2990 next to 318/331), so `parse_prices` takes the **median**, never the mean —
+  one bad row used to move the price to 1213 Ft. The file is also republished
+  intra-day, so a sync can land on a bad snapshot that is gone an hour later. With
+  only two rows the median cannot arbitrate, so those are marked unreliable and
+  the last known-good price is KEPT and reported rather than overwritten.
 - **Profit % is DERIVED, never stored** — like cost. The offer form shows
   `final_price / calculated_price - 1`; only `app_settings.default_profit_pct`
   (Beállítások, a seeded singleton) is persisted, and it *only* prefills a

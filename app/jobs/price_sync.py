@@ -43,14 +43,15 @@ def run() -> int:
         result = price_sync.run_sync(session, prices)
         session.commit()  # durable BEFORE we e-mail / mark success
         logger.info(
-            "price sync: checked=%d changed=%d missing=%d",
+            "price sync: checked=%d changed=%d missing=%d unreliable=%d",
             result.checked,
             len(result.changes),
             len(result.missing),
+            len(result.unreliable),
         )
 
         # A report goes out when there are price changes OR unresolved ids.
-        if result.changes or result.missing:
+        if result.changes or result.missing or result.unreliable:
             mailer.send_price_report(result)
             logger.info("price sync: report e-mail sent")
 

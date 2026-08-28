@@ -7,6 +7,13 @@
 - {{ ch.name }}: {{ (ch.old_price | huf) if ch.old_price is not none else '—' }} -> {{ ch.new_price | huf }}
 {% endfor %}
 {% endif %}
+{% if unreliable %}
+{{ t('email.price_report.unreliable_heading', n=unreliable|length) }}
+{% for u in unreliable %}
+- {{ u.name }}: {{ u.low | huf }} … {{ u.high | huf }}
+{% endfor %}
+{{ t('email.price_report.unreliable_note') }}
+{% endif %}
 {% if missing %}
 {{ t('email.price_report.missing_heading', n=missing|length) }}
 {% for name in missing %}

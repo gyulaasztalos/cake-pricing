@@ -39,6 +39,11 @@ from app.routers._helpers import decimal_hu
 _COL_PRODUCT_ID = 0  # A — Termék azonosító
 _COL_PRICE = 8  # I — Maximum ár
 
+# Chains sometimes publish a plainly wrong row (a 1 kg bag of sugar listed at
+# 2990 Ft next to 318 and 331). A spread this wide means one of the rows is bad,
+# not that the market disagrees.
+_IMPLAUSIBLE_SPREAD = Decimal("3")
+
 _DOWNLOAD_TIMEOUT = 120.0
 
 
@@ -50,10 +55,31 @@ class PriceChange:
     new_price: Decimal
 
 
+@dataclass(frozen=True)
+class FeedPrice:
+    """One product's price as read from the feed, with the evidence behind it."""
+
+    value: Decimal  # median across chains, whole forint
+    samples: int
+    low: Decimal
+    high: Decimal
+    reliable: bool
+
+
+@dataclass(frozen=True)
+class UnreliableFeed:
+    """A component whose feed rows disagree too much to pick a price from."""
+
+    name: str
+    low: Decimal
+    high: Decimal
+
+
 @dataclass
 class SyncResult:
     changes: list[PriceChange] = field(default_factory=list)
     missing: list[str] = field(default_factory=list)  # component names not found
+    unreliable: list[UnreliableFeed] = field(default_factory=list)  # feed rows disagree
     checked: int = 0  # components with a product_id
 
 
@@ -64,12 +90,22 @@ def fetch_xlsx(url: str) -> bytes:
     return resp.content
 
 
-def parse_prices(data: bytes) -> dict[str, Decimal]:
-    """Map exact Termék azonosító -> average Maximum ár (whole forint).
+def parse_prices(data: bytes) -> dict[str, FeedPrice]:
+    """Map exact Termék azonosító -> the MEDIAN Maximum ár (whole forint).
 
     Reading is streamed (read_only) so the ~25k-row file stays light. Rows with
-    a blank id or an unparseable price are skipped; a product id seen on several
-    rows is averaged across them.
+    a blank id or an unparseable price are skipped.
+
+    The median, not the mean: a product id appears once per store chain, and a
+    single chain publishing nonsense used to drag the average far away from every
+    real price. A 1 kg bag of Koronás sugar listed at 318 / 2990 / 331 averaged to
+    1213 Ft — a price no shop charged. The median returns 331 and ignores the bad
+    row. In one sample of the feed, 7 products had a chain price 3x above the
+    median, so this is a recurring property of the source, not a one-off.
+
+    With only TWO rows the median sits midway between them, so it cannot outvote a
+    bad one; such products are marked `reliable=False` (106 of them in that same
+    sample) and the caller declines to price from them rather than guessing.
     """
     with warnings.catch_warnings():
         # The feed ships without a default style; openpyxl warns but reads fine.
@@ -91,10 +127,26 @@ def parse_prices(data: bytes) -> dict[str, Decimal]:
     finally:
         workbook.close()
 
-    prices: dict[str, Decimal] = {}
+    prices: dict[str, FeedPrice] = {}
     for product_id, values in collected.items():
-        avg = sum(values, Decimal(0)) / len(values)
-        prices[product_id] = avg.quantize(Decimal("1"), rounding=ROUND_HALF_UP)  # whole forint
+        ordered = sorted(values)
+        mid = len(ordered) // 2
+        median = (
+            ordered[mid]
+            if len(ordered) % 2
+            else (ordered[mid - 1] + ordered[mid]) / 2  # even count: midpoint
+        )
+        low, high = ordered[0], ordered[-1]
+        # Two rows that disagree wildly leave nothing to arbitrate between; three or
+        # more let the median outvote the odd one out, so those stay usable.
+        wide = low > 0 and high / low >= _IMPLAUSIBLE_SPREAD
+        prices[product_id] = FeedPrice(
+            value=median.quantize(Decimal("1"), rounding=ROUND_HALF_UP),  # whole forint
+            samples=len(ordered),
+            low=low,
+            high=high,
+            reliable=not (wide and len(ordered) < 3),
+        )
     return prices
 
 
@@ -132,7 +184,7 @@ def _apply_price_change(session: Session, open_row: ComponentPrice, new_price: D
     )
 
 
-def run_sync(session: Session, prices: dict[str, Decimal]) -> SyncResult:
+def run_sync(session: Session, prices: dict[str, FeedPrice]) -> SyncResult:
     """Reconcile every component that has a product_id against `prices`.
 
     Does NOT commit — the caller commits once, after (optionally) e-mailing, so a
@@ -149,12 +201,18 @@ def run_sync(session: Session, prices: dict[str, Decimal]) -> SyncResult:
         if not product_id:
             continue
         result.checked += 1
-        new_price = prices.get(product_id)  # exact-string match (owner's choice)
-        if new_price is None:
+        feed = prices.get(product_id)  # exact-string match (owner's choice)
+        if feed is None:
             comp.price_missing_at = now
             result.missing.append(comp.name)
             continue
         comp.price_missing_at = None  # found → clear any earlier warning
+        if not feed.reliable:
+            # Keep the last known-good price rather than overwrite it with a coin
+            # flip between two contradictory rows. Reported so it is not silent.
+            result.unreliable.append(UnreliableFeed(comp.name, feed.low, feed.high))
+            continue
+        new_price = feed.value
         open_row = _current_open_price(session, comp.id)
         old_price = open_row.base_price if open_row else None
         if open_row is None:

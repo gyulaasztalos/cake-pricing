@@ -247,6 +247,13 @@ HU: dict[str, str] = {
     "email.price_report.col_old": "Régi ár",
     "email.price_report.col_new": "Új ár",
     "email.price_report.missing_heading": "Nem található termékazonosítók ({n})",
+    "email.price_report.unreliable_heading": (
+        "{n} termék ára ellentmondásos a forrásban — ezeket NEM frissítettük:"
+    ),
+    "email.price_report.unreliable_note": (
+        "A boltláncok egymásnak ellentmondó árat közöltek, ezért a korábbi ár "
+        "maradt érvényben. Érdemes ellenőrizni és kézzel beállítani."
+    ),
     "email.price_report.missing_note": (
         "Ezek az összetevők termékazonosítóval rendelkeznek, de a mai árfigyelő "
         "fájlban nem szerepeltek. Ellenőrizd a kódot az összetevőnél."

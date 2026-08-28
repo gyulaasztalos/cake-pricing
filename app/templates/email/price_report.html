@@ -22,6 +22,13 @@
     </table>
   {% endif %}
 
+  {% if unreliable %}
+    <p style="margin:0 0 8px;font-weight:bold;color:#8E2649;">{{ t('email.price_report.unreliable_heading', n=unreliable|length) }}</p>
+    <ul style="margin:0 0 12px;padding-left:18px;">
+      {% for u in unreliable %}<li style="padding:2px 0;">{{ u.name }}: {{ u.low | huf }} … {{ u.high | huf }}</li>{% endfor %}
+    </ul>
+    <p style="margin:0 0 16px;font-size:14px;color:#7A5C64;">{{ t('email.price_report.unreliable_note') }}</p>
+  {% endif %}
   {% if missing %}
     <p style="margin:0 0 8px;font-weight:bold;color:#8E2649;">{{ t('email.price_report.missing_heading', n=missing|length) }}</p>
     <ul style="margin:0 0 8px;padding-left:20px;">

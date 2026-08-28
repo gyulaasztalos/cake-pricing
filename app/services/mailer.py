@@ -57,6 +57,7 @@ def send_price_report(result: SyncResult) -> None:
     ctx = {
         "changes": result.changes,
         "missing": result.missing,
+        "unreliable": result.unreliable,
         "checked": result.checked,
         "now": dt.datetime.now(dt.UTC),
     }
