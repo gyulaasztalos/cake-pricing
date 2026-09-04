@@ -426,3 +426,89 @@ def test_the_stats_page_shows_the_identity(clean_db, seed_component):
     kpi = re.search(r'Bevétel</p>\s*<p class="cp-kpi__value">([^<]+)</p>', html)
     assert total and kpi, "could not find the Összesen row or the Bevétel KPI"
     assert total.group(1).strip() == kpi.group(1).strip()
+
+
+@pytest.mark.parametrize(
+    ("name", "final", "paid"),
+    [
+        ("deposit kept", "20000", "5000"),
+        ("deposit refunded (Fizetve cleared)", "20000", None),
+        ("paid in full, then pulled out", "20000", "20000"),
+        ("never priced", None, "5000"),
+    ],
+)
+def test_a_cancelled_offer_still_reconciles(clean_db, seed_component, name, final, paid):
+    """A cancellation brings revenue but NO cost — the cake was never made — so the
+    kept deposit needs its own row or the block stops adding up.
+
+    It must also never fall back to the quoted price: only what is actually in
+    Fizetve was collected, and nothing at all if the deposit was refunded.
+    """
+    from app.db import SessionLocal
+    from app.models import Offer, OfferComponent
+    from app.services import stats as stats_svc
+
+    labour = seed_component("Munkadíj", "Alap", "db", "service", "1", "10000")
+    s = SessionLocal()
+    try:
+        o = Offer(
+            customer_id=_customer(),
+            status="cancelled",
+            final_price=Decimal(final) if final else None,
+            paid=Decimal(paid) if paid else None,
+        )
+        s.add(o)
+        s.flush()
+        s.add(OfferComponent(offer_id=o.id, component_id=labour, amount=Decimal("1")))
+        s.commit()
+    finally:
+        s.close()
+
+    s2 = SessionLocal()
+    try:
+        st = stats_svc.collect(s2, None)
+    finally:
+        s2.close()
+
+    expected = Decimal(paid) if paid else Decimal(0)
+    assert st.kpis.revenue == expected, f"{name}: revenue must be Fizetve, never the quote"
+    assert st.done_split.cancellation == expected
+    assert st.done_total == st.kpis.revenue, f"{name}: breakdown != Bevétel"
+    # the cake was never made, so none of its cost is counted
+    assert sum((v for _, v in st.done_split.base_rows), Decimal(0)) == Decimal(0)
+    assert st.done_split.materials == Decimal(0)
+    # and a cancellation is not a Hiány: the gap to the quote is expected, not lost cash
+    assert st.done_split.shortfall == Decimal(0)
+
+
+def test_a_cancellation_alongside_finished_work_reconciles(clean_db, seed_component):
+    """The mixed case: real Kész revenue plus a kept deposit."""
+    from app.db import SessionLocal
+    from app.models import Offer, OfferComponent
+    from app.services import stats as stats_svc
+
+    labour = seed_component("Munkadíj", "Alap", "db", "service", "1", "10000")
+    s = SessionLocal()
+    try:
+        for status, final, paid in (("cancelled", "20000", "5000"), ("done", "12000", "12000")):
+            o = Offer(
+                customer_id=_customer(),
+                status=status,
+                final_price=Decimal(final),
+                paid=Decimal(paid),
+            )
+            s.add(o)
+            s.flush()
+            s.add(OfferComponent(offer_id=o.id, component_id=labour, amount=Decimal("1")))
+        s.commit()
+    finally:
+        s.close()
+
+    s2 = SessionLocal()
+    try:
+        st = stats_svc.collect(s2, None)
+    finally:
+        s2.close()
+    assert st.kpis.revenue == Decimal("17000")  # 12 000 delivered + 5 000 kept
+    assert st.done_split.cancellation == Decimal("5000")
+    assert st.done_total == st.kpis.revenue

@@ -26,7 +26,9 @@ from app.i18n import t
 from app.models import Offer
 
 # Offers in this status are not upcoming work and stay out of the calendar.
-EXCLUDED_STATUSES = ("rejected",)
+# Neither a rejected nor a cancelled offer is work still to be done, so both stay
+# off the calendar — a cancellation frees the slot exactly like a rejection.
+EXCLUDED_STATUSES = ("rejected", "cancelled")
 
 _LOCAL_TZ = ZoneInfo("Europe/Budapest")
 # Stable UID domain — keeps a VEVENT identifiable across refreshes so calendar

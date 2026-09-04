@@ -138,3 +138,52 @@ def test_stats_revenue_prefers_paid(clean_db):
         assert kpis.revenue == Decimal("8000")  # paid preferred over final_price
     finally:
         s2.close()
+
+
+def test_cancelling_while_recording_the_kept_deposit_stays_cancelled(clean_db):
+    """The trap this status walks straight into.
+
+    Auto-status fires whenever Fizetve CHANGES — which is precisely the save where
+    the chef marks the offer Lemondás and records the deposit she kept. Without the
+    guard the offer would bounce back to Előlegezve (or Kész, if the customer had
+    already paid in full before pulling out), losing the cancellation.
+    """
+    cid = _customer()
+    oid = _create(cid, final_price="20000", status="accepted")
+    r = client.post(
+        f"/offers/{oid}",
+        data={
+            "customer_id": str(cid),
+            "status": "cancelled",
+            "final_price": "20000",
+            "paid": "5000",  # the deposit she keeps — a CHANGE, so auto-status runs
+        },
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    assert _status(oid) == "cancelled"
+
+
+def test_cancelling_after_full_payment_stays_cancelled(clean_db):
+    """paid >= final would otherwise mean 'done'; a cancellation still outranks it."""
+    cid = _customer()
+    oid = _create(cid, final_price="20000", status="accepted")
+    client.post(
+        f"/offers/{oid}",
+        data={
+            "customer_id": str(cid),
+            "status": "cancelled",
+            "final_price": "20000",
+            "paid": "20000",
+        },
+        follow_redirects=False,
+    )
+    assert _status(oid) == "cancelled"
+
+
+def test_a_new_offer_can_be_created_already_cancelled(clean_db):
+    """Creation runs auto-status unconditionally, so it needs the guard too."""
+    assert (
+        _status(_create(_customer(), final_price="20000", paid="5000", status="cancelled"))
+        == "cancelled"
+    )

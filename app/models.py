@@ -184,7 +184,7 @@ class Offer(Base):
     __tablename__ = "offers"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('draft', 'sent', 'accepted', 'deposit', 'rejected', 'done')",
+            "status IN ('draft', 'sent', 'accepted', 'deposit', 'rejected', 'done', 'cancelled')",
             name="offers_status_check",
         ),
         CheckConstraint(

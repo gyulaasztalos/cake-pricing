@@ -29,7 +29,7 @@ from app.templating import templates
 
 router = APIRouter()
 
-STATUSES = ["draft", "sent", "accepted", "deposit", "rejected", "done"]
+STATUSES = ["draft", "sent", "accepted", "deposit", "rejected", "done", "cancelled"]
 # Default status filter on the offers list: the "active" statuses — everything
 # except the terminal rejected/done (owner's choice). Applied until the chef
 # touches the filter (see `f` marker in list_offers).
@@ -40,7 +40,16 @@ def _auto_status(paid: Decimal | None, final_price: Decimal | None, current: str
     """Fizetve drives the status: once a paid amount is recorded, a value below the
     final price marks the offer 'deposit' (Előlegezve), at or above it marks it
     'done' (Kész). With no paid amount (or no final price to compare), the chef's
-    chosen status stands."""
+    chosen status stands.
+
+    'cancelled' (Lemondás) is the exception: a cancelled offer often KEEPS the
+    deposit that was already paid, and without this guard saving the form would
+    read that deposit and quietly flip the offer back to Előlegezve — or to Kész
+    if the customer had paid in full before pulling out. A cancellation is the
+    chef's explicit decision and outranks the payment.
+    """
+    if current == "cancelled":
+        return current
     if paid is None or final_price is None:
         return current
     return "done" if paid >= final_price else "deposit"

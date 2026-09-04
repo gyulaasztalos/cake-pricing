@@ -23,6 +23,9 @@ verified customer requests here as draft offers via a narrow intake API.
   draft → sent → accepted → deposit → rejected → done. The **slice count** (Szelet)
   comes from the customer request or the chef, shows as "12 szeletes" in the list
   and calendar, and with a final price yields a Ft/slice note. Recording a
+  **Lemondás** marks an order the customer accepted and then cancelled — it stays
+  in the win rate, drops off the calendar, and contributes only whatever deposit
+  you actually kept (clear **Fizetve** if you refunded it).
   **Fizetve** (paid) amount auto-sets the status: below the final price → Előlegezve
   (deposit), at/above → Kész (done); it is shown in red wherever it falls short of
   the final price. A **Nyereség %** field sits beside the final

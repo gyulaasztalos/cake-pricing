@@ -171,7 +171,8 @@ answers "did the money actually come in?" and drives **Bevétel**, its average, 
 the revenue chart. Keeping revenue on `WON` counted undelivered work and broke the
 identity below.
 
-> **`base_rows + materials + biz_profit.total + tip − shortfall = kpis.revenue`**,
+> **`base_rows + materials + biz_profit.total + tip − shortfall + cancellation
+> = kpis.revenue`**,
 > and it must hold for EVERY payment shape, not just the happy one. `tip` is
 > floored at zero, so `shortfall` (Hiány — quoted more than was ever collected)
 > carries the other direction — without it the total overshot Bevétel by the

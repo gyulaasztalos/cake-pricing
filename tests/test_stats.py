@@ -249,3 +249,33 @@ def test_portion_table_keeps_the_most_common_sizes_when_it_overflows(clean_db):
 
     assert got == [10, 12, 14, 16, 18, 20, 22, 24]  # ascending, one-offs dropped
     assert 2 not in got and 4 not in got
+
+
+def test_a_cancelled_offer_counts_as_won_but_is_still_sent(clean_db):
+    """Lemondás is a WON offer — the customer said yes, then pulled out — which is
+    what separates it from Elutasítva. It must sit in SENT_OUT as well as WON, or
+    win_rate (won/sent_out) could climb above 100%."""
+    from app.db import SessionLocal
+    from app.models import Customer, Offer
+    from app.services import stats as stats_svc
+
+    s = SessionLocal()
+    try:
+        c = Customer(name="Lemondás")
+        s.add(c)
+        s.flush()
+        for status in ("cancelled", "rejected", "sent"):
+            s.add(Offer(customer_id=c.id, status=status, final_price=Decimal("9000")))
+        s.commit()
+    finally:
+        s.close()
+
+    s2 = SessionLocal()
+    try:
+        k = stats_svc.collect(s2, None).kpis
+    finally:
+        s2.close()
+    assert k.won == 1  # the cancelled one
+    assert k.sent_out == 3
+    assert 0 <= k.win_rate <= 1
+    assert round(k.win_rate, 2) == 0.33

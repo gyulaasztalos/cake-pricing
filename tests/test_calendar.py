@@ -183,3 +183,33 @@ def test_month_page_renders(clean_db):
     assert "2026. július" in r.text
     # Bad input falls back to the current month rather than erroring.
     assert client.get("/schedule?ym=nonsense").status_code == 200
+
+
+@pytestmark_db
+def test_cancelled_offers_leave_the_calendar(clean_db, session):
+    """A cancellation frees the slot exactly like a rejection: the cake is not
+    being made, so it must not sit in the month view as work still to do."""
+    from app.models import Customer
+
+    cust = Customer(name="Lemondó Ügyfél")
+    session.add(cust)
+    session.commit()
+
+    _make_offer(
+        session,
+        cust.id,
+        status="accepted",
+        due=dt.datetime(2026, 7, 20, 12, 0, tzinfo=BKK),
+        final="30000",
+    )
+    _make_offer(
+        session,
+        cust.id,
+        status="cancelled",
+        due=dt.datetime(2026, 7, 21, 12, 0, tzinfo=BKK),
+        final="20000",
+    )
+
+    by_date = {d.date.day: d for d in calendar_svc.month_days(session, 2026, 7)}
+    assert len(by_date[20].offers) == 1  # the live order is still there
+    assert by_date[21].offers == []  # the cancelled one is gone

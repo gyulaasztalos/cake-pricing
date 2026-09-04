@@ -147,6 +147,13 @@ hang.
 - **`tests/conftest._reset_db` must mirror the seeded groups** (baseline + any
   migration that adds one, e.g. 0007's `Extra`) or tests cannot find a group the
   app depends on.
+- **Lemondás (cancelled) is won-then-undelivered**, not rejected. It counts as WON
+  (and so must stay in `SENT_OUT`, or win_rate exceeds 100%) and as EARNED — but its
+  revenue is `paid` ONLY, never the quoted price, since the cake was never made. It
+  contributes no cost, so the kept deposit gets its own `cancellation` row in the
+  breakdown; folding it into Üzleti profit would read as margin on delivered work.
+  It is also sticky in `_auto_status`: recording the kept deposit changes `paid`,
+  which would otherwise flip the offer straight back to Előlegezve or Kész.
 - **Hiány is not a discount.** `done_split.shortfall` is quote − CASH: money that
   should have arrived and did not, so it should normally be **zero** (a non-zero
   value means something went wrong upstream). An intentional price cut is a

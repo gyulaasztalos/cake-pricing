@@ -27,18 +27,36 @@ from sqlalchemy.orm import Session
 # Offer statuses that represent a real, won sale (revenue-bearing). 'deposit'
 # (Előlegezve) is included so an accepted offer that receives a deposit does not
 # fall out of revenue.
-WON = ("accepted", "deposit", "done")
+WON = ("accepted", "deposit", "done", "cancelled")
 # Money is only counted for FINISHED work. An accepted or part-paid (deposit)
 # offer is WON but not yet earned, and counting it would also set partial revenue
 # against a full cost. Kept separate from WON, which still answers "did I win the
 # offer?" for the win rate.
-EARNED = ("done",)
+# A cancellation is money too when a deposit was kept — but only the amount
+# actually recorded in Fizetve, never the quoted price (see _REVENUE).
+EARNED = ("done", "cancelled")
 # Statuses that left the draft stage (were actually sent to a customer).
-SENT_OUT = ("sent", "accepted", "deposit", "rejected", "done")
-STATUS_ORDER = ("draft", "sent", "accepted", "deposit", "rejected", "done")
+# 'cancelled' belongs here as well as in WON — win_rate is won/sent_out, so a
+# status counted as won but not as sent would push the rate above 100%.
+SENT_OUT = ("sent", "accepted", "deposit", "rejected", "done", "cancelled")
+STATUS_ORDER = (
+    "draft",
+    "sent",
+    "accepted",
+    "deposit",
+    "rejected",
+    "done",
+    "cancelled",
+)
 # Revenue prefers the amount actually paid (Fizetve), falling back to the quoted
 # final price when nothing is recorded yet.
-_REVENUE = "COALESCE(o.paid, o.final_price)"
+# For a CANCELLED offer the quoted price was never collected, so the usual
+# fallback must not apply: only what is actually recorded in Fizetve counts, and
+# nothing at all if the deposit was refunded.
+_REVENUE = (
+    "CASE WHEN o.status = 'cancelled' THEN COALESCE(o.paid, 0) "
+    "ELSE COALESCE(o.paid, o.final_price) END"
+)
 
 # The base-cost group (Munkadíj, Rezsi) — same constant the offer form uses.
 BASE_GROUP_NAME = "Alap"
@@ -89,6 +107,7 @@ class DoneSplit:
     base_rows: list[tuple[str, Decimal]]  # each Alap-group component, by name
     tip: Decimal  # Σ (paid − final_price) where positive
     shortfall: Decimal  # Σ (final_price − paid) where positive — money never collected
+    cancellation: Decimal  # Σ paid on CANCELLED offers — kept deposits
     materials: Decimal  # everything outside the Alap group
 
 
@@ -139,7 +158,7 @@ class Stats:
         base = sum((v for _, v in self.done_split.base_rows), Decimal(0))
         profit = self.biz_profit.total if self.biz_profit else Decimal(0)
         d = self.done_split
-        return base + d.materials + profit + d.tip - d.shortfall
+        return base + d.materials + profit + d.tip - d.shortfall + d.cancellation
 
 
 def _year_guard(local_expr: str) -> str:
@@ -410,7 +429,29 @@ def _done_split(session: Session, year: int | None) -> DoneSplit:
         """,  # nosec B608
         year=year,
     )
-    return DoneSplit(base_rows=base_rows, tip=tip, shortfall=shortfall, materials=materials)
+    # Money kept from offers the customer cancelled. It carries NO cost line and no
+    # profit line: the cost queries above are scoped to 'done', so a cancellation
+    # contributes revenue and nothing else. That is deliberate — the cake was never
+    # made — and it is why the kept deposit needs its own row here to keep the block
+    # reconciling. Folding it into Üzleti profit would read as margin earned on
+    # delivered work, which it is not.
+    cancellation = _money(
+        session,
+        f"""
+        SELECT COALESCE(SUM(COALESCE(o.paid, 0)), 0)
+        FROM offers o
+        WHERE o.status = 'cancelled'
+          AND {_year_guard(_LOCAL_CREATED)}
+        """,  # nosec B608
+        year=year,
+    )
+    return DoneSplit(
+        base_rows=base_rows,
+        tip=tip,
+        shortfall=shortfall,
+        cancellation=cancellation,
+        materials=materials,
+    )
 
 
 def _biz_profit(session: Session, year: int | None) -> BizProfit:
