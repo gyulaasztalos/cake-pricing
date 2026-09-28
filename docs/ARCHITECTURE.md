@@ -166,8 +166,11 @@ search and "only low" filters. Prices are fetched once for all items
 [`app/services/stats.py`](../app/services/stats.py) +
 [`app/routers/stats.py`](../app/routers/stats.py). A pure read-model over `offers`
 + `v_offer_cost`. One `year` param drives the scope: **none → all-time KPIs + a
-per-year series**; **`YYYY` → that year + a per-month series**. The "created"
-moment is `COALESCE(entry_date, request_date)`, bucketed in Europe/Budapest.
+per-year series**; **`YYYY` → that year + a per-month series**. An offer's
+period is its **deadline** — `COALESCE(due_date, entry_date, request_date)`,
+bucketed in Europe/Budapest: the month the cake is made and paid for, falling back
+to the creation date only for an offer with no deadline yet, so nothing drops out
+of the year views. Új ügyfelek still counts customers by creation date.
 Charts are **server-rendered SVG** (no JS/deps); every dynamic label is escaped.
 Only aggregates are shown, so anonymized customers keep contributing to totals
 without being identifiable.

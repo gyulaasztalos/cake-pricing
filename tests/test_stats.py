@@ -339,3 +339,35 @@ def test_the_month_selector_only_appears_inside_a_year(clean_db):
     # a month without a year, or out of range, is ignored rather than an error
     assert client.get("/stats?month=6").status_code == 200
     assert "2026. évi adatok" in client.get("/stats?year=2026&month=13").text
+
+
+@pytestmark_db
+def test_the_period_is_the_deadline_not_the_creation_date(clean_db, session):
+    """An order taken in December for a January deadline is January's business:
+    the cake is made, delivered and paid for then. One with no deadline yet falls
+    back to its creation date instead of vanishing from every year view."""
+    from app.models import Customer, Offer
+
+    c = Customer(name="Határidős")
+    session.add(c)
+    session.commit()
+    session.add(
+        Offer(
+            customer_id=c.id,
+            status="done",
+            final_price=Decimal("10000"),
+            paid=Decimal("10000"),
+            entry_date=_dt(2025, 12, 15),
+            due_date=_dt(2026, 1, 10),
+        )
+    )
+    session.add(Offer(customer_id=c.id, status="draft", entry_date=_dt(2025, 12, 20)))
+    session.commit()
+
+    assert stats_svc.available_years(session) == [2026, 2025]
+    jan = stats_svc.collect(session, 2026, 1)
+    assert jan.kpis.total == 1 and jan.kpis.revenue == Decimal("10000")
+    dec = stats_svc.collect(session, 2025, 12)
+    assert dec.kpis.total == 1  # only the undated draft, by its creation date
+    assert dec.kpis.revenue == Decimal("0")
+    assert stats_svc.collect(session, 2026).series[0].offers == 1  # charts follow suit

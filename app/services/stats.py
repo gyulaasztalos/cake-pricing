@@ -9,10 +9,13 @@ Two scopes, driven by one `year` param:
   * year = None  -> all-time KPIs + a per-YEAR series (the yearly view)
   * year = YYYY  -> that year's KPIs + a per-MONTH series (the monthly view)
 
-The offer's "created" moment is COALESCE(entry_date, request_date): entry_date is
-the pricing reference date for internal/priced offers, request_date covers
-external drafts not yet priced (entry_date still NULL). Year/month are extracted
-in Europe/Budapest so an offer made just after local New Year files correctly.
+An offer belongs to the period of its DEADLINE (Határidő, `due_date`) — the month
+the cake is made, delivered and paid for — not the day it was entered. The
+deadline is optional, so an offer without one yet falls back to when it was
+created, COALESCE(entry_date, request_date), rather than dropping out of every
+year view. Year/month are extracted in Europe/Budapest so a deadline just after
+local New Year files correctly. (Customers have no deadline: Új ügyfelek still
+counts them by when they were created.)
 """
 
 from __future__ import annotations
@@ -58,9 +61,10 @@ _REVENUE = "COALESCE(o.paid, 0)"
 # The base-cost group (Munkadíj, Rezsi) — same constant the offer form uses.
 BASE_GROUP_NAME = "Alap"
 
-# Local-time created moment, reused across queries.
-_CREATED = "COALESCE(o.entry_date, o.request_date)"
-_LOCAL_CREATED = f"timezone('Europe/Budapest', {_CREATED})"
+# The moment that decides an offer's year/month: its deadline, or — if it has
+# none yet — when it was created. Every period filter and chart bucket reads this.
+_PERIOD = "COALESCE(o.due_date, o.entry_date, o.request_date)"
+_LOCAL_PERIOD = f"timezone('Europe/Budapest', {_PERIOD})"
 
 
 @dataclass(frozen=True)
@@ -202,8 +206,8 @@ def _money(session: Session, sql: str, **params: object) -> Decimal:
 def available_years(session: Session) -> list[int]:
     rows = session.execute(
         text(
-            f"SELECT DISTINCT EXTRACT(YEAR FROM {_LOCAL_CREATED})::int AS y "  # nosec B608
-            f"FROM offers o WHERE {_CREATED} IS NOT NULL ORDER BY y DESC"
+            f"SELECT DISTINCT EXTRACT(YEAR FROM {_LOCAL_PERIOD})::int AS y "  # nosec B608
+            f"FROM offers o WHERE {_PERIOD} IS NOT NULL ORDER BY y DESC"
         )
     ).scalars()
     return [int(y) for y in rows]
@@ -229,7 +233,7 @@ def _kpis(session: Session, year: int | None, month: int | None = None) -> Kpis:
                 AVG(COALESCE(o.final_price, o.paid)) FILTER (WHERE o.status = 'done'), 0
               ) AS avg_offer
             FROM offers o
-            WHERE {_year_guard(_LOCAL_CREATED)}
+            WHERE {_year_guard(_LOCAL_PERIOD)}
             """  # nosec B608
         ).bindparams(
             bindparam("won", expanding=True),
@@ -272,12 +276,12 @@ def _kpis(session: Session, year: int | None, month: int | None = None) -> Kpis:
 
 def _series(session: Session, year: int | None) -> tuple[list[SeriesPoint], str]:
     if year is None:
-        bucket = f"EXTRACT(YEAR FROM {_LOCAL_CREATED})::int"
-        where = f"WHERE {_CREATED} IS NOT NULL"
+        bucket = f"EXTRACT(YEAR FROM {_LOCAL_PERIOD})::int"
+        where = f"WHERE {_PERIOD} IS NOT NULL"
         kind = "year"
     else:
-        bucket = f"EXTRACT(MONTH FROM {_LOCAL_CREATED})::int"
-        where = f"WHERE EXTRACT(YEAR FROM {_LOCAL_CREATED}) = :year"
+        bucket = f"EXTRACT(MONTH FROM {_LOCAL_PERIOD})::int"
+        where = f"WHERE EXTRACT(YEAR FROM {_LOCAL_PERIOD}) = :year"
         kind = "month"
     rows = session.execute(
         text(
@@ -309,7 +313,7 @@ def _status_counts(
     rows = session.execute(
         text(
             f"SELECT o.status AS s, COUNT(*) AS c FROM offers o "  # nosec B608
-            f"WHERE {_year_guard(_LOCAL_CREATED)} GROUP BY o.status"
+            f"WHERE {_year_guard(_LOCAL_PERIOD)} GROUP BY o.status"
         ),
         {"year": year, "month": month},
     ).all()
@@ -325,7 +329,7 @@ def _top(
         text(
             f"SELECT NULLIF(TRIM(o.{column}), '') AS k, COUNT(*) AS c FROM offers o "  # nosec B608
             f"WHERE NULLIF(TRIM(o.{column}), '') IS NOT NULL "
-            f"AND {_year_guard(_LOCAL_CREATED)} "
+            f"AND {_year_guard(_LOCAL_PERIOD)} "
             f"GROUP BY k ORDER BY c DESC, k ASC LIMIT :lim"
         ),
         {"year": year, "month": month, "lim": limit},
@@ -356,7 +360,7 @@ def _by_portions(
             f"  FROM offers o "
             f"  WHERE o.portions IS NOT NULL AND o.portions > 0 "
             f"    AND o.final_price IS NOT NULL "
-            f"    AND {_year_guard(_LOCAL_CREATED)} "
+            f"    AND {_year_guard(_LOCAL_PERIOD)} "
             f"  GROUP BY o.portions ORDER BY c DESC, p ASC LIMIT :lim"
             f") t ORDER BY p ASC"
         ),
@@ -374,7 +378,7 @@ def _avg_per_portion(
         session,
         f"SELECT AVG(o.final_price / o.portions) FROM offers o "  # nosec B608
         f"WHERE o.portions IS NOT NULL AND o.portions > 0 "
-        f"  AND o.final_price IS NOT NULL AND {_year_guard(_LOCAL_CREATED)}",
+        f"  AND o.final_price IS NOT NULL AND {_year_guard(_LOCAL_PERIOD)}",
         year=year,
         month=month,
     )
@@ -386,7 +390,7 @@ def _source_split(session: Session, year: int | None, month: int | None = None) 
     rows = session.execute(
         text(
             f"SELECT o.source AS src, COUNT(*) AS c FROM offers o "  # nosec B608
-            f"WHERE {_year_guard(_LOCAL_CREATED)} GROUP BY o.source"
+            f"WHERE {_year_guard(_LOCAL_PERIOD)} GROUP BY o.source"
         ),
         {"year": year, "month": month},
     ).all()
@@ -415,7 +419,7 @@ def _done_split(session: Session, year: int | None, month: int | None = None) ->
                 JOIN groups g     ON g.id = c.group_id
                 WHERE g.name = :base_group AND o.status = 'done'
                   AND COALESCE(o.paid, o.final_price) IS NOT NULL
-                  AND {_year_guard(_LOCAL_CREATED)}
+                  AND {_year_guard(_LOCAL_PERIOD)}
                 GROUP BY c.name ORDER BY total DESC, c.name
                 """  # nosec B608
             ),
@@ -432,7 +436,7 @@ def _done_split(session: Session, year: int | None, month: int | None = None) ->
         JOIN groups g     ON g.id = c.group_id
         WHERE g.name <> :base_group AND o.status = 'done'
           AND COALESCE(o.paid, o.final_price) IS NOT NULL
-          AND {_year_guard(_LOCAL_CREATED)}
+          AND {_year_guard(_LOCAL_PERIOD)}
         """,  # nosec B608
         year=year,
         month=month,
@@ -446,7 +450,7 @@ def _done_split(session: Session, year: int | None, month: int | None = None) ->
         SELECT COALESCE(SUM(GREATEST(o.paid - o.final_price, 0)), 0)
         FROM offers o
         WHERE o.status = 'done' AND o.paid IS NOT NULL AND o.final_price IS NOT NULL
-          AND {_year_guard(_LOCAL_CREATED)}
+          AND {_year_guard(_LOCAL_PERIOD)}
         """,  # nosec B608
         year=year,
         month=month,
@@ -462,7 +466,7 @@ def _done_split(session: Session, year: int | None, month: int | None = None) ->
         SELECT COALESCE(SUM(GREATEST(o.final_price - COALESCE(o.paid, 0), 0)), 0)
         FROM offers o
         WHERE o.status = 'done' AND o.final_price IS NOT NULL
-          AND {_year_guard(_LOCAL_CREATED)}
+          AND {_year_guard(_LOCAL_PERIOD)}
         """,  # nosec B608
         year=year,
         month=month,
@@ -483,7 +487,7 @@ def _done_split(session: Session, year: int | None, month: int | None = None) ->
         -- cancellation fee — and it must land in SOME row, or the block would stop
         -- adding up to Bevétel.
         WHERE o.status IN ('cancelled', 'rejected')
-          AND {_year_guard(_LOCAL_CREATED)}
+          AND {_year_guard(_LOCAL_PERIOD)}
         """,  # nosec B608
         year=year,
         month=month,
@@ -497,7 +501,7 @@ def _done_split(session: Session, year: int | None, month: int | None = None) ->
         SELECT COALESCE(SUM(COALESCE(o.paid, 0)), 0)
         FROM offers o
         WHERE o.status = ANY(:ongoing)
-          AND {_year_guard(_LOCAL_CREATED)}
+          AND {_year_guard(_LOCAL_PERIOD)}
         """,  # nosec B608
         year=year,
         month=month,
@@ -533,7 +537,7 @@ def _biz_profit(session: Session, year: int | None, month: int | None = None) ->
             FROM offers o
             JOIN v_offer_cost vc ON vc.offer_id = o.id
             WHERE o.status = 'done' AND COALESCE(o.final_price, o.paid) IS NOT NULL
-              AND {_year_guard(_LOCAL_CREATED)}
+              AND {_year_guard(_LOCAL_PERIOD)}
             """  # nosec B608
         ),
         {"year": year, "month": month},
@@ -559,7 +563,7 @@ def _payment_methods(
         text(
             f"SELECT p.method AS m, SUM(p.amount) AS total "  # nosec B608
             f"FROM offer_payments p JOIN offers o ON o.id = p.offer_id "
-            f"WHERE {_year_guard(_LOCAL_CREATED)} "
+            f"WHERE {_year_guard(_LOCAL_PERIOD)} "
             f"GROUP BY p.method ORDER BY total DESC, p.method"
         ),
         {"year": year, "month": month},
