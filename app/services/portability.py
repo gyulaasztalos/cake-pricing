@@ -10,7 +10,8 @@ Bundle shape:
       "tables": {
         "groups": [ {...}, ... ],
         "components": [...], "component_prices": [...],
-        "customers": [...], "offers": [...], "offer_components": [...],
+        "customers": [...], "offers": [...], "offer_payments": [...],
+        "offer_components": [...],
         "recipes": [...], "recipe_items": [...], "stock_movements": [...]
       }
     }
@@ -36,6 +37,7 @@ from app.models import (
     Group,
     Offer,
     OfferComponent,
+    OfferPayment,
     Recipe,
     RecipeItem,
     StockMovement,
@@ -50,6 +52,7 @@ _ORDER = [
     ("component_prices", ComponentPrice),
     ("customers", Customer),
     ("offers", Offer),
+    ("offer_payments", OfferPayment),
     ("offer_components", OfferComponent),
     ("recipes", Recipe),
     ("recipe_items", RecipeItem),
@@ -128,6 +131,24 @@ def import_bundle(
         for row in rows:
             session.add(model(**_coerce(model, row)))
         counts[name] = len(rows)
+        session.flush()
+
+    # A bundle exported before payment lines existed (migration 0009) carries a
+    # Fizetve total on each offer but no `offer_payments` table. Restoring it as-is
+    # would leave `paid` with no lines behind it — and the next save of such an
+    # offer would recompute it to NULL and knock its status back. Backfill exactly
+    # as the migration did: one Készpénz line per paid offer.
+    if "offer_payments" not in tables:
+        session.execute(
+            text(
+                "INSERT INTO offer_payments (offer_id, method, amount) "
+                "SELECT id, 'cash', paid FROM offers WHERE paid > 0 ORDER BY id"
+            )
+        )
+        session.execute(text("UPDATE offers SET paid = NULL WHERE paid <= 0"))
+        counts["offer_payments"] = int(
+            session.scalar(select(func.count()).select_from(OfferPayment)) or 0
+        )
         session.flush()
 
     # Realign IDENTITY sequences to MAX(id) so future inserts don't collide.

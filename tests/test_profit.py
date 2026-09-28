@@ -94,11 +94,19 @@ def test_existing_offer_shows_its_REAL_implied_margin(clean_db, seed_component):
     assert 'value="15000"' in html
 
 
-def test_final_price_and_paid_accept_a_comma(clean_db):
-    oid = _create(_customer(), final_price="11 250,50", paid="11 300,25")
+def test_final_price_and_payments_accept_hungarian_notation(clean_db):
+    """Spaces as thousands separators on both. A payment is whole forints, so a
+    stray decimal comma is rounded half-up rather than refused — the box is plain
+    text, and a typo there must not block the save."""
+    oid = _create(
+        _customer(),
+        final_price="11 250,50",
+        payment_method="cash",
+        payment_amount="11 300,50",
+    )
     o = _offer(oid)
     assert o.final_price == Decimal("11250.50")
-    assert o.paid == Decimal("11300.25")
+    assert o.paid == Decimal("11301")
 
 
 def test_a_posted_profit_pct_is_ignored_not_persisted(clean_db):
@@ -420,7 +428,7 @@ def test_the_stats_page_shows_the_identity(clean_db, seed_component):
         s.close()
 
     html = client.get("/stats").text
-    block = re.search(r"Kész munkák bontása.*?</table>", html, re.S).group(0)
+    block = re.search(r"Bevétel bontása.*?</table>", html, re.S).group(0)
     assert "Üzleti profit" in block, "the profit row is missing from the breakdown"
     total = re.search(r"Összesen</strong></td>\s*<td><strong>([^<]+)</strong>", block)
     kpi = re.search(r'Bevétel</p>\s*<p class="cp-kpi__value">([^<]+)</p>', html)
@@ -512,3 +520,98 @@ def test_a_cancellation_alongside_finished_work_reconciles(clean_db, seed_compon
     assert st.kpis.revenue == Decimal("17000")  # 12 000 delivered + 5 000 kept
     assert st.done_split.cancellation == Decimal("5000")
     assert st.done_total == st.kpis.revenue
+
+
+# --- cash-basis Bevétel, Fizetési mód, Tervezett bevétel ------------------------
+
+
+def _offer_with_payments(status, final, payments, labour=None):
+    """An offer whose `paid` is the sum of `payments` [(method, amount)] — the
+    invariant the router maintains — plus one Munkadíj line if `labour` is given."""
+    from app.db import SessionLocal
+    from app.models import Offer, OfferComponent, OfferPayment
+
+    s = SessionLocal()
+    try:
+        total = sum((Decimal(a) for _, a in payments), Decimal(0))
+        o = Offer(
+            customer_id=_customer(),
+            status=status,
+            final_price=Decimal(final) if final else None,
+            paid=total if payments else None,
+        )
+        o.payments = [OfferPayment(method=m, amount=Decimal(a)) for m, a in payments]
+        s.add(o)
+        s.flush()
+        if labour:
+            s.add(OfferComponent(offer_id=o.id, component_id=labour, amount=Decimal("1")))
+        s.commit()
+        return o.id
+    finally:
+        s.close()
+
+
+def _collect():
+    from app.db import SessionLocal
+    from app.services import stats as stats_svc
+
+    s = SessionLocal()
+    try:
+        return stats_svc.collect(s, None)
+    finally:
+        s.close()
+
+
+def test_bevetel_is_money_received_whatever_the_status(clean_db, seed_component):
+    """A deposit on an unfinished order counts — it has arrived. A quote never
+    does: the accepted order nobody has paid for contributes nothing. And the
+    breakdown still adds up to it."""
+    labour = seed_component("Munkadíj", "Alap", "db", "service", "1", "8000")
+    _offer_with_payments("done", "12000", [("transfer", "4000"), ("cash", "8000")], labour)
+    _offer_with_payments("deposit", "30000", [("revolut", "5000")])
+    _offer_with_payments("accepted", "30000", [])  # quoted, nothing received
+    _offer_with_payments("cancelled", "20000", [("transfer", "3000")])  # kept deposit
+
+    st = _collect()
+    assert st.kpis.revenue == Decimal("20000")  # 12 000 + 5 000 + 3 000
+    assert st.done_split.open_deposits == Decimal("5000")
+    assert st.done_split.cancellation == Decimal("3000")
+    assert st.done_total == st.kpis.revenue
+
+
+def test_fizetesi_mod_is_largest_first_and_adds_up_to_bevetel(clean_db):
+    _offer_with_payments("done", "12000", [("transfer", "4000"), ("cash", "8000")])
+    _offer_with_payments("deposit", "30000", [("revolut", "5000"), ("cash", "1000")])
+
+    st = _collect()
+    assert st.payment_methods == [
+        ("cash", Decimal("9000")),
+        ("revolut", Decimal("5000")),
+        ("transfer", Decimal("4000")),
+    ]
+    assert sum(v for _, v in st.payment_methods) == st.kpis.revenue
+
+
+def test_no_payment_yet_is_tervezett_bevetel_not_hiany(clean_db, seed_component):
+    """Two different gaps between a finished order's quote and the cash:
+      - nothing recorded yet  -> Tervezett bevétel (still to come)
+      - recorded but short    -> Hiány (a collection fault)
+    Each lands in its own row, and both still reconcile to Bevétel."""
+    labour = seed_component("Munkadíj", "Alap", "db", "service", "1", "8000")
+    _offer_with_payments("done", "12000", [], labour)  # delivered, not paid yet
+    _offer_with_payments("done", "10000", [("cash", "9000")], labour)  # short by 1 000
+
+    st = _collect()
+    d = st.done_split
+    assert d.planned == Decimal("12000")
+    assert d.shortfall == Decimal("1000")
+    assert st.kpis.revenue == Decimal("9000")
+    assert st.done_total == st.kpis.revenue
+
+
+def test_the_stats_page_shows_the_new_rows(clean_db):
+    _offer_with_payments("deposit", "30000", [("revolut", "5000")])
+    html = client.get("/stats").text
+    for label in ("Fizetési mód", "Tervezett bevétel", "Előleg (még nem kész rendelések)"):
+        assert label in html, label
+    assert "Bevétel bontása" in html and "Kész munkák bontása" not in html

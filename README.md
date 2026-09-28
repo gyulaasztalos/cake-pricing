@@ -25,10 +25,12 @@ verified customer requests here as draft offers via a narrow intake API.
   and calendar, and with a final price yields a Ft/slice note. Recording a
   **Lemondás** marks an order the customer accepted and then cancelled — it stays
   in the win rate, drops off the calendar, and contributes only whatever deposit
-  you actually kept (clear **Fizetve** if you refunded it).
-  **Fizetve** (paid) amount auto-sets the status: below the final price → Előlegezve
-  (deposit), at/above → Kész (done); it is shown in red wherever it falls short of
-  the final price. A **Nyereség %** field sits beside the final
+  you actually kept (remove its payment lines if you refunded it).
+  Payments go in the **Fizetés** block — one line per instalment, each with a
+  method (Utalás, Készpénz or Revolut) and a whole-forint amount, so a transfer
+  deposit and the rest in cash are two lines. **Fizetve** is their sum (read-only)
+  and auto-sets the status: below the final price → Előlegezve (deposit), at/above →
+  Kész (done); it is shown in red wherever it falls short of the final price. A **Nyereség %** field sits beside the final
   price and the two are bound — edit either and the other follows (the % is
   derived from the price, never stored). Components in the **Extra** group
   (candle, sparkler asked for at handover) are the exception: adding one raises
@@ -54,11 +56,12 @@ verified customer requests here as draft offers via a narrow intake API.
   stock automatically; deliveries/corrections adjust it. Warning-only at zero.
   Each line shows its **stock value** (on-hand × current unit price, 0 when the
   balance is zero or negative), with a total under the list.
-- **Statistics** (`/stats`) — a **Kész munkák bontása** (each Alap component plus
-  borravaló and anyagköltség) and a separate **Üzleti profit** block (quote −
-  computed cost); the two together reconcile exactly to **Bevétel**, which counts
-  FINISHED work only — winning an offer is not the same as earning it, so the win
-  rate still counts every won offer. Plus KPIs (win rate, revenue, average offer,
+- **Statistics** (`/stats`) — **Bevétel** is money actually received (every
+  payment, deposits included; never a quote), split by **Fizetési mód**. The
+  **Bevétel bontása** block (each Alap component, borravaló, anyagköltség, Üzleti
+  profit, kept deposits, and **Tervezett bevétel** for finished orders not paid
+  yet) reconciles exactly to it. Winning an offer is not the same as being paid for
+  it, so the win rate still counts every won offer. Plus KPIs (win rate, revenue, average offer,
   new customers), offers by
   slice count with the average Ft/slice per size, and server-rendered SVG charts;
   all-time (yearly) or a single year (monthly). Aggregate-only, so anonymized

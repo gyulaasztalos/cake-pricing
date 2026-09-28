@@ -111,15 +111,41 @@
       </small>
     </label>
     <label style="margin:0">{{ t('offers.paid') }}
-      {# Recorded payment: below final price → status becomes Előlegezve, at/above → Kész.
+      {# Fizetve is DERIVED: the sum of the Fizetés lines below. Read-only, and it
+         has no `name`, so it is never submitted — the server recomputes `paid` from
+         the lines on save and is the only writer. Its value still drives the status
+         (below the final price → Előlegezve, at/above → Kész).
          Shown RED while it falls short of the final price — server-rendered so it is
-         right without JS, and offer-form.js keeps it live as either field is typed. #}
-      <input type="text" inputmode="decimal" name="paid" id="paid" style="width:9rem"
-             title="{{ t('offers.underpaid') }}"
+         right without JS, and offer-form.js keeps it live as the lines change. #}
+      <input type="text" id="paid" style="width:9rem" readonly tabindex="-1"
+             title="{{ t('offers.paid_hint') }}"
              class="{{ 'cp-underpaid' if o and o.paid is not none and o.final_price is not none and o.paid < o.final_price }}"
              value="{{ o.paid|amount if o and o.paid is not none else '' }}">
     </label>
   </div>
+
+  {# Fizetés: one row per instalment — a transfer deposit, then cash at handover.
+     The same method may repeat. Styled as a line group, like the components. #}
+  <div class="cp-group cp-payments" id="payments">
+    <div class="cp-group__head"><strong>{{ t('offers.payments') }}</strong></div>
+    <div class="cp-group__body">
+      <div class="cp-lines" id="payment-lines">
+        {% for p in (o.payments if o else []) %}
+          {% set method = p.method %}{% set amt = p.amount %}
+          {% include "offers/_payment_line.html" %}
+        {% endfor %}
+      </div>
+      <button type="button" class="outline cp-add-line" id="add-payment">
+        {{ m.icon('plus') }} {{ t('offers.add_payment') }}
+      </button>
+    </div>
+  </div>
+  {# Blueprint for a new row, cloned by offer-form.js — the markup lives in one
+     partial instead of being duplicated as a JS string. #}
+  <template id="payment-line-tpl">
+    {% set method = none %}{% set amt = none %}
+    {% include "offers/_payment_line.html" %}
+  </template>
 
   <div class="cp-form-actions">
     <a role="button" class="secondary" href="{{ return_to | default('/offers') }}">{{ t('action.cancel') }}</a>

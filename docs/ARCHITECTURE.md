@@ -89,10 +89,17 @@ quantities/multipliers `Numeric(12,3)`.
 | `price_sync_state` | Singleton (id=1) | `last_success_at` of the daily price-sync job (read by `/metrics`) |
 
 ### Offers: lifecycle & the two provenances
-- **Status**: `draft → sent → accepted → deposit → rejected → done` (CHECK-constrained).
-  Recording a **paid** amount (Fizetve) auto-sets the status on save: below the
-  final price → `deposit` (Előlegezve), at or above → `done`. Stats revenue prefers
-  `paid` over `final_price` (`COALESCE`), and `deposit` counts as a won sale.
+- **Status**: `draft → sent → accepted → deposit → rejected → done`, plus
+  `cancelled` (Lemondás) (CHECK-constrained). Payments are recorded as
+  **`offer_payments`** lines — method (`transfer`/`cash`/`revolut`, CHECK-constrained)
+  and a positive amount; one offer may have many, the same method repeating.
+  `offers.paid` (Fizetve) is their **denormalized SUM**, written ONLY by the router's
+  `_apply_payments` on save and never accepted from the form (the read-only field has
+  no `name`), so it cannot drift; NULL when there are no lines. That total auto-sets
+  the status: below the final price → `deposit` (Előlegezve), at or above → `done` —
+  but only when the total CHANGES, so re-splitting the same amount across methods
+  keeps a manually chosen status. Migration 0009 turned every existing Fizetve into one
+  `cash` line; the importer backfills older backups the same way.
 - **`source`**: `internal` (built by the chef) or `external` (came from cake-order).
 - **`entry_date` is the pricing reference date** and is *immutable once set*. For
   external drafts it is **NULL** until the chef first saves/prices the offer —
@@ -165,14 +172,26 @@ Charts are **server-rendered SVG** (no JS/deps); every dynamic label is escaped.
 Only aggregates are shown, so anonymized customers keep contributing to totals
 without being identifiable.
 
-`WON` and `EARNED` are deliberately different sets. `WON` (accepted + deposit +
-done) answers "did I win the offer?" and drives the win rate; `EARNED` (done only)
-answers "did the money actually come in?" and drives **Bevétel**, its average, and
-the revenue chart. Keeping revenue on `WON` counted undelivered work and broke the
-identity below.
+**Bevétel is money actually received**: `Σ COALESCE(paid, 0)` over every offer,
+whatever its status — the same population the **Fizetési mód** table sums per
+method, so the two always agree. A quote never counts; a deposit on an unfinished
+order does. (Before 1.25 it was `COALESCE(paid, final_price)` over finished work
+only, which still counted a finished order's QUOTE when no payment was recorded.)
+`WON` is a separate question — "did I win the offer?" — and drives the win rate.
+The average offer value is the mean final price of a Kész order, since a cash total
+over every status cannot give it.
 
-> **`base_rows + materials + biz_profit.total + tip − shortfall + cancellation
-> = kpis.revenue`**,
+The **Bevétel bontása** block keeps its cost and profit lines Kész-only (only a
+delivered cake has earned its Munkadíj), and reconciles to the cash total:
+
+> **`base_rows + materials + biz_profit.total + tip − shortfall − planned
+> + cancellation + open_deposits = kpis.revenue`**,
+>
+> where `planned` (**Tervezett bevétel**) is the quote of a Kész order with NO
+> payment recorded yet — money still to come — and `shortfall` (**Hiány**) is a
+> payment that WAS recorded but fell short, a collection fault. Keep them apart:
+> they mean different things to the chef. `open_deposits` is money received on
+> orders not finished yet; `cancellation` is a kept Lemondás deposit.
 > and it must hold for EVERY payment shape, not just the happy one. `tip` is
 > floored at zero, so `shortfall` (Hiány — quoted more than was ever collected)
 > carries the other direction — without it the total overshot Bevétel by the
@@ -180,7 +199,8 @@ identity below.
 > was paid but never quoted still balances, and the cost queries skip offers with
 > neither value, which would otherwise add cost against no revenue. Parametrised
 > over all five shapes by
-> `test_the_breakdown_reconciles_for_every_payment_shape`. `Stats.done_total` computes exactly that and is rendered as
+> `test_the_breakdown_reconciles_for_every_payment_shape`, plus the cash-basis
+> cases in `test_profit.py` (deposits on open orders, Tervezett bevétel vs Hiány). `Stats.done_total` computes exactly that and is rendered as
 > the bold **Összesen** row, so the identity is visible on the page rather than
 > implied — which is why the profit row is deliberately repeated inside the
 > breakdown even though it also has its own block. Compute the bottom line in the

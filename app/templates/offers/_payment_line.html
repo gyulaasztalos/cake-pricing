@@ -1,0 +1,20 @@
+{% import "_macros.html" as m %}
+{# One Fizetés row: method + whole-forint amount. `method`/`amt` are unset for a
+   fresh row cloned from the <template> in form.html. Only PAYMENT_METHODS are
+   offered, and the server drops anything else. #}
+<div class="cp-line cp-payment-line">
+  <select name="payment_method" required>
+    {% for pm in payment_methods %}
+    <option value="{{ pm }}" {{ 'selected' if method == pm }}>{{ t('payment.' ~ pm) }}</option>
+    {% endfor %}
+  </select>
+  {# `required`: an added-but-empty row blocks the save rather than silently
+     vanishing server-side. #}
+  <input class="cp-amount cp-payment-amount" type="text" inputmode="numeric"
+         name="payment_amount" required autocomplete="off"
+         value="{{ (amt | amount) if amt is not none else '' }}">
+  <span class="cp-unit">Ft</span>
+  <button type="button" class="outline secondary cp-payment-remove" title="{{ t('action.delete') }}">
+    {{ m.icon('trash-2') }}
+  </button>
+</div>

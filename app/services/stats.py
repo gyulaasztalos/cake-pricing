@@ -28,13 +28,6 @@ from sqlalchemy.orm import Session
 # (Előlegezve) is included so an accepted offer that receives a deposit does not
 # fall out of revenue.
 WON = ("accepted", "deposit", "done", "cancelled")
-# Money is only counted for FINISHED work. An accepted or part-paid (deposit)
-# offer is WON but not yet earned, and counting it would also set partial revenue
-# against a full cost. Kept separate from WON, which still answers "did I win the
-# offer?" for the win rate.
-# A cancellation is money too when a deposit was kept — but only the amount
-# actually recorded in Fizetve, never the quoted price (see _REVENUE).
-EARNED = ("done", "cancelled")
 # Statuses that left the draft stage (were actually sent to a customer).
 # 'cancelled' belongs here as well as in WON — win_rate is won/sent_out, so a
 # status counted as won but not as sent would push the rate above 100%.
@@ -48,15 +41,16 @@ STATUS_ORDER = (
     "done",
     "cancelled",
 )
-# Revenue prefers the amount actually paid (Fizetve), falling back to the quoted
-# final price when nothing is recorded yet.
-# For a CANCELLED offer the quoted price was never collected, so the usual
-# fallback must not apply: only what is actually recorded in Fizetve counts, and
-# nothing at all if the deposit was refunded.
-_REVENUE = (
-    "CASE WHEN o.status = 'cancelled' THEN COALESCE(o.paid, 0) "
-    "ELSE COALESCE(o.paid, o.final_price) END"
-)
+# Bevétel is money actually RECEIVED — the Fizetve total (the sum of an offer's
+# payment lines), on every offer whatever its status. A quoted price never counts:
+# an accepted order nobody has paid for yet has brought in nothing. A deposit on
+# an unfinished order does count, because it has arrived. This is also exactly
+# what the Fizetési mód table sums, so the two always agree.
+#
+# (Until 1.25 revenue was COALESCE(paid, final_price) over finished work only —
+# restricted to Kész so it would reconcile with the breakdown, but it still
+# counted the QUOTE of a finished order with no payment recorded.)
+_REVENUE = "COALESCE(o.paid, 0)"
 
 # The base-cost group (Munkadíj, Rezsi) — same constant the offer form uses.
 BASE_GROUP_NAME = "Alap"
@@ -73,8 +67,8 @@ class Kpis:
     sent_out: int
     drafts: int
     win_rate: float  # won / sent_out, 0..1
-    revenue: Decimal  # SUM(paid, falling back to final_price) of FINISHED offers
-    avg_offer: Decimal  # revenue / number of finished offers
+    revenue: Decimal  # money actually received: Σ Fizetve over every offer
+    avg_offer: Decimal  # mean final price of a finished (Kész) order
     new_customers: int
 
 
@@ -97,17 +91,25 @@ class PortionStat:
 
 @dataclass(frozen=True)
 class DoneSplit:
-    """Where the money from FINISHED (Kész) work went.
+    """The Bevétel breakdown: where the received money came from.
 
-    Scoped to `done` on purpose: only a completed, fully-paid job has earned its
-    Munkadíj and its tip, and it sidesteps the part-payment distortion a deposit
-    would introduce (deposit revenue against full cost).
+    The cost and profit lines stay scoped to FINISHED (Kész) work — only a
+    delivered cake has earned its Munkadíj and its materials. Money received on
+    anything else gets its own row (a cancellation's kept deposit, a deposit on an
+    order not finished yet), and a finished order's quoted price that has not been
+    received shows as the NEGATIVE Tervezett bevétel, so the rows still add up to
+    Bevétel exactly.
     """
 
     base_rows: list[tuple[str, Decimal]]  # each Alap-group component, by name
     tip: Decimal  # Σ (paid − final_price) where positive
     shortfall: Decimal  # Σ (final_price − paid) where positive — money never collected
     cancellation: Decimal  # Σ paid on CANCELLED offers — kept deposits
+    open_deposits: Decimal  # Σ paid on offers not finished yet (neither done nor cancelled)
+    # Σ final_price of FINISHED offers with no payment recorded yet — quoted, still
+    # to come. Distinct from `shortfall`, which is a payment that WAS recorded but
+    # fell short (a collection fault); this is money simply not received yet.
+    planned: Decimal
     materials: Decimal  # everything outside the Alap group
 
 
@@ -142,23 +144,35 @@ class Stats:
     done_split: DoneSplit | None = None
     biz_profit: BizProfit | None = None
     source_split: dict[str, int] = field(default_factory=dict)
+    # Fizetési mód: (method slug, Σ amount), largest first. Sums to kpis.revenue.
+    payment_methods: list[tuple[str, Decimal]] = field(default_factory=list)
 
     @property
     def done_total(self) -> Decimal:
-        """Bottom line of the Kész breakdown: Alap components + borravaló +
-        anyagköltség + üzleti profit.
+        """Bottom line of the Bevétel breakdown.
 
-        Equals `kpis.revenue` by construction — every forint a finished offer
-        brought in is either a cost line, the tip, or profit. Shown as the
-        "Összesen" row so the identity is visible, and asserted by
-        `test_the_done_breakdown_reconciles_to_revenue`.
+        Equals `kpis.revenue` by construction: every received forint is a cost
+        line, profit, a tip, a kept cancellation deposit or a deposit on an open
+        order — less what a finished order was quoted but has not paid (Hiány if a
+        payment fell short, Tervezett bevétel if none was recorded yet). Shown as
+        the "Összesen" row so the identity is visible, and asserted by the
+        reconciliation tests in test_profit.py.
         """
         if self.done_split is None:
             return Decimal(0)
         base = sum((v for _, v in self.done_split.base_rows), Decimal(0))
         profit = self.biz_profit.total if self.biz_profit else Decimal(0)
         d = self.done_split
-        return base + d.materials + profit + d.tip - d.shortfall + d.cancellation
+        return (
+            base
+            + d.materials
+            + profit
+            + d.tip
+            - d.shortfall
+            - d.planned
+            + d.cancellation
+            + d.open_deposits
+        )
 
 
 def _year_guard(local_expr: str) -> str:
@@ -202,22 +216,20 @@ def _kpis(session: Session, year: int | None) -> Kpis:
               COUNT(*) FILTER (WHERE o.status IN :won) AS won,
               COUNT(*) FILTER (WHERE o.status IN :sent_out) AS sent_out,
               COUNT(*) FILTER (WHERE o.status = 'draft') AS drafts,
-              COUNT(*) FILTER (WHERE o.status IN :earned) AS earned,
-              COALESCE(SUM({_REVENUE}) FILTER (WHERE o.status IN :earned), 0) AS revenue
+              COALESCE(SUM({_REVENUE}), 0) AS revenue,
+              -- the value of a finished order, which a cash total over every
+              -- status (deposits on open orders included) cannot give
+              COALESCE(
+                AVG(COALESCE(o.final_price, o.paid)) FILTER (WHERE o.status = 'done'), 0
+              ) AS avg_offer
             FROM offers o
             WHERE {_year_guard(_LOCAL_CREATED)}
             """  # nosec B608
         ).bindparams(
             bindparam("won", expanding=True),
             bindparam("sent_out", expanding=True),
-            bindparam("earned", expanding=True),
         ),
-        {
-            "year": year,
-            "won": list(WON),
-            "sent_out": list(SENT_OUT),
-            "earned": list(EARNED),
-        },
+        {"year": year, "won": list(WON), "sent_out": list(SENT_OUT)},
     ).one()
 
     cust_local = "timezone('Europe/Budapest', c.entry_date)"
@@ -238,8 +250,7 @@ def _kpis(session: Session, year: int | None) -> Kpis:
         drafts=int(row.drafts),
         win_rate=(won / sent_out) if sent_out else 0.0,
         revenue=revenue,
-        # Averaged over the SAME offers the revenue came from, not over `won`.
-        avg_offer=(revenue / int(row.earned)) if int(row.earned) else Decimal(0),
+        avg_offer=Decimal(row.avg_offer),
         new_customers=new_customers,
     )
 
@@ -259,13 +270,13 @@ def _series(session: Session, year: int | None) -> tuple[list[SeriesPoint], str]
             SELECT {bucket} AS b,
                    COUNT(*) AS offers,
                    COUNT(*) FILTER (WHERE o.status IN :won) AS won,
-                   COALESCE(SUM({_REVENUE}) FILTER (WHERE o.status IN :earned), 0) AS revenue
+                   COALESCE(SUM({_REVENUE}), 0) AS revenue
             FROM offers o
             {where}
             GROUP BY b ORDER BY b
             """  # nosec B608
-        ).bindparams(bindparam("won", expanding=True), bindparam("earned", expanding=True)),
-        {"year": year, "won": list(WON), "earned": list(EARNED)},
+        ).bindparams(bindparam("won", expanding=True)),
+        {"year": year, "won": list(WON)},
     ).all()
     by_bucket = {
         int(r.b): SeriesPoint(str(int(r.b)), int(r.offers), int(r.won), Decimal(r.revenue))
@@ -445,11 +456,39 @@ def _done_split(session: Session, year: int | None) -> DoneSplit:
         """,  # nosec B608
         year=year,
     )
+    # Deposits on orders still in progress (Elfogadva/Előlegezve, or anything else
+    # not Kész/Lemondás). Received, so part of Bevétel — but no cost line exists
+    # for them yet, since the cake is not finished.
+    open_deposits = _money(
+        session,
+        f"""
+        SELECT COALESCE(SUM(COALESCE(o.paid, 0)), 0)
+        FROM offers o
+        WHERE o.status NOT IN ('done', 'cancelled')
+          AND {_year_guard(_LOCAL_CREATED)}
+        """,  # nosec B608
+        year=year,
+    )
+    # A finished order with no payment recorded yet: its quote is in the cost +
+    # profit lines above but none of it has been received, so it is taken back out
+    # here. Not a Hiány — nothing was short-paid, it simply has not arrived.
+    planned = _money(
+        session,
+        f"""
+        SELECT COALESCE(SUM(o.final_price), 0)
+        FROM offers o
+        WHERE o.status = 'done' AND o.paid IS NULL AND o.final_price IS NOT NULL
+          AND {_year_guard(_LOCAL_CREATED)}
+        """,  # nosec B608
+        year=year,
+    )
     return DoneSplit(
         base_rows=base_rows,
         tip=tip,
         shortfall=shortfall,
         cancellation=cancellation,
+        open_deposits=open_deposits,
+        planned=planned,
         materials=materials,
     )
 
@@ -487,6 +526,25 @@ def _biz_profit(session: Session, year: int | None) -> BizProfit:
     )
 
 
+def _payment_methods(session: Session, year: int | None) -> list[tuple[str, Decimal]]:
+    """Money received per payment method, largest first.
+
+    Same population as Bevétel — every payment line, whatever the offer's status —
+    and scoped by the OFFER's date like everything else here (a payment carries no
+    date of its own). So the rows always add up to the Bevétel KPI.
+    """
+    rows = session.execute(
+        text(
+            f"SELECT p.method AS m, SUM(p.amount) AS total "  # nosec B608
+            f"FROM offer_payments p JOIN offers o ON o.id = p.offer_id "
+            f"WHERE {_year_guard(_LOCAL_CREATED)} "
+            f"GROUP BY p.method ORDER BY total DESC, p.method"
+        ),
+        {"year": year},
+    ).all()
+    return [(str(r.m), Decimal(r.total)) for r in rows]
+
+
 def collect(session: Session, year: int | None) -> Stats:
     series, kind = _series(session, year)
     return Stats(
@@ -504,6 +562,7 @@ def collect(session: Session, year: int | None) -> Stats:
         done_split=_done_split(session, year),
         biz_profit=_biz_profit(session, year),
         source_split=_source_split(session, year),
+        payment_methods=_payment_methods(session, year),
     )
 
 
@@ -565,7 +624,12 @@ def bar_chart(
 
     parts: list[str] = [
         (
-            f'<svg class="cp-chart" viewBox="0 0 {width} {height}" role="img" '
+            # Explicit width/height = the natural size (1 unit = 1 px). With only
+            # the viewBox, CSS stretched the chart to the full column, and in the
+            # yearly view — one or two bars, a 60-unit viewBox — that blew the
+            # 9px labels up about eightfold. The CSS now only ever SHRINKS it.
+            f'<svg class="cp-chart" width="{width}" height="{height}" '
+            f'viewBox="0 0 {width} {height}" role="img" '
             f'preserveAspectRatio="xMidYMid meet">'
         )
     ]

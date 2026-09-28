@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse
@@ -14,7 +14,16 @@ from sqlalchemy.orm import Session, selectinload
 from app.config import settings
 from app.db import get_session
 from app.i18n import t
-from app.models import Component, Customer, Group, Offer, Recipe, RecipeItem
+from app.models import (
+    PAYMENT_METHODS,
+    Component,
+    Customer,
+    Group,
+    Offer,
+    OfferPayment,
+    Recipe,
+    RecipeItem,
+)
 from app.routers._helpers import (
     decimal_hu,
     default_profit_pct,
@@ -102,6 +111,37 @@ def _sections_ctx(session: Session, group_vms, total) -> dict:
         "comps_json": _comps_json(cbg),
         "mass_volume_step": settings.mass_volume_step,
     }
+
+
+def _parse_payments(methods: list[str], amounts: list[str]) -> list[tuple[str, Decimal]]:
+    """The Fizetés lines as (method, whole-forint amount) pairs.
+
+    A line with no amount is dropped (an untouched blank row). So is a method
+    outside PAYMENT_METHODS — only the three defined methods are accepted, and a
+    tampered value must not reach the DB CHECK as a 500. Amounts are whole forints:
+    anything fractional is rounded rather than refused, since the box is plain text
+    (typed in Hungarian notation) and a stray ",5" should not block the save.
+    """
+    lines: list[tuple[str, Decimal]] = []
+    for method, raw in zip(methods, amounts, strict=False):
+        value = decimal_hu(raw)
+        if value is None or method not in PAYMENT_METHODS:
+            continue
+        value = value.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        if value > 0:
+            lines.append((method, value))
+    return lines
+
+
+def _apply_payments(offer: Offer, lines: list[tuple[str, Decimal]]) -> Decimal | None:
+    """Replace the offer's payment lines and return the new Fizetve total.
+
+    This is the ONLY place `offers.paid` is written, so it can never drift from the
+    lines it summarises. No lines means nothing recorded: NULL, not 0 — the auto-
+    status rule treats "no payment yet" and "paid nothing" differently.
+    """
+    offer.payments = [OfferPayment(method=m, amount=a) for m, a in lines]
+    return sum((a for _, a in lines), Decimal(0)) if lines else None
 
 
 def _parse_lines(component_ids: list[str], amounts: list[str]) -> list[tuple[int, Decimal]]:
@@ -253,6 +293,7 @@ def _form_context(session: Session, offer: Offer | None, pairs, as_of) -> dict:
             "customers": customers,
             "recipes": recipes,
             "statuses": STATUSES,
+            "payment_methods": PAYMENT_METHODS,
             "active_nav": "offers",
             "as_of": as_of,
         }
@@ -326,16 +367,16 @@ def create_offer(
     due_date: str = Form(""),
     status: str = Form("draft"),
     final_price: str = Form(""),
-    paid: str = Form(""),
     portions: str = Form(""),
     notes: str = Form(""),
     component_id: list[str] = Form(default=[]),
     amount: list[str] = Form(default=[]),
+    payment_method: list[str] = Form(default=[]),
+    payment_amount: list[str] = Form(default=[]),
     return_to: str = Form(""),
     session: Session = Depends(get_session),
 ):
     final_dec = _parse_decimal(final_price)
-    paid_dec = _parse_decimal(paid)
     offer = Offer(
         customer_id=customer_id,
         theme=theme.strip() or None,
@@ -343,11 +384,11 @@ def create_offer(
         flavor=flavor.strip() or None,
         portions=_parse_portions(portions),
         due_date=_parse_dt(due_date) if due_date else None,
-        status=_auto_status(paid_dec, final_dec, status),
         final_price=final_dec,
-        paid=paid_dec,
         notes=notes.strip() or None,
     )
+    offer.paid = _apply_payments(offer, _parse_payments(payment_method, payment_amount))
+    offer.status = _auto_status(offer.paid, final_dec, status)
     session.add(offer)
     session.flush()
     offer_svc.save_offer_lines(session, offer, _parse_lines(component_id, amount))
@@ -364,11 +405,12 @@ def update_offer(
     due_date: str = Form(""),
     status: str = Form("draft"),
     final_price: str = Form(""),
-    paid: str = Form(""),
     portions: str = Form(""),
     notes: str = Form(""),
     component_id: list[str] = Form(default=[]),
     amount: list[str] = Form(default=[]),
+    payment_method: list[str] = Form(default=[]),
+    payment_amount: list[str] = Form(default=[]),
     return_to: str = Form(""),
     session: Session = Depends(get_session),
 ):
@@ -380,9 +422,11 @@ def update_offer(
     offer.portions = _parse_portions(portions)
     offer.due_date = _parse_dt(due_date) if due_date else None
     offer.final_price = _parse_decimal(final_price)
-    new_paid = _parse_decimal(paid)
+    new_paid = _apply_payments(offer, _parse_payments(payment_method, payment_amount))
     # Only the Fizetve *changing* drives the status; a plain re-save with the same
-    # paid amount leaves the chef's chosen status alone (so it stays overridable).
+    # total leaves the chef's chosen status alone (so it stays overridable). It is
+    # the TOTAL that is compared, so re-splitting the same amount across methods is
+    # not a change either.
     paid_changed = new_paid != offer.paid
     offer.paid = new_paid
     offer.status = _auto_status(new_paid, offer.final_price, status) if paid_changed else status

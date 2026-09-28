@@ -572,8 +572,9 @@ def test_anchor_marker_follows_the_fixed_field(page: Page, clean_db, seed_compon
 
 def test_paid_turns_red_while_short_of_the_final_price(page: Page, clean_db, seed_component):
     """Fizetve is highlighted whenever it falls below the final price, and the
-    highlight tracks BOTH fields — including when the price is rewritten
-    programmatically by the profit%/price binding (which fires no input event)."""
+    highlight tracks BOTH sides — the payment lines that now feed Fizetve, and the
+    price, including when it is rewritten programmatically by the profit%/price
+    binding (which fires no input event)."""
     seed_component("Munkadíj", "Alap", "db", "service", "1", "10000")
     page.goto("/offers/new")
     paid, price, pct = (
@@ -583,13 +584,16 @@ def test_paid_turns_red_while_short_of_the_final_price(page: Page, clean_db, see
     )
     expect(price).to_have_value("11000")  # default 10%
 
-    paid.fill("11000")  # paid in full -> no warning
+    page.locator("#add-payment").click()
+    amount = page.locator(".cp-payment-amount").last
+    amount.fill("11000")  # paid in full -> no warning
+    expect(paid).to_have_value("11000")
     expect(paid).not_to_have_class(re.compile(r"cp-underpaid"))
 
-    paid.fill("9000")  # short -> red
+    amount.fill("9000")  # short -> red
     expect(paid).to_have_class(re.compile(r"cp-underpaid"))
 
-    paid.fill("12000")  # over-paid (a tip) -> not a warning
+    amount.fill("12000")  # over-paid (a tip) -> not a warning
     expect(paid).not_to_have_class(re.compile(r"cp-underpaid"))
 
     # Raising the price via the % rewrites #final-price programmatically; the
@@ -597,3 +601,33 @@ def test_paid_turns_red_while_short_of_the_final_price(page: Page, clean_db, see
     pct.fill("50")
     expect(price).to_have_value("15000")
     expect(paid).to_have_class(re.compile(r"cp-underpaid"))
+
+
+def test_fizetve_is_the_live_sum_of_the_payment_lines(page: Page, clean_db, seed_component):
+    """Fizetve is read-only and follows the Fizetés rows as they are added, typed,
+    and removed — including several rows of the SAME method. Nothing recorded
+    reads as blank, not 0 (the server stores NULL then)."""
+    seed_component("Munkadíj", "Alap", "db", "service", "1", "10000")
+    page.goto("/offers/new")
+    paid = page.locator("#paid")
+    expect(paid).to_have_attribute("readonly", "")
+    expect(paid).to_have_value("")
+
+    page.locator("#add-payment").click()
+    page.locator(".cp-payment-line").nth(0).locator("select").select_option("transfer")
+    page.locator(".cp-payment-amount").nth(0).fill("5 000")  # Hungarian thousands
+    page.locator("#add-payment").click()
+    page.locator(".cp-payment-line").nth(1).locator("select").select_option("cash")
+    page.locator(".cp-payment-amount").nth(1).fill("3000")
+    page.locator("#add-payment").click()
+    page.locator(".cp-payment-line").nth(2).locator("select").select_option("cash")
+    page.locator(".cp-payment-amount").nth(2).fill("2000")  # cash again: allowed
+    expect(paid).to_have_value("10000")
+
+    page.locator(".cp-payment-remove").nth(1).click()
+    expect(page.locator(".cp-payment-line")).to_have_count(2)
+    expect(paid).to_have_value("7000")
+
+    page.locator(".cp-payment-remove").nth(0).click()
+    page.locator(".cp-payment-remove").nth(0).click()
+    expect(paid).to_have_value("")  # nothing recorded, not 0

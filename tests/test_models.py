@@ -22,6 +22,7 @@ EXPECTED_TABLES = {
     "customers",
     "offers",
     "offer_components",
+    "offer_payments",
     "recipes",
     "recipe_items",
     "stock_movements",
@@ -41,6 +42,11 @@ def test_offer_cascade_deletes_lines_and_movements():
     assert oc_fk.ondelete == "CASCADE"
     sm_fk = next(iter(StockMovement.__table__.c.offer_id.foreign_keys))
     assert sm_fk.ondelete == "CASCADE"
+    # …and to its payment lines, which mean nothing without the offer.
+    from app.models import OfferPayment
+
+    op_fk = next(iter(OfferPayment.__table__.c.offer_id.foreign_keys))
+    assert op_fk.ondelete == "CASCADE"
     # component_id on offer_components must NOT cascade.
     comp_fk = next(iter(OfferComponent.__table__.c.component_id.foreign_keys))
     assert comp_fk.ondelete is None

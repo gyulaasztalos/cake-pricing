@@ -241,3 +241,63 @@ def test_edit_form_preserves_line_of_deactivated_component(session):
     assert f'value="{c.id}"' in r.text
     assert "29x29 Doboz" in r.text
     assert "inaktív" in r.text  # flagged as inactive
+
+
+def _offer_with_split(session):
+    from app.models import Customer, Offer, OfferPayment
+
+    c = Customer(name="Fizető")
+    session.add(c)
+    session.flush()
+    o = Offer(customer_id=c.id, status="done", final_price=Decimal("20000"), paid=Decimal("20000"))
+    o.payments = [
+        OfferPayment(method="transfer", amount=Decimal("5000")),
+        OfferPayment(method="cash", amount=Decimal("15000")),
+    ]
+    session.add(o)
+    session.commit()
+    return o.id
+
+
+def test_portability_round_trip_keeps_the_payment_split(session):
+    """A backup must carry the per-method lines, not just the Fizetve total."""
+    from app.services import portability
+
+    _clean(session)
+    _offer_with_split(session)
+    bundle = portability.export_bundle(session)
+    assert len(bundle["tables"]["offer_payments"]) == 2
+
+    portability.import_bundle(session, bundle, replace=True)
+    session.commit()
+    rows = session.execute(text("select method, amount from offer_payments order by id")).all()
+    assert [(r.method, r.amount) for r in rows] == [
+        ("transfer", Decimal("5000")),
+        ("cash", Decimal("15000")),
+    ]
+
+
+def test_an_older_backup_without_payment_lines_is_backfilled(session):
+    """A bundle exported before payment lines existed has a Fizetve total and no
+    `offer_payments` table. Restored as-is, `paid` would have no lines behind it,
+    and the next save would recompute it to NULL and knock the status back. It
+    must be backfilled exactly as migration 0009 did: one Készpénz line."""
+    from app.services import portability
+
+    _clean(session)
+    _offer_with_split(session)
+    bundle = portability.export_bundle(session)
+    del bundle["tables"]["offer_payments"]  # what a pre-0009 backup looks like
+
+    counts = portability.import_bundle(session, bundle, replace=True)
+    session.commit()
+    assert counts["offer_payments"] == 1
+    rows = session.execute(text("select method, amount from offer_payments")).all()
+    assert [(r.method, r.amount) for r in rows] == [("cash", Decimal("20000"))]
+    # the invariant the rest of the app relies on
+    assert session.scalar(
+        text(
+            "select bool_and(o.paid is not distinct from "
+            "(select sum(amount) from offer_payments p where p.offer_id = o.id)) from offers o"
+        )
+    )

@@ -148,12 +148,22 @@ hang.
   migration that adds one, e.g. 0007's `Extra`) or tests cannot find a group the
   app depends on.
 - **Lemondás (cancelled) is won-then-undelivered**, not rejected. It counts as WON
-  (and so must stay in `SENT_OUT`, or win_rate exceeds 100%) and as EARNED — but its
+  (and so must stay in `SENT_OUT`, or win_rate exceeds 100%) and brings revenue — but its
   revenue is `paid` ONLY, never the quoted price, since the cake was never made. It
   contributes no cost, so the kept deposit gets its own `cancellation` row in the
   breakdown; folding it into Üzleti profit would read as margin on delivered work.
   It is also sticky in `_auto_status`: recording the kept deposit changes `paid`,
   which would otherwise flip the offer straight back to Előlegezve or Kész.
+- **`offers.paid` is a derived total — never write it anywhere but
+  `_apply_payments`.** It is the SUM of `offer_payments` (NULL when none), kept as a
+  column so the auto-status rule and every stat read one value. Any new write path
+  (an import, a script, a new endpoint) must keep `paid == SUM(lines)`, or Bevétel
+  and Fizetési mód silently disagree. The portability importer backfills pre-0009
+  backups for exactly this reason.
+- **Bevétel is cash received, on every status.** Not a quote, not Kész-only. Its
+  breakdown reconciles via two separate negative rows: **Tervezett bevétel** (Kész,
+  no payment recorded yet — still to come) and **Hiány** (a recorded payment fell
+  short — a collection fault). The owner distinguishes these; never merge them.
 - **Hiány is not a discount.** `done_split.shortfall` is quote − CASH: money that
   should have arrived and did not, so it should normally be **zero** (a non-zero
   value means something went wrong upstream). An intentional price cut is a

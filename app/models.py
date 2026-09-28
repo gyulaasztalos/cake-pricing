@@ -204,8 +204,11 @@ class Offer(Base):
     flavor: Mapped[str | None] = mapped_column(Text)
     portions: Mapped[int | None] = mapped_column(Integer)  # Szelet (customer intake)
     final_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
-    # Amount actually paid (Fizetve). NULL until recorded; on save, a value < the
-    # final_price sets status 'deposit' (Előlegezve), a value >= it sets 'done'.
+    # Amount actually paid (Fizetve) — the SUM of `payments`, denormalized so the
+    # auto-status rule and the statistics read one column. Never set from the form:
+    # the router recomputes it from the payment lines on every save (NULL when there
+    # are none). On save, a value < final_price sets status 'deposit' (Előlegezve),
+    # a value >= it sets 'done'.
     paid: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'draft'"))
     notes: Mapped[str | None] = mapped_column(Text)
@@ -224,6 +227,44 @@ class Offer(Base):
     components: Mapped[list[OfferComponent]] = relationship(
         back_populates="offer", cascade="all, delete-orphan", passive_deletes=True
     )
+    payments: Mapped[list[OfferPayment]] = relationship(
+        back_populates="offer",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="OfferPayment.id",
+    )
+
+
+# --- OFFER_PAYMENTS ----------------------------------------------------------
+
+# The only accepted payment methods, in the order the form lists them. Slugs are
+# what the DB stores (CHECK-constrained in migration 0009); labels live in i18n
+# under `payment.<slug>`.
+PAYMENT_METHODS = ("transfer", "cash", "revolut")
+
+
+class OfferPayment(Base):
+    """One instalment towards an offer — a deposit by transfer, the rest in cash."""
+
+    __tablename__ = "offer_payments"
+    __table_args__ = (
+        CheckConstraint(
+            "method IN ('transfer', 'cash', 'revolut')", name="offer_payments_method_check"
+        ),
+        CheckConstraint("amount > 0", name="offer_payments_amount_check"),
+        Index("idx_offer_payments_offer", "offer_id"),
+    )
+
+    id: Mapped[int] = _pk()
+    offer_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("offers.id", ondelete="CASCADE"), nullable=False
+    )
+    method: Mapped[str] = mapped_column(Text, nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    entry_date: Mapped[dt.datetime] = _entry_date()
+    update_date: Mapped[dt.datetime] = _update_date()
+
+    offer: Mapped[Offer] = relationship(back_populates="payments")
 
 
 # --- OFFER_COMPONENTS --------------------------------------------------------

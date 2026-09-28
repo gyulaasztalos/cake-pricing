@@ -27,6 +27,9 @@
       {% if o.final_price is not none and o.paid < o.final_price %}
         <span class="cp-underpaid" title="{{ t('offers.underpaid') }}">{{ o.paid|huf }}</span>
       {% else %}{{ o.paid|huf }}{% endif %}
+      {% if o.payments %}
+        <span class="cp-muted">({% for p in o.payments %}{{ t('payment.' ~ p.method) }} {{ p.amount|huf }}{{ ' · ' if not loop.last }}{% endfor %})</span>
+      {% endif %}
     {% endif %}
   </p>
 </div>

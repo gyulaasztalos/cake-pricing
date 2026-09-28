@@ -292,9 +292,10 @@
     );
 
     // Fizetve turns red while it is short of the final price. Server-rendered for
-    // the no-JS/first-paint case; kept live here because BOTH inputs move — the
-    // price is also written programmatically by priceFromPct(), which fires no
-    // input event, so that path calls this explicitly.
+    // the no-JS/first-paint case; kept live here because BOTH sides move — the
+    // price is also written programmatically by priceFromPct(), and Fizetve by the
+    // payment lines below, neither of which fires an input event, so both paths
+    // call this explicitly.
     const paidEl = document.getElementById("paid");
     window.cpUpdatePaidWarning = function () {
       if (!paidEl) return;
@@ -303,7 +304,6 @@
       const short = Number.isFinite(p) && Number.isFinite(f) && p < f;
       paidEl.classList.toggle("cp-underpaid", short);
     };
-    if (paidEl) paidEl.addEventListener("input", window.cpUpdatePaidWarning);
     priceEl.addEventListener("input", window.cpUpdatePaidWarning);
 
     setAnchor(anchor);  // paint the initial (pct) marker
@@ -313,5 +313,49 @@
       if (anchor === "price") pctFromPrice();
       else priceFromPct();
     };
+  })();
+
+  // Fizetés: the payment lines. Fizetve (#paid) is their read-only SUM, kept live
+  // here as rows are typed, added or removed. This is display only — the server
+  // recomputes `paid` from the submitted lines and is the sole writer.
+  (function paymentLines() {
+    const lines = document.getElementById("payment-lines");
+    const tpl = document.getElementById("payment-line-tpl");
+    const addBtn = document.getElementById("add-payment");
+    const paidEl = document.getElementById("paid");
+    if (!lines || !tpl || !addBtn || !paidEl) return;
+
+    // Hungarian notation: spaces as thousands separators, a comma as decimal mark.
+    const parse = (v) => Number(String(v).replace(/\s/g, "").replace(",", "."));
+
+    function refreshTotal() {
+      let sum = 0;
+      let any = false;
+      lines.querySelectorAll(".cp-payment-amount").forEach((el) => {
+        const v = parse(el.value);
+        if (el.value.trim() !== "" && Number.isFinite(v) && v > 0) {
+          sum += Math.round(v); // whole forints, as the server rounds them
+          any = true;
+        }
+      });
+      // Blank, not 0, when nothing is recorded — the server stores NULL then.
+      paidEl.value = any ? String(sum) : "";
+      window.cpUpdatePaidWarning && window.cpUpdatePaidWarning();
+    }
+
+    addBtn.addEventListener("click", function () {
+      lines.appendChild(tpl.content.cloneNode(true));
+      // The cloned trash icon is a bare <i data-lucide>; draw it.
+      window.lucide && lucide.createIcons();
+      const amount = lines.lastElementChild.querySelector(".cp-payment-amount");
+      if (amount) amount.focus();
+    });
+    lines.addEventListener("input", refreshTotal);
+    lines.addEventListener("click", function (e) {
+      const btn = e.target.closest(".cp-payment-remove");
+      if (!btn) return;
+      btn.closest(".cp-payment-line").remove();
+      refreshTotal();
+    });
   })();
 })();

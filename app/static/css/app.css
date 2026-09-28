@@ -175,6 +175,14 @@ body { background: var(--co-cream); }
 /* Paid-short warning: the recorded payment falls below the final price. */
 .cp-underpaid { color: #991b1b; font-weight: 600; }
 input.cp-underpaid { border-color: #991b1b; }
+/* Fizetve is computed from the Fizetés lines, so it reads as a read-out rather
+   than an input. Only the border STYLE changes — never its colour — so the red
+   underpaid border above still shows through. */
+.cp-offer-footer input[readonly] {
+  background: var(--pico-card-sectioning-background-color);
+  border-style: dashed;
+  cursor: default;
+}
 
 /* ---- Anchored-field marker (offer form) ---------------------------------- */
 /* Shows which of the bound profit%/price pair is held fixed. Hidden until
@@ -259,6 +267,8 @@ form.cp-topbar > select[name="year"] { width: auto; }
 .cp-line .cp-stepper button { padding: 0 .4rem; line-height: 1; margin: 0; }
 .cp-line .cp-line-cost { min-width: 6rem; text-align: right; font-variant-numeric: tabular-nums; }
 .cp-line .cp-unit { min-width: 2rem; color: var(--pico-muted-color); }
+/* Fizetés rows carry forint totals, wider than a component amount. */
+.cp-payment-line .cp-amount { width: 9rem; }
 .cp-offer-footer { display: flex; justify-content: flex-end; gap: 2rem; align-items: baseline; padding: .75rem 0; border-top: 2px solid var(--pico-muted-border-color); margin-top: 1rem; }
 /* Cancel (left) + Save (right), matched to the same size: equal min-width and
    identical button box so they read as a pair. */
@@ -344,7 +354,9 @@ form.cp-topbar > select[name="year"] { width: auto; }
 .cp-kpi__value { font-size: 1.6rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--co-rose-dark); }
 .cp-kpi__sub { font-size: .75rem; color: var(--pico-muted-color); margin: .25rem 0 0; }
 .cp-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: 1rem; }
-.cp-chart { width: 100%; height: auto; overflow: visible; }
+/* Natural size from the SVG's width/height attributes; max-width lets it shrink to
+   a narrow column but never enlarge (enlarging scaled the axis labels with it). */
+.cp-chart { display: block; max-width: 100%; height: auto; overflow: visible; }
 .cp-chart .cp-bar { fill: var(--co-rose); }
 .cp-chart .cp-bar--hi { fill: var(--co-rose-dark); }
 .cp-chart .cp-bar-val { fill: var(--pico-muted-color); font-size: 9px; font-variant-numeric: tabular-nums; }

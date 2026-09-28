@@ -79,13 +79,15 @@
           {{ t('stats.source.external') }} {{ s.source_split.external }}</p>
       </article>
 
-      {# Where the money from FINISHED work went. Kész-only: only a completed,
-         fully-paid job has earned its Munkadíj and its tip. The Alap group is
-         listed per component (Munkadíj, Rezsi+amortizáció) rather than lumped. #}
+      {# Bevétel bontása: where the received money came from. Cost and profit are
+         Kész-only (only a delivered cake has earned its Munkadíj); deposits on
+         cancelled and on unfinished orders get their own rows, and a finished
+         order's unreceived quote comes back out, so the column adds up to Bevétel.
+         The Alap group is listed per component (Munkadíj, Rezsi+amortizáció). #}
       <article>
         <header><strong>{{ t('stats.base_split') }}</strong></header>
         {% set d = s.done_split %}
-        {% if d and (d.base_rows or d.tip or d.materials) %}
+        {% if d and (s.kpis.revenue or d.base_rows or d.planned) %}
           <table class="cp-breakdown"><tbody>
             {% for name, total in d.base_rows %}
               <tr><td>{{ name }}</td><td>{{ total | huf }}</td></tr>
@@ -93,7 +95,10 @@
             <tr><td>{{ t('stats.tip') }}</td><td>{{ d.tip | huf }}</td></tr>
             {# Negated on purpose: the column must add up to Összesen by eye. #}
             <tr><td>{{ t('stats.shortfall') }}</td><td>{{ (-d.shortfall) | huf }}</td></tr>
+            {# Also negated: quoted and delivered, but not received yet. #}
+            <tr><td>{{ t('stats.planned_revenue') }}</td><td>{{ (-d.planned) | huf }}</td></tr>
             <tr><td>{{ t('stats.cancellation') }}</td><td>{{ d.cancellation | huf }}</td></tr>
+            <tr><td>{{ t('stats.open_deposits') }}</td><td>{{ d.open_deposits | huf }}</td></tr>
             <tr><td>{{ t('stats.materials') }}</td><td>{{ d.materials | huf }}</td></tr>
             {# Repeated from the Üzleti profit block on purpose: without it the
                rows do not add up to anything recognisable. #}
@@ -102,6 +107,19 @@
             {# The point of the block: this equals Bevétel above. #}
             <tr class="cp-breakdown__total"><td><strong>{{ t('stats.total') }}</strong></td>
                 <td><strong>{{ s.done_total | huf }}</strong></td></tr>
+          </tbody></table>
+        {% else %}<p class="cp-muted">{{ t('stats.empty') }}</p>{% endif %}
+      </article>
+
+      {# Fizetési mód: received money per method, largest first. Same population as
+         Bevétel, so the rows add up to it. #}
+      <article>
+        <header><strong>{{ t('stats.payment_methods') }}</strong></header>
+        {% if s.payment_methods %}
+          <table class="cp-breakdown"><tbody>
+            {% for method, total in s.payment_methods %}
+              <tr><td>{{ t('payment.' ~ method) }}</td><td>{{ total | huf }}</td></tr>
+            {% endfor %}
           </tbody></table>
         {% else %}<p class="cp-muted">{{ t('stats.empty') }}</p>{% endif %}
       </article>
