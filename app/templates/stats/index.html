@@ -36,6 +36,18 @@
         <p class="cp-kpi__value">{{ s.kpis.revenue | huf }}</p>
         <p class="cp-kpi__sub">{{ t('stats.kpi.avg') }}: {{ s.kpis.avg_offer | huf }}</p>
       </div>
+      {# Beside Bevétel, never inside it: neither is money received. Tervezett is
+         still expected on ongoing orders; Hiány is what finished ones never paid. #}
+      <div class="cp-kpi">
+        <p class="cp-kpi__label">{{ t('stats.planned_revenue') }}</p>
+        <p class="cp-kpi__value">{{ s.kpis.planned | huf }}</p>
+        <p class="cp-kpi__sub">{{ t('stats.planned_revenue_hint') }}</p>
+      </div>
+      <div class="cp-kpi">
+        <p class="cp-kpi__label">{{ t('stats.shortfall') }}</p>
+        <p class="cp-kpi__value">{{ (s.done_split.shortfall if s.done_split else 0) | huf }}</p>
+        <p class="cp-kpi__sub">{{ t('stats.shortfall_hint') }}</p>
+      </div>
       <div class="cp-kpi">
         <p class="cp-kpi__label">{{ t('stats.kpi.new_customers') }}</p>
         <p class="cp-kpi__value">{{ s.kpis.new_customers }}</p>
@@ -79,15 +91,16 @@
           {{ t('stats.source.external') }} {{ s.source_split.external }}</p>
       </article>
 
-      {# Bevétel bontása: where the received money came from. Cost and profit are
-         Kész-only (only a delivered cake has earned its Munkadíj); deposits on
-         cancelled and on unfinished orders get their own rows, and a finished
-         order's unreceived quote comes back out, so the column adds up to Bevétel.
+      {# Kész munkák bontása: what Bevétel is made of. The finished-work rows (cost,
+         Üzleti profit, Borravaló) are Kész-only; deposits on ongoing orders and
+         cancellation fees get their own rows. Hiány is SUBTRACTED — cost + profit
+         add up to the quote, and a short-paid order brought in less — so the column
+         equals Bevétel. Tervezett bevétel is not here: it has not been received.
          The Alap group is listed per component (Munkadíj, Rezsi+amortizáció). #}
       <article>
         <header><strong>{{ t('stats.base_split') }}</strong></header>
         {% set d = s.done_split %}
-        {% if d and (s.kpis.revenue or d.base_rows or d.planned) %}
+        {% if d and (s.kpis.revenue or d.base_rows or d.shortfall) %}
           <table class="cp-breakdown"><tbody>
             {% for name, total in d.base_rows %}
               <tr><td>{{ name }}</td><td>{{ total | huf }}</td></tr>
@@ -95,8 +108,6 @@
             <tr><td>{{ t('stats.tip') }}</td><td>{{ d.tip | huf }}</td></tr>
             {# Negated on purpose: the column must add up to Összesen by eye. #}
             <tr><td>{{ t('stats.shortfall') }}</td><td>{{ (-d.shortfall) | huf }}</td></tr>
-            {# Also negated: quoted and delivered, but not received yet. #}
-            <tr><td>{{ t('stats.planned_revenue') }}</td><td>{{ (-d.planned) | huf }}</td></tr>
             <tr><td>{{ t('stats.cancellation') }}</td><td>{{ d.cancellation | huf }}</td></tr>
             <tr><td>{{ t('stats.open_deposits') }}</td><td>{{ d.open_deposits | huf }}</td></tr>
             <tr><td>{{ t('stats.materials') }}</td><td>{{ d.materials | huf }}</td></tr>

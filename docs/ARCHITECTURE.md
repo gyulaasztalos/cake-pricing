@@ -181,17 +181,29 @@ only, which still counted a finished order's QUOTE when no payment was recorded.
 The average offer value is the mean final price of a Kész order, since a cash total
 over every status cannot give it.
 
-The **Bevétel bontása** block keeps its cost and profit lines Kész-only (only a
-delivered cake has earned its Munkadíj), and reconciles to the cash total:
+The owner's definitions, per status (pinned row by row in
+`test_bevetel_tervezett_and_hiany_follow_the_owners_definitions`):
 
-> **`base_rows + materials + biz_profit.total + tip − shortfall − planned
+| figure | applies to | amount |
+|---|---|---|
+| **Bevétel** | every order | money received (Σ payments) |
+| **Tervezett bevétel** | `ONGOING` = draft, sent, accepted, deposit | final − paid, when short or unpaid |
+| **Hiány** | done (Kész) | final − paid, when short or unpaid (a collection error) |
+| **Borravaló** | done | paid − final, when overpaid |
+| — | rejected, cancelled | the difference counts as neither |
+
+Tervezett bevétel and Hiány are **not money received**, so they are KPIs beside
+Bevétel, never part of it. **Kész munkák bontása** reconciles to Bevétel — its
+finished-work rows are Kész-only, and received money on other work gets its own row:
+
+> **`base_rows + materials + biz_profit.total + tip − shortfall
 > + cancellation + open_deposits = kpis.revenue`**,
 >
-> where `planned` (**Tervezett bevétel**) is the quote of a Kész order with NO
-> payment recorded yet — money still to come — and `shortfall` (**Hiány**) is a
-> payment that WAS recorded but fell short, a collection fault. Keep them apart:
-> they mean different things to the chef. `open_deposits` is money received on
-> orders not finished yet; `cancellation` is a kept Lemondás deposit.
+> Hiány is SUBTRACTED here because cost + Üzleti profit add up to the QUOTE, and a
+> short-paid order brought in less than that. Tervezett bevétel does not appear in
+> the block at all. `open_deposits` is money received on ONGOING orders;
+> `cancellation` is a fee kept on a cancelled order (a refused offer should carry
+> no payment, but if one does it lands here, or the block would stop adding up).
 > and it must hold for EVERY payment shape, not just the happy one. `tip` is
 > floored at zero, so `shortfall` (Hiány — quoted more than was ever collected)
 > carries the other direction — without it the total overshot Bevétel by the

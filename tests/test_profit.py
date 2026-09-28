@@ -428,7 +428,7 @@ def test_the_stats_page_shows_the_identity(clean_db, seed_component):
         s.close()
 
     html = client.get("/stats").text
-    block = re.search(r"Bevétel bontása.*?</table>", html, re.S).group(0)
+    block = re.search(r"Kész munkák bontása.*?</table>", html, re.S).group(0)
     assert "Üzleti profit" in block, "the profit row is missing from the breakdown"
     total = re.search(r"Összesen</strong></td>\s*<td><strong>([^<]+)</strong>", block)
     kpi = re.search(r'Bevétel</p>\s*<p class="cp-kpi__value">([^<]+)</p>', html)
@@ -574,6 +574,8 @@ def test_bevetel_is_money_received_whatever_the_status(clean_db, seed_component)
 
     st = _collect()
     assert st.kpis.revenue == Decimal("20000")  # 12 000 + 5 000 + 3 000
+    # not received, so not revenue: 25 000 left on the deposit + 30 000 accepted
+    assert st.kpis.planned == Decimal("55000")
     assert st.done_split.open_deposits == Decimal("5000")
     assert st.done_split.cancellation == Decimal("3000")
     assert st.done_total == st.kpis.revenue
@@ -592,26 +594,63 @@ def test_fizetesi_mod_is_largest_first_and_adds_up_to_bevetel(clean_db):
     assert sum(v for _, v in st.payment_methods) == st.kpis.revenue
 
 
-def test_no_payment_yet_is_tervezett_bevetel_not_hiany(clean_db, seed_component):
-    """Two different gaps between a finished order's quote and the cash:
-      - nothing recorded yet  -> Tervezett bevétel (still to come)
-      - recorded but short    -> Hiány (a collection fault)
-    Each lands in its own row, and both still reconcile to Bevétel."""
+@pytest.mark.parametrize(
+    ("status", "final", "paid", "revenue", "planned", "shortfall", "tip"),
+    [
+        # Kész: the gap to the quote is Hiány (a collection error), an excess Borravaló
+        ("done", "10000", "10000", "10000", "0", "0", "0"),
+        ("done", "10000", "9000", "9000", "0", "1000", "0"),
+        ("done", "10000", None, "0", "0", "10000", "0"),  # nothing paid: all Hiány
+        ("done", "10000", "10500", "10500", "0", "0", "500"),
+        # ongoing: what is not paid yet is Tervezett bevétel — expected, not received
+        ("deposit", "10000", "4000", "4000", "6000", "0", "0"),
+        ("accepted", "10000", None, "0", "10000", "0", "0"),
+        ("sent", "10000", None, "0", "10000", "0", "0"),
+        ("draft", "10000", None, "0", "10000", "0", "0"),
+        # refused or cancelled: the difference counts as neither
+        ("rejected", "10000", None, "0", "0", "0", "0"),
+        ("cancelled", "10000", "3000", "3000", "0", "0", "0"),
+    ],
+)
+def test_bevetel_tervezett_and_hiany_follow_the_owners_definitions(
+    clean_db, seed_component, status, final, paid, revenue, planned, shortfall, tip
+):
+    """The owner's rules, one status at a time:
+      Bevétel            money received, on any order
+      Tervezett bevétel  final − paid on ONGOING orders (Vázlat…Előlegezve)
+      Hiány              final − paid on Kész orders, nothing paid counting as 0
+      Borravaló          paid − final on Kész orders
+    Refused and cancelled orders count their difference as neither. Whatever the
+    shape, Kész munkák bontása must still add up to Bevétel.
+    """
     labour = seed_component("Munkadíj", "Alap", "db", "service", "1", "8000")
-    _offer_with_payments("done", "12000", [], labour)  # delivered, not paid yet
-    _offer_with_payments("done", "10000", [("cash", "9000")], labour)  # short by 1 000
+    _offer_with_payments(status, final, [("cash", paid)] if paid else [], labour)
 
     st = _collect()
-    d = st.done_split
-    assert d.planned == Decimal("12000")
-    assert d.shortfall == Decimal("1000")
-    assert st.kpis.revenue == Decimal("9000")
+    assert st.kpis.revenue == Decimal(revenue)
+    assert st.kpis.planned == Decimal(planned)
+    assert st.done_split.shortfall == Decimal(shortfall)
+    assert st.done_split.tip == Decimal(tip)
     assert st.done_total == st.kpis.revenue
 
 
-def test_the_stats_page_shows_the_new_rows(clean_db):
-    _offer_with_payments("deposit", "30000", [("revolut", "5000")])
+def test_tervezett_and_hiany_sit_beside_bevetel_not_inside_it(clean_db):
+    """Neither is money received: both are KPIs next to Bevétel, and Tervezett
+    bevétel never appears inside Kész munkák bontása."""
+    import re
+
+    _offer_with_payments("deposit", "30000", [("revolut", "5000")])  # 25 000 planned
+    _offer_with_payments("done", "10000", [("cash", "9000")])  # 1 000 Hiány
     html = client.get("/stats").text
-    for label in ("Fizetési mód", "Tervezett bevétel", "Előleg (még nem kész rendelések)"):
-        assert label in html, label
-    assert "Bevétel bontása" in html and "Kész munkák bontása" not in html
+
+    def kpi(label: str) -> str:
+        m = re.search(label + r'</p>\s*<p class="cp-kpi__value">([^<]+)</p>', html)
+        assert m, label
+        return m.group(1).replace("\xa0", " ").strip()
+
+    assert kpi("Bevétel") == "14 000 Ft"
+    assert kpi("Tervezett bevétel") == "25 000 Ft"
+    assert kpi("Hiány") == "1 000 Ft"
+    block = re.search(r"Kész munkák bontása.*?</table>", html, re.S).group(0)
+    assert "Tervezett bevétel" not in block
+    assert "Fizetési mód" in html and "Előleg (folyamatban lévő rendelések)" in block

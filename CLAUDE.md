@@ -160,10 +160,13 @@ hang.
   (an import, a script, a new endpoint) must keep `paid == SUM(lines)`, or Bevétel
   and Fizetési mód silently disagree. The portability importer backfills pre-0009
   backups for exactly this reason.
-- **Bevétel is cash received, on every status.** Not a quote, not Kész-only. Its
-  breakdown reconciles via two separate negative rows: **Tervezett bevétel** (Kész,
-  no payment recorded yet — still to come) and **Hiány** (a recorded payment fell
-  short — a collection fault). The owner distinguishes these; never merge them.
+- **Bevétel is cash received, on every status** — never a quote. Two figures sit
+  BESIDE it and are never part of it: **Tervezett bevétel** (final − paid on
+  ONGOING orders: draft/sent/accepted/deposit — still to come) and **Hiány** (final
+  − paid on Kész orders, nothing paid counting as 0 — a collection error, money
+  that will not come). For refused/cancelled orders the gap counts as neither. The
+  owner defined these precisely after two rounds of getting it wrong; the full table
+  is in ARCHITECTURE §7 and pinned status-by-status in test_profit.py.
 - **Hiány is not a discount.** `done_split.shortfall` is quote − CASH: money that
   should have arrived and did not, so it should normally be **zero** (a non-zero
   value means something went wrong upstream). An intentional price cut is a

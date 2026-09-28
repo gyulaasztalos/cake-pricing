@@ -28,6 +28,9 @@ from sqlalchemy.orm import Session
 # (Előlegezve) is included so an accepted offer that receives a deposit does not
 # fall out of revenue.
 WON = ("accepted", "deposit", "done", "cancelled")
+# Orders still in progress: anything not yet finished, refused or cancelled. What
+# they have not paid yet is Tervezett bevétel — expected, not received.
+ONGOING = ("draft", "sent", "accepted", "deposit")
 # Statuses that left the draft stage (were actually sent to a customer).
 # 'cancelled' belongs here as well as in WON — win_rate is won/sent_out, so a
 # status counted as won but not as sent would push the rate above 100%.
@@ -68,6 +71,9 @@ class Kpis:
     drafts: int
     win_rate: float  # won / sent_out, 0..1
     revenue: Decimal  # money actually received: Σ Fizetve over every offer
+    # Tervezett bevétel: Σ (final_price − paid) on ONGOING orders — still to come.
+    # Deliberately NOT part of revenue; shown beside it.
+    planned: Decimal
     avg_offer: Decimal  # mean final price of a finished (Kész) order
     new_customers: int
 
@@ -91,25 +97,23 @@ class PortionStat:
 
 @dataclass(frozen=True)
 class DoneSplit:
-    """The Bevétel breakdown: where the received money came from.
+    """Kész munkák bontása: what the received money (Bevétel) is made of.
 
-    The cost and profit lines stay scoped to FINISHED (Kész) work — only a
-    delivered cake has earned its Munkadíj and its materials. Money received on
-    anything else gets its own row (a cancellation's kept deposit, a deposit on an
-    order not finished yet), and a finished order's quoted price that has not been
-    received shows as the NEGATIVE Tervezett bevétel, so the rows still add up to
-    Bevétel exactly.
+    The finished-work rows — cost lines, Üzleti profit, Borravaló — are scoped to
+    Kész. Money received on other work gets its own row: deposits on ongoing
+    orders, and fees kept on cancelled ones. Hiány (a Kész order paid less than its
+    final price) is subtracted: costs + profit add up to the QUOTE, and a short-paid
+    order brought in less than that. Tervezett bevétel is NOT here — it has not
+    been received, so it sits beside Bevétel as its own KPI.
     """
 
     base_rows: list[tuple[str, Decimal]]  # each Alap-group component, by name
     tip: Decimal  # Σ (paid − final_price) where positive
-    shortfall: Decimal  # Σ (final_price − paid) where positive — money never collected
-    cancellation: Decimal  # Σ paid on CANCELLED offers — kept deposits
-    open_deposits: Decimal  # Σ paid on offers not finished yet (neither done nor cancelled)
-    # Σ final_price of FINISHED offers with no payment recorded yet — quoted, still
-    # to come. Distinct from `shortfall`, which is a payment that WAS recorded but
-    # fell short (a collection fault); this is money simply not received yet.
-    planned: Decimal
+    # Hiány: Σ (final_price − paid) on Kész orders, a missing payment counting as 0 —
+    # a collection error, money that will not come. Shown beside Bevétel too.
+    shortfall: Decimal
+    cancellation: Decimal  # Σ paid on cancelled (and refused) offers — kept fees
+    open_deposits: Decimal  # Σ paid on ONGOING orders — deposits
     materials: Decimal  # everything outside the Alap group
 
 
@@ -149,30 +153,20 @@ class Stats:
 
     @property
     def done_total(self) -> Decimal:
-        """Bottom line of the Bevétel breakdown.
+        """Bottom line of Kész munkák bontása.
 
         Equals `kpis.revenue` by construction: every received forint is a cost
-        line, profit, a tip, a kept cancellation deposit or a deposit on an open
-        order — less what a finished order was quoted but has not paid (Hiány if a
-        payment fell short, Tervezett bevétel if none was recorded yet). Shown as
-        the "Összesen" row so the identity is visible, and asserted by the
-        reconciliation tests in test_profit.py.
+        line, Üzleti profit, Borravaló, a deposit on ongoing work or a kept
+        cancellation fee — less Hiány, what a finished order was quoted but never
+        paid. Shown as the "Összesen" row so the identity is visible, and asserted
+        by the reconciliation tests in test_profit.py.
         """
         if self.done_split is None:
             return Decimal(0)
         base = sum((v for _, v in self.done_split.base_rows), Decimal(0))
         profit = self.biz_profit.total if self.biz_profit else Decimal(0)
         d = self.done_split
-        return (
-            base
-            + d.materials
-            + profit
-            + d.tip
-            - d.shortfall
-            - d.planned
-            + d.cancellation
-            + d.open_deposits
-        )
+        return base + d.materials + profit + d.tip - d.shortfall + d.cancellation + d.open_deposits
 
 
 def _year_guard(local_expr: str) -> str:
@@ -217,6 +211,10 @@ def _kpis(session: Session, year: int | None) -> Kpis:
               COUNT(*) FILTER (WHERE o.status IN :sent_out) AS sent_out,
               COUNT(*) FILTER (WHERE o.status = 'draft') AS drafts,
               COALESCE(SUM({_REVENUE}), 0) AS revenue,
+              COALESCE(
+                SUM(GREATEST(o.final_price - COALESCE(o.paid, 0), 0))
+                  FILTER (WHERE o.status IN :ongoing AND o.final_price IS NOT NULL), 0
+              ) AS planned,
               -- the value of a finished order, which a cash total over every
               -- status (deposits on open orders included) cannot give
               COALESCE(
@@ -228,8 +226,9 @@ def _kpis(session: Session, year: int | None) -> Kpis:
         ).bindparams(
             bindparam("won", expanding=True),
             bindparam("sent_out", expanding=True),
+            bindparam("ongoing", expanding=True),
         ),
-        {"year": year, "won": list(WON), "sent_out": list(SENT_OUT)},
+        {"year": year, "won": list(WON), "sent_out": list(SENT_OUT), "ongoing": list(ONGOING)},
     ).one()
 
     cust_local = "timezone('Europe/Budapest', c.entry_date)"
@@ -250,6 +249,7 @@ def _kpis(session: Session, year: int | None) -> Kpis:
         drafts=int(row.drafts),
         win_rate=(won / sent_out) if sent_out else 0.0,
         revenue=revenue,
+        planned=Decimal(row.planned),
         avg_offer=Decimal(row.avg_offer),
         new_customers=new_customers,
     )
@@ -433,9 +433,9 @@ def _done_split(session: Session, year: int | None) -> DoneSplit:
     shortfall = _money(
         session,
         f"""
-        SELECT COALESCE(SUM(GREATEST(o.final_price - o.paid, 0)), 0)
+        SELECT COALESCE(SUM(GREATEST(o.final_price - COALESCE(o.paid, 0), 0)), 0)
         FROM offers o
-        WHERE o.status = 'done' AND o.paid IS NOT NULL AND o.final_price IS NOT NULL
+        WHERE o.status = 'done' AND o.final_price IS NOT NULL
           AND {_year_guard(_LOCAL_CREATED)}
         """,  # nosec B608
         year=year,
@@ -451,7 +451,11 @@ def _done_split(session: Session, year: int | None) -> DoneSplit:
         f"""
         SELECT COALESCE(SUM(COALESCE(o.paid, 0)), 0)
         FROM offers o
-        WHERE o.status = 'cancelled'
+        -- A refused offer should carry no payment at all; if one does, it is money
+        -- kept on work that will not be delivered — the same thing as a
+        -- cancellation fee — and it must land in SOME row, or the block would stop
+        -- adding up to Bevétel.
+        WHERE o.status IN ('cancelled', 'rejected')
           AND {_year_guard(_LOCAL_CREATED)}
         """,  # nosec B608
         year=year,
@@ -464,23 +468,11 @@ def _done_split(session: Session, year: int | None) -> DoneSplit:
         f"""
         SELECT COALESCE(SUM(COALESCE(o.paid, 0)), 0)
         FROM offers o
-        WHERE o.status NOT IN ('done', 'cancelled')
+        WHERE o.status = ANY(:ongoing)
           AND {_year_guard(_LOCAL_CREATED)}
         """,  # nosec B608
         year=year,
-    )
-    # A finished order with no payment recorded yet: its quote is in the cost +
-    # profit lines above but none of it has been received, so it is taken back out
-    # here. Not a Hiány — nothing was short-paid, it simply has not arrived.
-    planned = _money(
-        session,
-        f"""
-        SELECT COALESCE(SUM(o.final_price), 0)
-        FROM offers o
-        WHERE o.status = 'done' AND o.paid IS NULL AND o.final_price IS NOT NULL
-          AND {_year_guard(_LOCAL_CREATED)}
-        """,  # nosec B608
-        year=year,
+        ongoing=list(ONGOING),  # a list binds as a PG array for ANY()
     )
     return DoneSplit(
         base_rows=base_rows,
@@ -488,7 +480,6 @@ def _done_split(session: Session, year: int | None) -> DoneSplit:
         shortfall=shortfall,
         cancellation=cancellation,
         open_deposits=open_deposits,
-        planned=planned,
         materials=materials,
     )
 
