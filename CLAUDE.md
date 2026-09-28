@@ -183,6 +183,11 @@ hang.
   intra-day, so a sync can land on a bad snapshot that is gone an hour later. With
   only two rows the median cannot arbitrate, so those are marked unreliable and
   the last known-good price is KEPT and reported rather than overwritten.
+- **Every `/static` script and stylesheet carries `?v={{ version }}`.** A release
+  must never be half-cached: 1.25.0 shipped the new offer form next to a cached
+  1.24 `offer-form.js`, and the Fizetés button did nothing until a hard reload.
+  `tests/test_static_versioning.py` scans the template sources and fails on any
+  reference that forgets it.
 - **Profit % is DERIVED, never stored** — like cost. The offer form shows
   `final_price / calculated_price - 1`; only `app_settings.default_profit_pct`
   (Beállítások, a seeded singleton) is persisted, and it *only* prefills a

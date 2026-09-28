@@ -4,13 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{{ t('app.title') }}{% endblock %}</title>
-  <link rel="stylesheet" href="/static/vendor/pico.min.css">
+  {# Every stylesheet and script carries ?v={{ version }} so a release is never
+     half-cached: a page from the new version must not run against a script from
+     the old one (that is how the 1.25.0 Fizetés button shipped dead). Vendor files
+     too — they change whenever a dependency is upgraded. Enforced by
+     tests/test_static_versioning.py. #}
+  <link rel="stylesheet" href="/static/vendor/pico.min.css?v={{ version }}">
   <link rel="stylesheet" href="/static/vendor/dancing-script.css?v={{ version }}">
   <link rel="stylesheet" href="/static/css/app.css?v={{ version }}">
   <link rel="icon" href="/static/img/favicon-32.png" type="image/png">
   <link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png">
-  <script src="/static/vendor/htmx.min.js" defer></script>
-  <script src="/static/vendor/lucide.min.js" defer></script>
+  <script src="/static/vendor/htmx.min.js?v={{ version }}" defer></script>
+  <script src="/static/vendor/lucide.min.js?v={{ version }}" defer></script>
 </head>
 <body>
   <div class="cp-shell" id="shell">

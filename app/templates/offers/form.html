@@ -3,7 +3,10 @@
 {% block title %}{{ t('offers.new') if not o else t('offers.edit') }} · {{ t('app.title') }}{% endblock %}
 {% block heading %}{{ t('offers.new') if not o else t('offers.edit') }}{% endblock %}
 {% block content %}
-<script src="/static/js/offer-form.js" defer></script>
+{# ?v= busts the browser cache on every release. Without it, 1.25.0 served the new
+   form (with the Fizetés button) next to a cached 1.24 script that had no handler
+   for it, so the button did nothing until a hard reload. #}
+<script src="/static/js/offer-form.js?v={{ version }}" defer></script>
 {% set as_of_val = (o.entry_date if o and o.entry_date else as_of) %}
 {% if o and o.source == 'external' %}
 <p class="cp-muted" style="border-left:3px solid var(--pico-primary);padding-left:.6rem">
