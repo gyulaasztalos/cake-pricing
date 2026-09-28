@@ -68,4 +68,10 @@ jobs:
         run: uv run bandit -c pyproject.toml -r app
 
       - name: Dependency audit (pip-audit)
-        run: uv run pip-audit
+        # --skip-editable: `uv sync` installs THIS app into the venv as an editable
+        # package, and without the flag pip-audit asks PyPI about it too. The app is
+        # not published, so PyPI normally answers 404 and it is skipped — but during
+        # a PyPI outage that pointless request comes back 503 and fails the build.
+        # The app is the only editable install, so every real dependency is still
+        # audited, and an outage while auditing one of THOSE still fails closed.
+        run: uv run pip-audit --skip-editable
