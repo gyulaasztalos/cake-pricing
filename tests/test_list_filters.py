@@ -167,3 +167,23 @@ def test_year_default_falls_back_to_all_when_this_year_is_empty(clean_db):
     old = dt.datetime.now(dt.UTC).year - 3
     _seed_years(old)
     assert f"T{old}" in client.get("/offers").text
+
+
+def test_filter_responses_refresh_the_counters_out_of_band(clean_db):
+    """The filter form is never re-rendered (only #cp-rows is), so a filter
+    response must carry fresh counters for htmx to swap in by id."""
+    hx = {"HX-Request": "true"}
+    r = client.get("/offers?f=1&status=draft&status=sent", headers=hx)
+    assert 'id="cp-filter-count-status" hx-swap-oob="true">2<' in r.text
+    assert 'id="cp-filter-count-year" hx-swap-oob="true">' in r.text
+    r = client.get("/components?group_id=1", headers=hx)
+    assert 'id="cp-filter-count-group_id" hx-swap-oob="true">1<' in r.text
+
+
+def test_a_full_page_load_has_each_counter_exactly_once(clean_db):
+    """The out-of-band copies are for filter responses only; on a full load the
+    rows partial is included in the page, and a second copy would clash."""
+    html = client.get("/offers").text
+    assert html.count('id="cp-filter-count-status"') == 1
+    assert html.count('id="cp-filter-count-year"') == 1
+    assert client.get("/components").text.count('id="cp-filter-count-group_id"') == 1

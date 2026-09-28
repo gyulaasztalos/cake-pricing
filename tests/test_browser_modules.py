@@ -695,3 +695,30 @@ def test_an_edit_made_during_a_slow_recalc_is_not_lost(slow_network, clean_db, s
     # 10 000 + 1 g of Liszt (2 Ft) + the 500 Ft candle — and the candle is still there
     expect(total).to_have_text("10 502 Ft", timeout=15000)
     expect(group("Extra").locator(".cp-line")).to_have_count(1)
+
+
+def test_the_status_filter_counter_follows_the_ticked_boxes(page: Page, clean_db):
+    """It used to keep its first-load value: only the rows were re-rendered."""
+    page.goto("/offers")
+    count = page.locator("#cp-filter-count-status")
+    expect(count).to_have_text("4")  # the default: the four active statuses
+    page.locator('details[data-filter="status"] summary').click()
+    page.locator('details[data-filter="status"] input[value="draft"]').uncheck()
+    expect(count).to_have_text("3")
+    page.locator('details[data-filter="status"] input[value="done"]').check()
+    expect(count).to_have_text("4")
+
+
+def test_a_filter_counter_appears_when_the_first_box_is_ticked(
+    page: Page, clean_db, seed_component
+):
+    """From nothing selected (badge hidden) to one — the badge must exist to be
+    updated, so it is always rendered, just empty."""
+    seed_component("Liszt", "Piskóta", "g", "ingredient", "1000", "2000")
+    page.goto("/components")
+    count = page.locator("#cp-filter-count-group_id")
+    expect(count).to_be_hidden()
+    page.locator('details[data-filter="group_id"] summary').click()
+    page.locator('details[data-filter="group_id"] input[type=checkbox]').first.check()
+    expect(count).to_have_text("1")
+    expect(count).to_be_visible()

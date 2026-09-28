@@ -214,6 +214,9 @@ input.cp-underpaid { border-color: #991b1b; }
 .cp-filter > summary::-webkit-details-marker { display: none; }
 .cp-filter > summary::after { content: "▾"; color: var(--pico-muted-color); }
 .cp-filter[open] > summary { border-color: var(--pico-primary); }
+/* Nothing selected: the badge stays in the DOM (an out-of-band swap needs a
+   target) but is not shown. */
+.cp-filter__count:empty { display: none; }
 .cp-filter__count {
   font-size: .7rem; padding: 0 .4rem; border-radius: 1rem;
   background: var(--pico-primary); color: var(--pico-primary-inverse);

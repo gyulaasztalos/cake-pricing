@@ -29,3 +29,10 @@
   <li class="cp-muted" style="padding:1rem">{{ t('empty.no_results') }}</li>
   {% endfor %}
 </ul>
+{# HTMX filter responses only: refresh the filter counters, which live in the form
+   outside #cp-rows. Never on a full page load — the form already has them there,
+   and a second copy would duplicate the ids. #}
+{% if request.headers.get('HX-Request') %}
+  {{ m.filter_count('status', selected_status, oob=True) }}
+  {{ m.filter_count('year', selected_years, oob=True) }}
+{% endif %}

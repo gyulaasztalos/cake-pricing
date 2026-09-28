@@ -23,9 +23,18 @@
    `options` is a list of (value, label) pairs; `selected` is a set/list of the
    selected values (compared as strings). The enclosing form's HTMX trigger must
    include `change from:input[type=checkbox]` so ticking a box re-runs the query. #}
+{# The "how many are selected" badge of a multiselect filter. The filter form is
+   never re-rendered — a filter change swaps only #cp-rows — so the rows partial
+   re-sends this badge out-of-band (oob=True) and htmx replaces it by id; without
+   that it kept its first-load count. Always rendered, empty and hidden by CSS at
+   0, so there is an element to land on when the first box is ticked. #}
+{% macro filter_count(name, selected, oob=false) -%}
+<span class="cp-filter__count" id="cp-filter-count-{{ name }}"{% if oob %} hx-swap-oob="true"{% endif %}>{{ selected|length if selected else '' }}</span>
+{%- endmacro %}
+
 {% macro multiselect(name, label, options, selected, badge_prefix="") %}
 <details class="cp-filter" data-filter="{{ name }}">
-  <summary>{{ label }}{% if selected %} <span class="cp-filter__count">{{ selected|length }}</span>{% endif %}</summary>
+  <summary>{{ label }} {{ filter_count(name, selected) }}</summary>
   <div class="cp-filter__menu">
     {% for value, text in options %}
     <label><input type="checkbox" name="{{ name }}" value="{{ value }}" {{ 'checked' if (value|string) in (selected|map('string')|list) }}>
