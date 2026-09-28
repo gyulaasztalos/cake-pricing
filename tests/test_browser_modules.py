@@ -655,3 +655,43 @@ def test_changing_the_year_resets_the_month(page: Page, clean_db):
     page.locator('select[name="year"]').select_option("2025")
     page.wait_for_url("**/stats?year=2025*")
     expect(page.locator('select[name="month"]')).to_have_value("")
+
+
+@pytest.fixture
+def slow_network(page: Page) -> Page:
+    """1.5 s of browser-side latency on every request — long enough that an edit
+    made while a recalc is in flight reliably lands before its response does."""
+    cdp = page.context.new_cdp_session(page)
+    cdp.send("Network.enable")
+    cdp.send(
+        "Network.emulateNetworkConditions",
+        {"offline": False, "latency": 1500, "downloadThroughput": -1, "uploadThroughput": -1},
+    )
+    return page
+
+
+def test_an_edit_made_during_a_slow_recalc_is_not_lost(slow_network, clean_db, seed_component):
+    """Every recalc redraws the lines from the form as it was when the request
+    LEFT. A line the chef added while one was in flight used to be wiped by that
+    stale response — an Extra-group candle vanished and its 500 Ft never reached
+    the total. A response built from an older form must be discarded instead."""
+    page = slow_network
+    seed_component("Munkadíj", "Alap", "db", "service", "1", "10000")
+    seed_component("Liszt", "Piskóta", "g", "ingredient", "1000", "2000")
+    seed_component("Gyertya", "Extra", "db", "ingredient", "1", "500")
+    page.goto("/offers/new")
+    total = page.locator("#calc-total")
+    expect(total).to_have_text("10 000 Ft", timeout=10000)
+
+    def group(name: str):
+        return page.locator(".cp-group", has=page.locator(f'text="{name}"')).first
+
+    group("Piskóta").locator("button.cp-add-line").click()
+    group("Piskóta").locator("select[name=component_id]").select_option(label="Liszt")
+    # A recalc is now in flight. Before it returns, add the candle.
+    group("Extra").locator("button.cp-add-line").click()
+    group("Extra").locator("select[name=component_id]").select_option(label="Gyertya")
+
+    # 10 000 + 1 g of Liszt (2 Ft) + the 500 Ft candle — and the candle is still there
+    expect(total).to_have_text("10 502 Ft", timeout=15000)
+    expect(group("Extra").locator(".cp-line")).to_have_count(1)

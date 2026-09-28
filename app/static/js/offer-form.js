@@ -27,10 +27,21 @@
   // can duplicate lines).
   let _recalcBusy = false;
   let _recalcQueued = false;
+  // Edits made while a recalc is in flight must survive its response. The server
+  // renders #sections from the form AS IT WAS WHEN THE REQUEST LEFT, so swapping
+  // that response in after the chef added or changed a line would silently wipe
+  // her edit — seen in practice: an Extra-group candle added during a slow recalc
+  // vanished, and its cost never reached the total. So every edit bumps a counter,
+  // each request records the count it was built from, and a response built from
+  // an older form is discarded in favour of a fresh recalc (htmx:beforeSwap below).
+  let _edits = 0;
+  let _sentEdits = 0;
+  function edited() { _edits++; }
   window.cpRecalc = function () {
     const s = sectionsEl();
     const f = formEl();
     if (!s || !f || !window.htmx) return;
+    edited();
     if (_recalcBusy) { _recalcQueued = true; return; }
     // Serialize the form ourselves — htmx.ajax() does not gather form fields from
     // `source` reliably for programmatic POSTs. Build a values object incl. the
@@ -44,6 +55,7 @@
         values[key] = val;
       }
     });
+    _sentEdits = _edits;
     _recalcBusy = true;
     htmx.ajax("POST", "/offers/recalc", { target: "#sections", swap: "innerHTML", values: values })
       .finally(() => {
@@ -60,6 +72,25 @@
     clearTimeout(_t);
     _t = setTimeout(window.cpRecalc, RECALC_DELAY_MS);
   };
+
+  // Discard a recalc response that was built from an older form (see _edits).
+  // The finally() in cpRecalc then re-runs it against the form as it is NOW.
+  document.body.addEventListener("htmx:beforeSwap", function (e) {
+    const d = e.detail;
+    if (!d || !d.target || d.target.id !== "sections") return;
+    if (!d.xhr || !/\/offers\/recalc$/.test(d.xhr.responseURL || "")) return;
+    if (_edits !== _sentEdits) {
+      d.shouldSwap = false;
+      _recalcQueued = true;
+    }
+  });
+  // Typing or choosing inside the lines is an edit the moment it happens — before
+  // the (debounced) recalc it schedules has even fired.
+  ["input", "change"].forEach(function (type) {
+    document.addEventListener(type, function (e) {
+      if (e.target && e.target.closest && e.target.closest("#sections")) edited();
+    }, true);
+  });
 
   // --- Keep the caret in the amount field across the recalc swap -------------
   // The recalc replaces #sections wholesale, which would otherwise blow away
@@ -120,6 +151,7 @@
       '<span class="cp-line-cost"></span>' +
       '<button type="button" class="outline secondary" onclick="this.closest(\'.cp-line\').remove(); cpRecalc();"><i data-lucide="trash-2"></i></button>';
     lines.appendChild(line);
+    edited();  // a new blank line is an edit too: an in-flight response lacks it
     window.lucide && lucide.createIcons();
   };
 

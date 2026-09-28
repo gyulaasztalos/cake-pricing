@@ -183,6 +183,13 @@ hang.
   intra-day, so a sync can land on a bad snapshot that is gone an hour later. With
   only two rows the median cannot arbitrate, so those are marked unreliable and
   the last known-good price is KEPT and reported rather than overwritten.
+- **A recalc response built from an older form is discarded, never swapped in.**
+  The server redraws `#sections` from the form as it was when the request left, so
+  swapping a stale response wipes whatever the chef added meanwhile. Every edit
+  bumps `_edits` in `offer-form.js`; keep new line-editing code calling `edited()`
+  (or `cpRecalc`, which does). Guarded by
+  `test_an_edit_made_during_a_slow_recalc_is_not_lost`, which runs under 1.5 s of
+  simulated latency.
 - **Every `/static` script and stylesheet carries `?v={{ version }}`.** A release
   must never be half-cached: 1.25.0 shipped the new offer form next to a cached
   1.24 `offer-form.js`, and the Fizetés button did nothing until a hard reload.

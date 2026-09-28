@@ -168,7 +168,7 @@ filecache = [
 
 [[package]]
 name = "cake-pricing"
-version = "1.27.0"
+version = "1.27.1"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
