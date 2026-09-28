@@ -631,3 +631,27 @@ def test_fizetve_is_the_live_sum_of_the_payment_lines(page: Page, clean_db, seed
     page.locator(".cp-payment-remove").nth(0).click()
     page.locator(".cp-payment-remove").nth(0).click()
     expect(paid).to_have_value("")  # nothing recorded, not 0
+
+
+def test_changing_the_year_resets_the_month(page: Page, clean_db):
+    """June 2025 is not a sensible carry-over when the chef jumps to another year:
+    the month goes back to Összes hónap."""
+    from app.db import SessionLocal
+    from app.models import Customer, Offer
+
+    s = SessionLocal()
+    try:
+        c = Customer(name="Évváltó")
+        s.add(c)
+        s.flush()
+        for year in (2025, 2026):
+            s.add(Offer(customer_id=c.id, entry_date=dt.datetime(year, 6, 1, tzinfo=dt.UTC)))
+        s.commit()
+    finally:
+        s.close()
+
+    page.goto("/stats?year=2026&month=6")
+    expect(page.locator('select[name="month"]')).to_have_value("6")
+    page.locator('select[name="year"]').select_option("2025")
+    page.wait_for_url("**/stats?year=2025*")
+    expect(page.locator('select[name="month"]')).to_have_value("")

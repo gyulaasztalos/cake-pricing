@@ -61,7 +61,9 @@ verified customer requests here as draft offers via a narrow intake API.
   **Tervezett bevétel** (what ongoing orders have still to pay) and **Hiány** (what
   finished orders never paid) — neither counts as revenue. **Kész munkák bontása**
   (each Alap component, anyagköltség, Üzleti profit, borravaló, less Hiány, plus
-  deposits on ongoing orders and cancellation fees) reconciles exactly to Bevétel. Winning an offer is not the same as being paid for
+  deposits on ongoing orders and cancellation fees) reconciles exactly to Bevétel.
+  Pick a year to get a month selector too: a month narrows every figure except
+  the two charts, which always show the whole year month by month. Winning an offer is not the same as being paid for
   it, so the win rate still counts every won offer. Plus KPIs (win rate, revenue, average offer,
   new customers), offers by
   slice count with the average Ft/slice per size, and server-rendered SVG charts;

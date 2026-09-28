@@ -150,6 +150,9 @@ class Stats:
     source_split: dict[str, int] = field(default_factory=dict)
     # Fizetési mód: (method slug, Σ amount), largest first. Sums to kpis.revenue.
     payment_methods: list[tuple[str, Decimal]] = field(default_factory=list)
+    # Selected month (1–12) within `year`, or None for the whole year. Narrows every
+    # metric except the chart series, which always shows the year month by month.
+    month: int | None = None
 
     @property
     def done_total(self) -> Decimal:
@@ -170,14 +173,19 @@ class Stats:
 
 
 def _year_guard(local_expr: str) -> str:
-    """SQL predicate scoping rows to `:year`, or all-time when it is NULL.
+    """SQL predicate scoping rows to `:year` — and within it to `:month` when that
+    is set — or all-time when year is NULL.
 
-    `local_expr` is the local-time timestamp to take the year from. The bind
-    param is CAST so Postgres can type it in the all-time (NULL) case — note
-    `:year::int` would break SQLAlchemy's bind parsing (it guards `::` casts)."""
+    `local_expr` is the local-time timestamp to take the year/month from. The bind
+    params are CAST so Postgres can type them in the NULL case — note `:year::int`
+    would break SQLAlchemy's bind parsing (it guards `::` casts). The month clause
+    is nested under the year one, so a month alone never scopes anything; the
+    router only passes one alongside a year anyway."""
     return (
         f"(CAST(:year AS INTEGER) IS NULL "
-        f"OR EXTRACT(YEAR FROM {local_expr}) = CAST(:year AS INTEGER))"
+        f"OR (EXTRACT(YEAR FROM {local_expr}) = CAST(:year AS INTEGER) "
+        f"AND (CAST(:month AS INTEGER) IS NULL "
+        f"OR EXTRACT(MONTH FROM {local_expr}) = CAST(:month AS INTEGER))))"
     )
 
 
@@ -201,7 +209,7 @@ def available_years(session: Session) -> list[int]:
     return [int(y) for y in rows]
 
 
-def _kpis(session: Session, year: int | None) -> Kpis:
+def _kpis(session: Session, year: int | None, month: int | None = None) -> Kpis:
     row = session.execute(
         text(
             f"""
@@ -228,7 +236,13 @@ def _kpis(session: Session, year: int | None) -> Kpis:
             bindparam("sent_out", expanding=True),
             bindparam("ongoing", expanding=True),
         ),
-        {"year": year, "won": list(WON), "sent_out": list(SENT_OUT), "ongoing": list(ONGOING)},
+        {
+            "year": year,
+            "month": month,
+            "won": list(WON),
+            "sent_out": list(SENT_OUT),
+            "ongoing": list(ONGOING),
+        },
     ).one()
 
     cust_local = "timezone('Europe/Budapest', c.entry_date)"
@@ -236,6 +250,7 @@ def _kpis(session: Session, year: int | None) -> Kpis:
         session,
         f"SELECT COUNT(*) FROM customers c WHERE {_year_guard(cust_local)}",  # nosec B608
         year=year,
+        month=month,
     )
     new_customers = int(cust_count) if isinstance(cust_count, int) else 0
 
@@ -288,19 +303,23 @@ def _series(session: Session, year: int | None) -> tuple[list[SeriesPoint], str]
     return list(by_bucket.values()), kind
 
 
-def _status_counts(session: Session, year: int | None) -> list[tuple[str, int]]:
+def _status_counts(
+    session: Session, year: int | None, month: int | None = None
+) -> list[tuple[str, int]]:
     rows = session.execute(
         text(
             f"SELECT o.status AS s, COUNT(*) AS c FROM offers o "  # nosec B608
             f"WHERE {_year_guard(_LOCAL_CREATED)} GROUP BY o.status"
         ),
-        {"year": year},
+        {"year": year, "month": month},
     ).all()
     counts = {r.s: int(r.c) for r in rows}
     return [(s, counts.get(s, 0)) for s in STATUS_ORDER]
 
 
-def _top(session: Session, column: str, year: int | None, limit: int = 8) -> list[tuple[str, int]]:
+def _top(
+    session: Session, column: str, year: int | None, month: int | None = None, limit: int = 8
+) -> list[tuple[str, int]]:
     # column is a fixed identifier ('flavor'|'theme'|'sponge'), never user input.
     rows = session.execute(
         text(
@@ -309,12 +328,14 @@ def _top(session: Session, column: str, year: int | None, limit: int = 8) -> lis
             f"AND {_year_guard(_LOCAL_CREATED)} "
             f"GROUP BY k ORDER BY c DESC, k ASC LIMIT :lim"
         ),
-        {"year": year, "lim": limit},
+        {"year": year, "month": month, "lim": limit},
     ).all()
     return [(str(r.k), int(r.c)) for r in rows]
 
 
-def _by_portions(session: Session, year: int | None, limit: int = 8) -> list[PortionStat]:
+def _by_portions(
+    session: Session, year: int | None, month: int | None = None, limit: int = 8
+) -> list[PortionStat]:
     """Per slice-count: offer count and the average price per slice.
 
     Only offers that have BOTH a slice count and a final price can yield a
@@ -339,12 +360,14 @@ def _by_portions(session: Session, year: int | None, limit: int = 8) -> list[Por
             f"  GROUP BY o.portions ORDER BY c DESC, p ASC LIMIT :lim"
             f") t ORDER BY p ASC"
         ),
-        {"year": year, "lim": limit},
+        {"year": year, "month": month, "lim": limit},
     ).all()
     return [PortionStat(int(r.p), int(r.c), Decimal(r.avg_pp)) for r in rows]
 
 
-def _avg_per_portion(session: Session, year: int | None) -> Decimal | None:
+def _avg_per_portion(
+    session: Session, year: int | None, month: int | None = None
+) -> Decimal | None:
     """Overall average price per slice — the mean of each offer's own per-slice
     price (not total/total, which would let big cakes dominate the figure)."""
     value = _scalar(
@@ -353,18 +376,19 @@ def _avg_per_portion(session: Session, year: int | None) -> Decimal | None:
         f"WHERE o.portions IS NOT NULL AND o.portions > 0 "
         f"  AND o.final_price IS NOT NULL AND {_year_guard(_LOCAL_CREATED)}",
         year=year,
+        month=month,
     )
     # AVG over NUMERIC comes back as Decimal; NULL (no qualifying rows) as None.
     return value if isinstance(value, Decimal) else None
 
 
-def _source_split(session: Session, year: int | None) -> dict[str, int]:
+def _source_split(session: Session, year: int | None, month: int | None = None) -> dict[str, int]:
     rows = session.execute(
         text(
             f"SELECT o.source AS src, COUNT(*) AS c FROM offers o "  # nosec B608
             f"WHERE {_year_guard(_LOCAL_CREATED)} GROUP BY o.source"
         ),
-        {"year": year},
+        {"year": year, "month": month},
     ).all()
     out = {"internal": 0, "external": 0}
     for r in rows:
@@ -372,7 +396,7 @@ def _source_split(session: Session, year: int | None) -> dict[str, int]:
     return out
 
 
-def _done_split(session: Session, year: int | None) -> DoneSplit:
+def _done_split(session: Session, year: int | None, month: int | None = None) -> DoneSplit:
     """Break FINISHED (Kész) work into where the money went.
 
     The Alap group is listed per COMPONENT by name rather than hardcoding
@@ -395,7 +419,7 @@ def _done_split(session: Session, year: int | None) -> DoneSplit:
                 GROUP BY c.name ORDER BY total DESC, c.name
                 """  # nosec B608
             ),
-            {"year": year, "base_group": BASE_GROUP_NAME},
+            {"year": year, "month": month, "base_group": BASE_GROUP_NAME},
         ).all()
     ]
     materials = _money(
@@ -411,6 +435,7 @@ def _done_split(session: Session, year: int | None) -> DoneSplit:
           AND {_year_guard(_LOCAL_CREATED)}
         """,  # nosec B608
         year=year,
+        month=month,
         base_group=BASE_GROUP_NAME,
     )
     # Tip = whatever was paid ABOVE the quoted price; never negative (a shortfall
@@ -424,6 +449,7 @@ def _done_split(session: Session, year: int | None) -> DoneSplit:
           AND {_year_guard(_LOCAL_CREATED)}
         """,  # nosec B608
         year=year,
+        month=month,
     )
     # …and its mirror: quoted more than was ever collected. NOT a discount — an
     # intentional price cut shows up as (negative) Üzleti profit, because that is a
@@ -439,6 +465,7 @@ def _done_split(session: Session, year: int | None) -> DoneSplit:
           AND {_year_guard(_LOCAL_CREATED)}
         """,  # nosec B608
         year=year,
+        month=month,
     )
     # Money kept from offers the customer cancelled. It carries NO cost line and no
     # profit line: the cost queries above are scoped to 'done', so a cancellation
@@ -459,6 +486,7 @@ def _done_split(session: Session, year: int | None) -> DoneSplit:
           AND {_year_guard(_LOCAL_CREATED)}
         """,  # nosec B608
         year=year,
+        month=month,
     )
     # Deposits on orders still in progress (Elfogadva/Előlegezve, or anything else
     # not Kész/Lemondás). Received, so part of Bevétel — but no cost line exists
@@ -472,6 +500,7 @@ def _done_split(session: Session, year: int | None) -> DoneSplit:
           AND {_year_guard(_LOCAL_CREATED)}
         """,  # nosec B608
         year=year,
+        month=month,
         ongoing=list(ONGOING),  # a list binds as a PG array for ANY()
     )
     return DoneSplit(
@@ -484,7 +513,7 @@ def _done_split(session: Session, year: int | None) -> DoneSplit:
     )
 
 
-def _biz_profit(session: Session, year: int | None) -> BizProfit:
+def _biz_profit(session: Session, year: int | None, month: int | None = None) -> BizProfit:
     """Üzleti profit over finished (Kész/done) offers — quote minus computed cost.
 
     `avg_pct` is the mean of each offer's markup (final_price / calculated_price −
@@ -507,7 +536,7 @@ def _biz_profit(session: Session, year: int | None) -> BizProfit:
               AND {_year_guard(_LOCAL_CREATED)}
             """  # nosec B608
         ),
-        {"year": year},
+        {"year": year, "month": month},
     ).one()
     return BizProfit(
         count=int(row.cnt),
@@ -517,7 +546,9 @@ def _biz_profit(session: Session, year: int | None) -> BizProfit:
     )
 
 
-def _payment_methods(session: Session, year: int | None) -> list[tuple[str, Decimal]]:
+def _payment_methods(
+    session: Session, year: int | None, month: int | None = None
+) -> list[tuple[str, Decimal]]:
     """Money received per payment method, largest first.
 
     Same population as Bevétel — every payment line, whatever the offer's status —
@@ -531,29 +562,30 @@ def _payment_methods(session: Session, year: int | None) -> list[tuple[str, Deci
             f"WHERE {_year_guard(_LOCAL_CREATED)} "
             f"GROUP BY p.method ORDER BY total DESC, p.method"
         ),
-        {"year": year},
+        {"year": year, "month": month},
     ).all()
     return [(str(r.m), Decimal(r.total)) for r in rows]
 
 
-def collect(session: Session, year: int | None) -> Stats:
+def collect(session: Session, year: int | None, month: int | None = None) -> Stats:
     series, kind = _series(session, year)
     return Stats(
         year=year,
+        month=month,
         years=available_years(session),
-        kpis=_kpis(session, year),
+        kpis=_kpis(session, year, month),
         series=series,
         series_kind=kind,
-        status_counts=_status_counts(session, year),
-        top_sponges=_top(session, "sponge", year),
-        top_flavors=_top(session, "flavor", year),
-        top_themes=_top(session, "theme", year),
-        by_portions=_by_portions(session, year),
-        avg_per_portion=_avg_per_portion(session, year),
-        done_split=_done_split(session, year),
-        biz_profit=_biz_profit(session, year),
-        source_split=_source_split(session, year),
-        payment_methods=_payment_methods(session, year),
+        status_counts=_status_counts(session, year, month),
+        top_sponges=_top(session, "sponge", year, month),
+        top_flavors=_top(session, "flavor", year, month),
+        top_themes=_top(session, "theme", year, month),
+        by_portions=_by_portions(session, year, month),
+        avg_per_portion=_avg_per_portion(session, year, month),
+        done_split=_done_split(session, year, month),
+        biz_profit=_biz_profit(session, year, month),
+        source_split=_source_split(session, year, month),
+        payment_methods=_payment_methods(session, year, month),
     )
 
 

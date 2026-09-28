@@ -14,9 +14,15 @@ router = APIRouter()
 
 
 @router.get("/stats", response_class=HTMLResponse)
-def stats_page(request: Request, year: str = "", session: Session = Depends(get_session)):
+def stats_page(
+    request: Request, year: str = "", month: str = "", session: Session = Depends(get_session)
+):
     yr = int(year) if year.strip().isdigit() else None
-    data = stats_svc.collect(session, yr)
+    # A month only means something inside a chosen year, and only 1–12.
+    mo = int(month) if yr is not None and month.strip().isdigit() else None
+    if mo is not None and not 1 <= mo <= 12:
+        mo = None
+    data = stats_svc.collect(session, yr, mo)
 
     # Chart view models: revenue per bucket, and offers-per-bucket with the "won"
     # portion highlighted. Monthly buckets get Hungarian month labels.

@@ -303,3 +303,11 @@ def test_the_detail_view_lists_the_methods(clean_db):
     _save(oid, cid, ["transfer", "cash"], ["5000", "15000"])
     html = client.get(f"/offers/detail/{oid}").text
     assert "Utalás" in html and "Készpénz" in html
+
+
+def test_payment_methods_are_listed_alphabetically(clean_db):
+    """By the label the chef reads, not the slug."""
+    html = client.get("/offers/new").text
+    row = html[html.index('id="payment-line-tpl"') :]
+    positions = [row.index(label) for label in ("Készpénz", "Revolut", "Utalás")]
+    assert positions == sorted(positions)

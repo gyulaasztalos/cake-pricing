@@ -280,3 +280,62 @@ def test_a_cancelled_offer_counts_as_won_but_is_still_sent(clean_db):
     assert k.sent_out == 3
     assert 0 <= k.win_rate <= 1
     assert round(k.win_rate, 2) == 0.33
+
+
+def _paid_offer(session, customer_id, when, final, paid):
+    from app.models import Offer, OfferPayment
+
+    o = Offer(
+        customer_id=customer_id,
+        status="done",
+        entry_date=when,
+        final_price=Decimal(final),
+        paid=Decimal(paid),
+    )
+    o.payments = [OfferPayment(method="cash", amount=Decimal(paid))]
+    session.add(o)
+    session.commit()
+
+
+@pytestmark_db
+def test_a_month_narrows_every_applicable_metric(clean_db, session):
+    """Picking a month inside a year scopes the KPIs, breakdowns and tables to it.
+    The chart is the exception: it keeps showing the whole year month by month —
+    a single-bar chart would say nothing."""
+    from app.models import Customer
+
+    june_c = Customer(name="Júniusi", entry_date=_dt(2026, 6, 10))
+    july_c = Customer(name="Júliusi", entry_date=_dt(2026, 7, 10))
+    session.add_all([june_c, july_c])
+    session.commit()
+    _paid_offer(session, june_c.id, _dt(2026, 6, 12), "10000", "10000")
+    _paid_offer(session, june_c.id, _dt(2026, 6, 20), "20000", "20000")
+    _paid_offer(session, july_c.id, _dt(2026, 7, 5), "40000", "40000")
+
+    year = stats_svc.collect(session, 2026)
+    june = stats_svc.collect(session, 2026, 6)
+    assert year.kpis.total == 3 and year.kpis.revenue == Decimal("70000")
+    assert june.month == 6
+    assert june.kpis.total == 2
+    assert june.kpis.revenue == Decimal("30000")
+    assert june.kpis.new_customers == 1
+    assert june.payment_methods == [("cash", Decimal("30000"))]
+    assert june.done_total == june.kpis.revenue  # the breakdown narrows with it
+    # the chart still spans the year: July's offer is on it
+    assert len(june.series) == 12 and june.series[6].offers == 1
+
+
+@pytestmark_db
+def test_the_month_selector_only_appears_inside_a_year(clean_db):
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    client = TestClient(app)
+    assert 'name="month"' not in client.get("/stats").text
+    html = client.get("/stats?year=2026").text
+    assert 'name="month"' in html and "Összes hónap" in html
+    assert "2026. június adatai" in client.get("/stats?year=2026&month=6").text
+    # a month without a year, or out of range, is ignored rather than an error
+    assert client.get("/stats?month=6").status_code == 200
+    assert "2026. évi adatok" in client.get("/stats?year=2026&month=13").text

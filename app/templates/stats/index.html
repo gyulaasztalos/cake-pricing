@@ -3,18 +3,32 @@
 {% block title %}{{ t('stats.title') }} · {{ t('app.title') }}{% endblock %}
 {% block heading %}{{ t('stats.title') }}{% endblock %}
 {% block topbar_actions %}
-  <form method="get" action="/stats" style="margin:0">
-    <select name="year" onchange="this.form.submit()" aria-label="{{ t('stats.title') }}">
+  <form method="get" action="/stats" style="margin:0;display:flex;gap:.5rem;align-items:center">
+    {# Changing the year resets the month to Összes: June 2025 is not a sensible
+       carry-over when the chef jumps to 2026. #}
+    <select name="year" style="margin:0" aria-label="{{ t('stats.title') }}"
+            onchange="if (this.form.month) this.form.month.value = ''; this.form.submit()">
       <option value="" {{ 'selected' if s.year is none }}>{{ t('stats.all_years') }}</option>
       {% for y in s.years %}
         <option value="{{ y }}" {{ 'selected' if s.year == y }}>{{ y }}</option>
       {% endfor %}
     </select>
+    {# Only once a year is picked: a month on its own means nothing. #}
+    {% if s.year is not none %}
+    <select name="month" style="margin:0" onchange="this.form.submit()" aria-label="{{ t('stats.month') }}">
+      <option value="" {{ 'selected' if s.month is none }}>{{ t('stats.all_months') }}</option>
+      {% for mo in range(1, 13) %}
+        <option value="{{ mo }}" {{ 'selected' if s.month == mo }}>{{ t('month.' ~ mo) | capitalize }}</option>
+      {% endfor %}
+    </select>
+    {% endif %}
   </form>
 {% endblock %}
 {% block content %}
   <p class="cp-muted">
-    {% if s.year is none %}{{ t('stats.scope.all') }}{% else %}{{ t('stats.scope.year', year=s.year) }}{% endif %}
+    {% if s.year is none %}{{ t('stats.scope.all') }}
+    {% elif s.month is none %}{{ t('stats.scope.year', year=s.year) }}
+    {% else %}{{ t('stats.scope.month', year=s.year, month=t('month.' ~ s.month)) }}{% endif %}
   </p>
 
   {% if s.kpis.total == 0 %}

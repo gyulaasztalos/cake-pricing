@@ -293,7 +293,9 @@ def _form_context(session: Session, offer: Offer | None, pairs, as_of) -> dict:
             "customers": customers,
             "recipes": recipes,
             "statuses": STATUSES,
-            "payment_methods": PAYMENT_METHODS,
+            # Alphabetical by the label the chef reads (Készpénz, Revolut, Utalás),
+            # not by the slug. A fresh row starts on the first of them.
+            "payment_methods": sorted(PAYMENT_METHODS, key=lambda m: t(f"payment.{m}").casefold()),
             "active_nav": "offers",
             "as_of": as_of,
         }
