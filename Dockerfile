@@ -24,7 +24,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
 # ---- final: slim runtime, non-root ----------------------------------------
-FROM python:3.14-slim-trixie AS final
+FROM python:3.15-slim-trixie AS final
 LABEL name="cake-pricing"
 
 ARG USERNAME=app
