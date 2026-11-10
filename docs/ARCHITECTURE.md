@@ -303,7 +303,9 @@ alerts).
 
 ## 11. Deployment topology
 
-- **Image**: multi-arch `python:3.14-slim`, `uvicorn app.main:app` on `:8000`.
+- **Image**: multi-arch `python:3.15-slim-trixie` (the uv builder stage uses the
+  same Python image), `uvicorn app.main:app` on `:8000`. Built and released
+  automatically when a merged PR changes the image contents.
 - **k3s / ArgoCD** (`apps/cake-pricing/install/`): Deployment, Service, Traefik
   IngressRoute **behind Authentik forward-auth** (internal host, no public
   tunnel), plus the price-sync **CronJob** and its SMTP ExternalSecret. `readyz`

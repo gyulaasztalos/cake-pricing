@@ -80,19 +80,35 @@ hang.
   machine-accessed endpoint carrying customer data must do the same.
 - **`.venv/bin/…` for tools; `uv lock` after editing deps (incl. after a version
   bump — the lock records the package version).**
-- **Release/version bump** (deploy is Helm-chart-based). Bump `pyproject.toml` +
-  `app/__init__.py`, run `uv lock`, then bump `image.tag` in **both** values files:
-  1. `../homelab-charts/charts/cake-pricing/values.yaml`
-  2. `../ArgoCD/apps/cake-pricing/values.yaml`
-  That single tag now drives **all three** workloads — Deployment, migrate Job, and
-  price-sync CronJob — because the Jobs live in the chart (`jobs:` / `cronJobs:`,
-  `common >= 0.6.0`), not as raw manifests. Verify with
-  `helm template charts/cake-pricing | grep image:` (expect one tag everywhere).
-  The migrate Job runs `alembic upgrade head` **before** the new app starts; if its
-  image ever lagged the Deployment, a release with a migration would deploy an app
-  whose DB lacks the new column (this bit us at 1.11.0 → `offers.paid` 500s, back
-  when the Jobs were separate hardcoded manifests). A semver git tag builds/pushes
-  the image. Run the full gate set before committing.
+- **Releases are automatic** (`.github/workflows/auto-release.yml`). When a merged
+  PR changes anything that goes into the image (`app/`, `migrations/`,
+  `alembic.ini`, `schema.sql`, `scripts/`, `Dockerfile`, `.dockerignore`,
+  `pyproject.toml`, `uv.lock`), the workflow waits for CI on the merge, bumps the
+  **patch** version in `pyproject.toml` + `app/__init__.py` + `uv.lock` (commit
+  `chore(release): X.Y.Z (#PR)`), tags `vX.Y.Z`, publishes a GitHub release whose
+  notes are the commit subjects since the previous tag, and dispatches
+  `build-and-push.yml` for the tag. Tests/docs/CI-only merges and direct pushes to
+  `main` don't release. **Minor/major**: set the version by hand in the PR (all
+  three files, then `uv lock`); the workflow releases that version instead of
+  bumping. Don't push release tags by hand: a manual tag skips the version bump.
+- **Deployed image tag**: Renovate bumps `image.tag` in **both**
+  `../homelab-charts/charts/cake-pricing/values.yaml` and
+  `../ArgoCD/apps/cake-pricing/values.yaml` once the new image is on Docker Hub, so
+  there's nothing to edit there by hand. That single tag drives **all three**
+  workloads — Deployment, migrate Job, and price-sync CronJob — because the Jobs
+  live in the chart (`jobs:` / `cronJobs:`, `common >= 0.6.0`), not as raw
+  manifests. Verify with `helm template charts/cake-pricing | grep image:` (expect
+  one tag everywhere). The migrate Job runs `alembic upgrade head` **before** the
+  new app starts; if its image ever lagged the Deployment, a release with a
+  migration would deploy an app whose DB lacks the new column (this bit us at
+  1.11.0 → `offers.paid` 500s, back when the Jobs were separate hardcoded
+  manifests). Run the full gate set before merging.
+- **Docker: builder and runtime use the same Python image.** The venv's interpreter
+  is a link into the builder's Python, so both stages are `FROM python:X.Y-slim-*`
+  and uv is copied in (`COPY --from=ghcr.io/astral-sh/uv:…`); Renovate then bumps
+  both `FROM` lines in one PR. A `uv:…-python3.N` builder against a different
+  runtime Python produces an image that can't start (the runtime moved to 3.15
+  alone on 2026-10-13).
 - **`see_other()` after every write** (commit-before-redirect); the intake API
   **commits before its 201** because cake-order marks its order forwarded on that
   ack.

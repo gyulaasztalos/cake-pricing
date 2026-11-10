@@ -1,0 +1,194 @@
+name: Auto release
+
+# Cuts a patch release whenever a merged pull request changes something that ends
+# up in the image: application code, migrations, the Dockerfile or the
+# dependencies (so Renovate dependency and security updates ship on their own).
+# Tests, docs, .github and renovate.json changes release nothing, because the
+# paths filter below never matches them. Commits pushed straight to main, without
+# a pull request, are ignored.
+#
+# Steps: wait for CI on the merge commit -> bump the version in pyproject.toml,
+# app/__init__.py and uv.lock -> tag -> GitHub release (notes = commit subjects
+# since the previous release) -> build-and-push.yml for the new tag. Renovate in
+# homelab-charts and ArgoCD then picks up the new image tag.
+#
+# Tags pushed with GITHUB_TOKEN don't start other workflows, so this job starts
+# the image build explicitly (a workflow_dispatch is the one event it may send).
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "app/**"
+      - "migrations/**"
+      - "alembic.ini"
+      - "schema.sql"
+      - "scripts/**"
+      - "Dockerfile"
+      - ".dockerignore"
+      - "pyproject.toml"
+      - "uv.lock"
+
+permissions:
+  contents: write
+  actions: write
+
+# One release at a time, in merge order
+concurrency:
+  group: auto-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Find the merged pull request
+        id: pr
+        run: |
+          PR_NUMBER="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
+            --jq '[.[] | select(.merged_at != null)][0].number // empty')"
+          if [ -z "${PR_NUMBER}" ]
+          then
+            echo "Commit ${GITHUB_SHA} did not come from a merged pull request, so no release."
+          fi
+          echo "number=${PR_NUMBER}" >> "${GITHUB_OUTPUT}"
+
+      - name: Wait for CI on the merge commit
+        if: steps.pr.outputs.number != ''
+        run: |
+          # The CI run starts together with this one; give it time to register
+          RUN_ID=""
+          for ATTEMPT in 1 2 3 4 5 6 7 8 9 10 11 12
+          do
+            RUN_ID="$(gh run list --repo "${GITHUB_REPOSITORY}" --commit "${GITHUB_SHA}" \
+              --workflow CI --event push --json databaseId --jq '.[0].databaseId // empty')"
+            if [ -n "${RUN_ID}" ]
+            then
+              break
+            fi
+            sleep 10
+          done
+
+          if [ -z "${RUN_ID}" ]
+          then
+            echo "::error::No CI run found for ${GITHUB_SHA}"
+            exit 1
+          fi
+
+          echo "Waiting for CI run ${RUN_ID}"
+          gh run watch "${RUN_ID}" --repo "${GITHUB_REPOSITORY}" --exit-status > /dev/null
+
+      - name: Work out the version
+        id: version
+        if: steps.pr.outputs.number != ''
+        run: |
+          CURRENT="$(sed -n -E 's/^version = "([^"]+)"/\1/p' pyproject.toml | head -n 1)"
+
+          # A version that has no tag yet was bumped by hand in the pull request:
+          # release it as it is. Otherwise bump the patch number.
+          if git rev-parse -q --verify "refs/tags/v${CURRENT}" > /dev/null
+          then
+            IFS=. read -r MAJOR MINOR PATCH <<< "${CURRENT}"
+            NEW="${MAJOR}.${MINOR}.$((PATCH + 1))"
+            BUMP="yes"
+          else
+            NEW="${CURRENT}"
+            BUMP="no"
+          fi
+
+          if ! echo "${NEW}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
+          then
+            echo "::error::Version '${NEW}' from pyproject.toml is not X.Y.Z"
+            exit 1
+          fi
+
+          PREVIOUS_TAG="$(git describe --tags --abbrev=0 --match 'v*' 2> /dev/null || true)"
+          echo "Releasing ${NEW} (previous release: ${PREVIOUS_TAG:-none}, bump: ${BUMP})"
+          {
+            echo "new=${NEW}"
+            echo "bump=${BUMP}"
+            echo "previous_tag=${PREVIOUS_TAG}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Install uv
+        if: steps.pr.outputs.number != '' && steps.version.outputs.bump == 'yes'
+        # Pinned to a commit: this job holds a write token
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - name: Commit the version bump
+        if: steps.pr.outputs.number != '' && steps.version.outputs.bump == 'yes'
+        env:
+          NEW_VERSION: ${{ steps.version.outputs.new }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          # The three places that hold the version (see CLAUDE.md, "Release")
+          sed -i -E "0,/^version = \"[^\"]+\"/s//version = \"${NEW_VERSION}\"/" pyproject.toml
+          sed -i -E "s/^__version__ = \"[^\"]+\"/__version__ = \"${NEW_VERSION}\"/" app/__init__.py
+          uv lock
+
+          for FILE in pyproject.toml app/__init__.py uv.lock
+          do
+            if ! grep -q "\"${NEW_VERSION}\"" "${FILE}"
+            then
+              echo "::error::${FILE} does not carry version ${NEW_VERSION}"
+              exit 1
+            fi
+          done
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore(release): ${NEW_VERSION} (#${PR_NUMBER})"
+
+          # main may have moved since checkout; replay the bump on top of it
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Write the release notes
+        if: steps.pr.outputs.number != ''
+        env:
+          PREVIOUS_TAG: ${{ steps.version.outputs.previous_tag }}
+          NEW_VERSION: ${{ steps.version.outputs.new }}
+        run: |
+          if [ -n "${PREVIOUS_TAG}" ]
+          then
+            RANGE="${PREVIOUS_TAG}..HEAD"
+          else
+            RANGE="HEAD"
+          fi
+
+          {
+            echo "## Changes"
+            echo
+            # Every commit since the last release, minus merge commits and the
+            # bot's own version bumps
+            git log "${RANGE}" --no-merges --reverse \
+              --invert-grep --grep='^chore(release): [0-9]' \
+              --pretty=format:'- %s (%h)'
+            echo
+            if [ -n "${PREVIOUS_TAG}" ]
+            then
+              echo
+              echo "**Full diff:** https://github.com/${GITHUB_REPOSITORY}/compare/${PREVIOUS_TAG}...v${NEW_VERSION}"
+            fi
+          } > "${RUNNER_TEMP}/release-notes.md"
+
+          cat "${RUNNER_TEMP}/release-notes.md"
+
+      - name: Tag, publish the release and build the image
+        if: steps.pr.outputs.number != ''
+        env:
+          NEW_VERSION: ${{ steps.version.outputs.new }}
+        run: |
+          git tag "v${NEW_VERSION}"
+          git push origin "v${NEW_VERSION}"
+          gh release create "v${NEW_VERSION}" --verify-tag \
+            --title "v${NEW_VERSION}" --notes-file "${RUNNER_TEMP}/release-notes.md"
+          gh workflow run build-and-push.yml --ref "v${NEW_VERSION}" -f version="${NEW_VERSION}"
