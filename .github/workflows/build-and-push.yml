@@ -1,9 +1,11 @@
 name: Build and Push Docker Image
 
 # cake-pricing is our OWN source (unlike the tado/solaredge upstream-wrappers),
-# so builds are triggered by pushing a semver git tag (vX.Y.Z). The tag's
-# version becomes the image tag; Renovate in the ArgoCD repo then picks up the
-# new semver and bumps the deployment. (PLANNING.md §5.1 — kept out of this repo.)
+# so builds are per semver release (vX.Y.Z). auto-release.yml dispatches this
+# workflow for each tag it creates (its tag push can't start it); a tag pushed
+# by hand starts it directly. The version becomes the image tag; Renovate in
+# homelab-charts and ArgoCD then picks up the new semver and bumps the
+# deployment. (PLANNING.md §5.1 — kept out of this repo.)
 
 permissions:
   contents: read
