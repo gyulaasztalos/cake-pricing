@@ -149,7 +149,9 @@ into the image (application code, migrations, `Dockerfile`, dependencies), the
    (`asztalosgyula/cake-pricing`) and GHCR.
 
 Renovate in homelab-charts and the ArgoCD repo then bumps the deployed image tag →
-ArgoCD syncs it. Merges that only touch tests, docs or CI don't release. For a
+ArgoCD syncs it. The image carries OCI labels (`org.opencontainers.image.source`,
+`.version`, `.revision`, and `.url` pointing at its release page), so those Renovate
+PRs include the release notes. Merges that only touch tests, docs or CI don't release. For a
 minor or major release, set the version by hand in the pull request; the workflow
 releases that version instead of bumping the patch.
 

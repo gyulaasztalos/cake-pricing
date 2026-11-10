@@ -30,11 +30,19 @@ jobs:
 
       - name: Derive version
         id: version
+        env:
+          # Interpolated via env, never inline in the script (injection-safe),
+          # and validated against a strict semver pattern before use.
+          INPUT_VERSION: ${{ github.event.inputs.version }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
+            VERSION="$INPUT_VERSION"
           else
             VERSION="${GITHUB_REF_NAME#v}"   # strip leading v from the tag
+          fi
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Invalid version: $VERSION" >&2
+            exit 1
           fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Building version ${VERSION}"
@@ -78,5 +86,24 @@ jobs:
             asztalosgyula/cake-pricing:latest
             ghcr.io/gyulaasztalos/cake-pricing:${{ steps.version.outputs.version }}
             ghcr.io/gyulaasztalos/cake-pricing:latest
+          # OCI metadata. `source` lets Renovate find this repo, so its tag-bump
+          # PRs in homelab-charts and ArgoCD include the GitHub release notes;
+          # `url` links the image to its own release page.
+          labels: |
+            org.opencontainers.image.title=cake-pricing
+            org.opencontainers.image.description=Custom cake offer/pricing webapp for a one-person pastry business
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version }}
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=AGPL-3.0-or-later
+          # The same on the multi-arch index, which is what GHCR's package page reads
+          annotations: |
+            index:org.opencontainers.image.description=Custom cake offer/pricing webapp for a one-person pastry business
+            index:org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            index:org.opencontainers.image.url=https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version }}
+            index:org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            index:org.opencontainers.image.revision=${{ github.sha }}
+            index:org.opencontainers.image.licenses=AGPL-3.0-or-later
           cache-from: type=gha
           cache-to: type=gha,mode=max
