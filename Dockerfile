@@ -8,7 +8,7 @@
 # Same Python image as the final stage: the venv links to the builder's
 # interpreter, so the two must match. Renovate bumps both FROM lines together.
 FROM python:3.15-slim-trixie AS builder
-COPY --from=ghcr.io/astral-sh/uv:0.13.7 /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.13.8 /uv /uvx /bin/
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
