@@ -1,7 +1,8 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:recommended"
+    "config:recommended",
+    "helpers:pinGitHubActionDigests"
   ],
   "automergeSchedule": [
     "after 5am and before 4pm every weekday",
@@ -28,7 +29,12 @@
     {
       "matchDepTypes": ["devDependencies", "dev"],
       "automerge": true
+    },
+    {
+      "description": "CI updates merge themselves, majors included",
+      "matchManagers": ["github-actions"],
+      "automerge": true
     }
   ],
-  "platformAutomerge": true
+  "platformAutomerge": false
 }
